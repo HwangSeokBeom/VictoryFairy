@@ -1,0 +1,576 @@
+import Foundation
+
+enum RemoteDataState: Equatable {
+    case loading
+    case loaded
+    case empty
+    case localOnly(String)
+    case serverErrorUsingLocal(String)
+    case error(String)
+
+    var isFallback: Bool {
+        if case .localOnly = self {
+            return true
+        }
+        if case .serverErrorUsingLocal = self {
+            return true
+        }
+        return false
+    }
+}
+
+enum ServerConnectionStatus: Equatable {
+    case checking
+    case connected
+    case localMode(String)
+
+    var title: String {
+        switch self {
+        case .checking:
+            return "서버 연결 확인 중"
+        case .connected:
+            return "서버 연결됨"
+        case .localMode:
+            return "로컬 모드"
+        }
+    }
+}
+
+@MainActor
+final class AppDataStore: ObservableObject {
+    @Published private(set) var teams: [KBOTeam]
+    @Published private(set) var feedLogs: [AttendanceLogViewState]
+    @Published private(set) var calendarLogs: [AttendanceLogViewState]
+    @Published private(set) var statistics: StatisticsViewState
+    @Published private(set) var serverStatus: ServerConnectionStatus = .checking
+    @Published private(set) var feedState: RemoteDataState = .loading
+    @Published private(set) var calendarState: RemoteDataState = .loading
+    @Published private(set) var statisticsState: RemoteDataState = .loading
+    @Published private(set) var lastSaveMessage: String?
+    @Published private(set) var selectedFeedResultFilter: FeedResultFilter = .all
+    @Published private(set) var selectedCalendarMonth: Date = Date.vfDate(year: 2026, month: 4, day: 1)
+
+    private let preferences: UserPreferencesStore
+    private let apiClient: APIClient
+    private let teamRepository: TeamRepository
+    private let preferencesRepository: PreferencesRepository
+    private let attendanceLogRepository: AttendanceLogRepository
+    private let feedRepository: FeedRepository
+    private let calendarRepository: CalendarRepository
+    private let statisticsRepository: StatisticsRepository
+    private let kboStandingsRepository: KBOStandingsRepository
+    private let kboGameRepository: KBOGameRepository
+    private let diaryDraftRepository: DiaryDraftRepository
+    private let photoAnalysisRepository: PhotoAnalysisRepository
+    private let localAttendanceLogRepository: LocalAttendanceLogRepository?
+    private var didLoadInitialData = false
+    private let activeSeason = 2026
+
+    init(
+        preferences: UserPreferencesStore,
+        apiClient: APIClient = APIClient()
+    ) {
+        self.preferences = preferences
+        self.apiClient = apiClient
+        teamRepository = RemoteTeamRepository(apiClient: apiClient)
+        preferencesRepository = RemotePreferencesRepository(apiClient: apiClient)
+        attendanceLogRepository = RemoteAttendanceLogRepository(apiClient: apiClient)
+        feedRepository = RemoteFeedRepository(apiClient: apiClient)
+        calendarRepository = RemoteCalendarRepository(apiClient: apiClient)
+        statisticsRepository = RemoteStatisticsRepository(apiClient: apiClient)
+        kboStandingsRepository = RemoteKBOStandingsRepository(apiClient: apiClient)
+        kboGameRepository = RemoteKBOGameRepository(apiClient: apiClient)
+        diaryDraftRepository = RemoteDiaryDraftRepository(apiClient: apiClient)
+        photoAnalysisRepository = RemotePhotoAnalysisRepository(apiClient: apiClient)
+        localAttendanceLogRepository = SwiftDataContainer.makeAttendanceLogRepository()
+        teams = KBOSeed.teams
+        feedLogs = []
+        calendarLogs = []
+        statistics = StatisticsService().summary(logs: [], season: 2026)
+    }
+
+    func loadInitialDataIfNeeded() async {
+        guard !didLoadInitialData else { return }
+        didLoadInitialData = true
+        await refreshAll()
+    }
+
+    func refreshAll() async {
+        serverStatus = .checking
+        await syncPreferencesFromServer()
+        await refreshTeams()
+        await refreshContent()
+    }
+
+    func refreshContent() async {
+        await refreshFeed()
+        await refreshCalendar()
+        await refreshStatistics()
+    }
+
+    func selectFeedResultFilter(_ filter: FeedResultFilter) async {
+        selectedFeedResultFilter = filter
+        await refreshFeed()
+    }
+
+    func moveCalendarMonth(by value: Int) async {
+        if let nextMonth = Calendar.current.date(byAdding: .month, value: value, to: selectedCalendarMonth) {
+            selectedCalendarMonth = Calendar.current.dateInterval(of: .month, for: nextMonth)?.start ?? nextMonth
+        }
+        await refreshCalendar()
+    }
+
+    func team(id: String?) -> KBOTeam? {
+        guard let id else { return nil }
+        return teams.first { $0.id == id && $0.active } ?? KBOSeed.team(id: id)
+    }
+
+    func teamName(id: String?) -> String {
+        team(id: id)?.name ?? "선택 안 함"
+    }
+
+    func completeOnboarding(favoriteTeamID: String?) {
+        preferences.completeOnboarding(favoriteTeamID: favoriteTeamID)
+        Task {
+            await syncPreferencesToServer()
+        }
+    }
+
+    func updateFavoriteTeam(_ favoriteTeamID: String?) {
+        preferences.favoriteTeamID = favoriteTeamID
+        Task {
+            await syncPreferencesToServer()
+        }
+    }
+
+    func updateTeamThemeEnabled(_ isEnabled: Bool) {
+        preferences.teamThemeEnabled = isEnabled
+        Task {
+            await syncPreferencesToServer()
+        }
+    }
+
+    func saveAttendanceLog(
+        viewModel: LogEditorViewModel,
+        seat: String,
+        companion: String,
+        shortMemo: String,
+        diary: String,
+        tags: [String],
+        photoLocalRefs: [String] = []
+    ) async -> Bool {
+        let favoriteTeamID = KBOSeed.team(named: viewModel.favoriteTeam)?.id
+            ?? KBOSeed.normalizedTeamID(preferences.favoriteTeamID)
+            ?? KBOSeed.teams[0].id
+        let opponentTeamID = resolvedOpponentTeamID(for: viewModel.opponentTeam, favoriteTeamID: favoriteTeamID)
+        let request = CreateAttendanceLogRequest(
+            gameDate: DateFormatter.vfAPIDate.string(from: viewModel.date),
+            season: Calendar.current.component(.year, from: viewModel.date),
+            favoriteTeamID: favoriteTeamID,
+            opponentTeamID: opponentTeamID,
+            stadiumName: viewModel.stadium,
+            result: viewModel.result.serverValue,
+            ourScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
+            opponentScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
+            seatText: seat.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            companionType: companion.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            shortMemo: shortMemo.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            diaryText: diary.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            moodTags: Array(tags.prefix(1)),
+            highlightTags: Array(tags.dropFirst()),
+            photoLocalRefs: photoLocalRefs,
+            gameSource: viewModel.gameSource,
+            linkedKBOGameID: viewModel.linkedKBOGameID,
+            officialRecordURL: viewModel.officialRecordURL
+        )
+
+        let localLog: AttendanceLogViewState
+        do {
+            localLog = try await localAttendanceLogRepository?.createAttendanceLog(request) ?? request.localViewState
+        } catch {
+            localLog = request.localViewState
+        }
+        applySavedLog(localLog)
+
+        do {
+            _ = try await attendanceLogRepository.createAttendanceLog(request)
+            try? await localAttendanceLogRepository?.markSyncState(id: localLog.id.uuidString, state: "synced")
+            serverStatus = .connected
+            lastSaveMessage = "기기에 먼저 저장하고 서버에도 동기화했어요."
+            logAPIFallback(endpoint: "POST /api/v1/attendance-logs", fallback: "none", error: nil)
+            await refreshContent()
+            return true
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            lastSaveMessage = "기기에 저장했어요. 서버 연결 시 다시 동기화할 수 있어요."
+            logAPIFallback(endpoint: "POST /api/v1/attendance-logs", fallback: "localOnly", error: error)
+            await refreshStatistics()
+            return false
+        }
+    }
+
+    func updateAttendanceLog(
+        id: UUID,
+        viewModel: LogEditorViewModel,
+        seat: String,
+        companion: String,
+        shortMemo: String,
+        diary: String,
+        tags: [String],
+        photoLocalRefs: [String] = []
+    ) async -> Bool {
+        let favoriteTeamID = KBOSeed.team(named: viewModel.favoriteTeam)?.id
+            ?? KBOSeed.normalizedTeamID(preferences.favoriteTeamID)
+            ?? KBOSeed.teams[0].id
+        let opponentTeamID = resolvedOpponentTeamID(for: viewModel.opponentTeam, favoriteTeamID: favoriteTeamID)
+        let request = UpdateAttendanceLogRequest(
+            gameDate: DateFormatter.vfAPIDate.string(from: viewModel.date),
+            season: Calendar.current.component(.year, from: viewModel.date),
+            favoriteTeamID: favoriteTeamID,
+            opponentTeamID: opponentTeamID,
+            stadiumName: viewModel.stadium,
+            result: viewModel.result.serverValue,
+            ourScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
+            opponentScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
+            seatText: seat.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            companionType: companion.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            shortMemo: shortMemo.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            diaryText: diary.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            moodTags: Array(tags.prefix(1)),
+            highlightTags: Array(tags.dropFirst()),
+            photoLocalRefs: photoLocalRefs,
+            gameSource: viewModel.gameSource,
+            linkedKBOGameID: viewModel.linkedKBOGameID,
+            officialRecordURL: viewModel.officialRecordURL
+        )
+
+        let localLog: AttendanceLogViewState
+        do {
+            localLog = try await localAttendanceLogRepository?.updateAttendanceLog(id: id.uuidString, request: request) ?? request.localViewState
+        } catch {
+            localLog = request.localViewState
+        }
+        applyUpdatedLog(localLog, replacing: id)
+
+        do {
+            _ = try await attendanceLogRepository.updateAttendanceLog(id: id.uuidString, request: request)
+            try? await localAttendanceLogRepository?.markSyncState(id: localLog.id.uuidString, state: "synced")
+            serverStatus = .connected
+            lastSaveMessage = "수정 내용을 기기와 서버에 반영했어요."
+            logAPIFallback(endpoint: "PUT /api/v1/attendance-logs/:id", fallback: "none", error: nil)
+            await refreshContent()
+            return true
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            lastSaveMessage = "수정 내용을 기기에 저장했어요. 서버 연결 시 다시 동기화할 수 있어요."
+            logAPIFallback(endpoint: "PUT /api/v1/attendance-logs/:id", fallback: "localOnly", error: error)
+            await refreshStatistics()
+            return false
+        }
+    }
+
+    func deleteAttendanceLog(_ log: AttendanceLogViewState) async {
+        do {
+            try await localAttendanceLogRepository?.deleteAttendanceLog(id: log.id.uuidString)
+        } catch {
+            logAPIFallback(endpoint: "DELETE local attendance-log", fallback: "memory", error: error)
+        }
+        removeLog(id: log.id)
+
+        do {
+            try await attendanceLogRepository.deleteAttendanceLog(id: log.id.uuidString)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "DELETE /api/v1/attendance-logs/:id", fallback: "none", error: nil)
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "DELETE /api/v1/attendance-logs/:id", fallback: "localOnly", error: error)
+        }
+        await refreshStatistics()
+    }
+
+    func createDiaryDraft(request: DiaryDraftRequest) async throws -> DiaryDraftDTO {
+        do {
+            let draft = try await diaryDraftRepository.createDiaryDraft(request)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/ai/diary-draft", fallback: "none", error: nil)
+            return draft
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/ai/diary-draft", fallback: "templateAvailable", error: error)
+            throw error
+        }
+    }
+
+    func fetchKBOGameCandidates(date: Date, favoriteTeamID: String) async throws -> KBOGameCandidatesDTO {
+        let apiDate = DateFormatter.vfAPIDate.string(from: date)
+        let normalizedTeamID = KBOSeed.normalizedTeamID(favoriteTeamID) ?? favoriteTeamID
+        do {
+            logKBO("request games date=\(apiDate) teamID=\(normalizedTeamID)")
+            let response = try await kboGameRepository.fetchGames(date: apiDate, teamID: normalizedTeamID)
+            logKBO("response items=\(response.items.count) source=\(response.source)")
+            serverStatus = .connected
+            logAPIFallback(endpoint: "GET /api/v1/kbo/games", fallback: "none", error: nil)
+            return response
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "GET /api/v1/kbo/games", fallback: "manual-input", error: error)
+            throw error
+        }
+    }
+
+    func analyzePhotos(localRefs: [String]) async throws -> PhotoAnalysisDTO {
+        let files = localRefs.prefix(3).compactMap { ref -> MultipartFile? in
+            guard let data = try? PhotoAttachmentService().compressedData(for: ref, maxPixel: 1280, quality: 0.72) else {
+                return nil
+            }
+            return MultipartFile(fieldName: "photos", fileName: "\(ref).jpg", mimeType: "image/jpeg", data: data)
+        }
+        guard !files.isEmpty else {
+            throw APIError.emptyData
+        }
+        do {
+            let analysis = try await photoAnalysisRepository.analyzePhotos(files, locale: "ko-KR")
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/photos/analyze", fallback: "none", error: nil)
+            return analysis
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/photos/analyze", fallback: "disabled-or-local", error: error)
+            throw error
+        }
+    }
+
+    private func syncPreferencesFromServer() async {
+        do {
+            let remote = try await preferencesRepository.fetchPreferences()
+            preferences.applyRemote(remote)
+            serverStatus = .connected
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+        }
+    }
+
+    private func syncPreferencesToServer() async {
+        do {
+            _ = try await preferencesRepository.updatePreferences(preferences.updateRequest)
+            serverStatus = .connected
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+        }
+    }
+
+    private func refreshTeams() async {
+        do {
+            let remoteTeams = try await teamRepository.fetchTeams()
+            teams = remoteTeams.isEmpty ? KBOSeed.teams : remoteTeams
+            serverStatus = .connected
+        } catch {
+            teams = KBOSeed.teams
+            serverStatus = .localMode(error.localizedDescription)
+        }
+    }
+
+    private func refreshFeed() async {
+        feedState = .loading
+        let result = selectedFeedResultFilter.result
+        do {
+            let remoteLogs = try await feedRepository.fetchFeed(season: activeSeason, result: result)
+            let localLogs = (try? await localAttendanceLogRepository?.fetchFeed(season: activeSeason, result: result)) ?? []
+            let logs = merge(remoteLogs: remoteLogs, localLogs: localLogs)
+            feedLogs = logs
+            feedState = logs.isEmpty ? .empty : .loaded
+            serverStatus = .connected
+        } catch {
+            let localLogs = (try? await localAttendanceLogRepository?.fetchFeed(season: activeSeason, result: result)) ?? []
+            feedLogs = localLogs
+            feedState = fallbackState(
+                error: error,
+                localIsEmpty: localLogs.isEmpty,
+                localMessage: "서버 피드를 불러오지 못해 기기 저장 기록을 보여줘요."
+            )
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: result.map { "GET /api/v1/feed?result=\($0.serverValue)" } ?? "GET /api/v1/feed", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
+        }
+    }
+
+    private func refreshCalendar() async {
+        calendarState = .loading
+        let calendarYear = Calendar.current.component(.year, from: selectedCalendarMonth)
+        let calendarMonth = Calendar.current.component(.month, from: selectedCalendarMonth)
+        do {
+            let remoteLogs = try await calendarRepository.fetchCalendar(year: calendarYear, month: calendarMonth)
+            let localLogs = (try? await localAttendanceLogRepository?.fetchCalendar(year: calendarYear, month: calendarMonth)) ?? []
+            let logs = merge(remoteLogs: remoteLogs, localLogs: localLogs)
+            calendarLogs = logs
+            calendarState = logs.isEmpty ? .empty : .loaded
+            serverStatus = .connected
+        } catch {
+            let localLogs = (try? await localAttendanceLogRepository?.fetchCalendar(year: calendarYear, month: calendarMonth)) ?? []
+            calendarLogs = localLogs
+            calendarState = fallbackState(
+                error: error,
+                localIsEmpty: localLogs.isEmpty,
+                localMessage: "서버 캘린더를 불러오지 못해 기기 저장 기록을 보여줘요."
+            )
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "GET /api/v1/calendar", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
+        }
+    }
+
+    private func refreshStatistics() async {
+        statisticsState = .loading
+        do {
+            let remoteStatistics = try await statisticsRepository.fetchStatistics(season: activeSeason)
+            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: activeSeason)) ?? []
+            let mergedLogs = merge(remoteLogs: feedLogs, localLogs: localLogs)
+            statistics = mergedLogs.isEmpty ? remoteStatistics : StatisticsMapper.viewState(logs: mergedLogs, season: activeSeason)
+            serverStatus = .connected
+        } catch {
+            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: activeSeason)) ?? []
+            statistics = StatisticsMapper.viewState(logs: localLogs, season: activeSeason)
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "GET /api/v1/statistics/*", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
+        }
+        await refreshKBOStandings()
+        statisticsState = statistics.isEmpty ? .empty : .loaded
+    }
+
+    private func refreshKBOStandings() async {
+        do {
+            let standings = try await kboStandingsRepository.fetchStandings(season: activeSeason)
+            statistics = StatisticsMapper.applyingKBOStandings(standings, to: statistics)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "GET /api/v1/kbo/standings", fallback: "none", error: nil)
+        } catch {
+            logAPIFallback(endpoint: "GET /api/v1/kbo/standings", fallback: "placeholder", error: error)
+        }
+    }
+
+    private func applySavedLog(_ log: AttendanceLogViewState) {
+        if selectedFeedResultFilter.result == nil || selectedFeedResultFilter.result == log.result {
+            feedLogs = merge(remoteLogs: [log], localLogs: feedLogs)
+        }
+        let calendarYear = Calendar.current.component(.year, from: selectedCalendarMonth)
+        let calendarMonth = Calendar.current.component(.month, from: selectedCalendarMonth)
+        if Calendar.current.component(.year, from: log.date) == calendarYear,
+           Calendar.current.component(.month, from: log.date) == calendarMonth {
+            calendarLogs = merge(remoteLogs: [log], localLogs: calendarLogs)
+        }
+        statistics = StatisticsMapper.viewState(logs: feedLogs, season: activeSeason)
+        feedState = feedLogs.isEmpty ? .empty : .loaded
+        calendarState = calendarLogs.isEmpty ? .empty : .loaded
+        statisticsState = statistics.isEmpty ? .empty : .loaded
+    }
+
+    private func applyUpdatedLog(_ log: AttendanceLogViewState, replacing id: UUID) {
+        feedLogs.removeAll { $0.id == id }
+        calendarLogs.removeAll { $0.id == id }
+        applySavedLog(log)
+    }
+
+    private func removeLog(id: UUID) {
+        feedLogs.removeAll { $0.id == id }
+        calendarLogs.removeAll { $0.id == id }
+        statistics = StatisticsMapper.viewState(logs: feedLogs, season: activeSeason)
+        feedState = feedLogs.isEmpty ? .empty : .loaded
+        calendarState = calendarLogs.isEmpty ? .empty : .loaded
+        statisticsState = statistics.isEmpty ? .empty : .loaded
+    }
+
+    private func merge(remoteLogs: [AttendanceLogViewState], localLogs: [AttendanceLogViewState]) -> [AttendanceLogViewState] {
+        var seen = Set<String>()
+        return (localLogs + remoteLogs)
+            .sorted { $0.date > $1.date }
+            .filter { log in
+                let key = dedupeKey(for: log)
+                guard !seen.contains(key) else { return false }
+                seen.insert(key)
+                return true
+            }
+    }
+
+    private func dedupeKey(for log: AttendanceLogViewState) -> String {
+        [
+            DateFormatter.vfAPIDate.string(from: log.date),
+            log.matchup,
+            log.stadium,
+            log.result.rawValue,
+            log.ourScore.map(String.init) ?? "",
+            log.opponentScore.map(String.init) ?? ""
+        ].joined(separator: "|")
+    }
+
+    private func fallbackState(error: Error, localIsEmpty: Bool, localMessage: String) -> RemoteDataState {
+        if let apiError = error as? APIError, apiError == .notModifiedWithoutCache {
+            return localIsEmpty
+                ? .localOnly("서버가 새 데이터를 보내지 않아 로컬 모드로 표시해요.")
+                : .serverErrorUsingLocal("서버가 새 데이터를 보내지 않아 기기 저장 기록을 보여줘요.")
+        }
+        return localIsEmpty
+            ? .localOnly("서버에 연결할 수 없어 로컬 모드로 표시해요.")
+            : .serverErrorUsingLocal(localMessage)
+    }
+
+    private func logAPIFallback(endpoint: String, fallback: String, error: Error?) {
+        #if DEBUG
+        if let apiError = error as? APIError {
+            print("[API] \(endpoint) failed reason=\(apiError.debugReason) fallback=\(fallback)")
+        } else if let error {
+            print("[API] \(endpoint) failed reason=\(error.localizedDescription) fallback=\(fallback)")
+        } else {
+            print("[API] \(endpoint) fallback=\(fallback)")
+        }
+        #endif
+    }
+
+    private func logKBO(_ message: String) {
+        #if DEBUG
+        print("[KBO] \(message)")
+        #endif
+    }
+
+    private func resolvedOpponentTeamID(for opponentTeamName: String, favoriteTeamID: String) -> String {
+        if let team = KBOSeed.team(named: opponentTeamName), team.id != favoriteTeamID {
+            return team.id
+        }
+        return KBOSeed.teams.first { $0.id != favoriteTeamID }?.id ?? "doosan-bears"
+    }
+}
+
+private extension UserPreferencesStore {
+    var updateRequest: UpdatePreferencesRequest {
+        UpdatePreferencesRequest(
+            hasCompletedOnboarding: hasCompletedOnboarding,
+            favoriteTeamID: KBOSeed.normalizedTeamID(favoriteTeamID),
+            teamThemeEnabled: teamThemeEnabled,
+            displayName: userDisplayName
+        )
+    }
+
+    func applyRemote(_ preferences: PreferencesDTO) {
+        if let hasCompletedOnboarding = preferences.hasCompletedOnboarding {
+            self.hasCompletedOnboarding = self.hasCompletedOnboarding || hasCompletedOnboarding
+        }
+        if let favoriteTeamID = preferences.favoriteTeamID {
+            self.favoriteTeamID = KBOSeed.normalizedTeamID(favoriteTeamID)
+        }
+        if let teamThemeEnabled = preferences.teamThemeEnabled {
+            self.teamThemeEnabled = teamThemeEnabled
+        }
+        if let displayName = preferences.displayName {
+            self.userDisplayName = displayName
+        }
+    }
+}
+
+private extension StatisticsViewState {
+    var isEmpty: Bool {
+        totalGames == 0 && kboStandings.isEmpty
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
+}
