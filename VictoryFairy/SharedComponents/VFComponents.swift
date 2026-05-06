@@ -128,6 +128,7 @@ struct VictoryFairyIndexCard: View {
     let index: String
     let label: String
     let footnote: String
+    var aiAction: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: VFSpacing.lg) {
@@ -141,12 +142,26 @@ struct VictoryFairyIndexCard: View {
                         .foregroundStyle(VFColor.offWhite)
                 }
                 Spacer()
-                Image(systemName: "sparkles")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(theme.accent)
-                    .frame(width: 44, height: 44)
-                    .background(.white.opacity(0.12))
-                    .clipShape(Circle())
+                if let aiAction {
+                    Button(action: aiAction) {
+                        Image(systemName: "sparkles")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(theme.accent)
+                            .frame(width: 44, height: 44)
+                            .background(.white.opacity(0.12))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("AI 직관 기록 도우미")
+                } else {
+                    Image(systemName: "sparkles")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(theme.accent)
+                        .frame(width: 44, height: 44)
+                        .background(.white.opacity(0.12))
+                        .clipShape(Circle())
+                        .accessibilityHidden(true)
+                }
             }
 
             HStack(alignment: .lastTextBaseline, spacing: VFSpacing.sm) {

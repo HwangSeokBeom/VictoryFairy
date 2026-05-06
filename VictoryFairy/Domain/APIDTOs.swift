@@ -501,6 +501,178 @@ struct OpponentStatsDTO: Decodable, Identifiable {
     }
 }
 
+struct NewsResponse: Decodable {
+    let items: [NewsItemDTO]
+    let message: String?
+    let sourceDisclosure: String?
+
+    enum CodingKeys: String, CodingKey {
+        case items
+        case news
+        case message
+        case sourceDisclosure
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        items = try container.decodeIfPresent([NewsItemDTO].self, forKey: .items)
+            ?? container.decodeIfPresent([NewsItemDTO].self, forKey: .news)
+            ?? []
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        sourceDisclosure = try container.decodeIfPresent(String.self, forKey: .sourceDisclosure)
+    }
+}
+
+struct NewsItemDTO: Decodable, Identifiable, Hashable {
+    let id: String
+    let title: String
+    let summary: String?
+    let sourceName: String?
+    let publishedAt: String?
+    let url: String?
+    let teamIDs: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case summary
+        case sourceName
+        case source
+        case publishedAt
+        case publishedDate
+        case url
+        case link
+        case teamIDs
+        case teamIds
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? "제목 없는 소식"
+        summary = try container.decodeIfPresent(String.self, forKey: .summary)
+        sourceName = try container.decodeIfPresent(String.self, forKey: .sourceName)
+            ?? container.decodeIfPresent(String.self, forKey: .source)
+        publishedAt = try container.decodeIfPresent(String.self, forKey: .publishedAt)
+            ?? container.decodeIfPresent(String.self, forKey: .publishedDate)
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+            ?? container.decodeIfPresent(String.self, forKey: .link)
+        teamIDs = try container.decodeIfPresent([String].self, forKey: .teamIDs)
+            ?? container.decodeIfPresent([String].self, forKey: .teamIds)
+            ?? []
+    }
+}
+
+struct MatchOutlookRequest: Encodable {
+    let favoriteTeamID: String
+    let opponentTeamID: String
+    let date: String
+    let stadiumName: String
+}
+
+struct MatchOutlookResponse: Decodable, Hashable {
+    let title: String
+    let summary: String
+    let points: [String]
+    let confidenceLabel: String?
+    let disclaimer: String?
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case summary
+        case points
+        case confidenceLabel
+        case disclaimer
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? "오늘의 관전 포인트"
+        summary = try container.decodeIfPresent(String.self, forKey: .summary) ?? "내 직관 기록과 참고용 경기 정보를 바탕으로 만든 응원 포인트예요."
+        points = try container.decodeIfPresent([String].self, forKey: .points) ?? []
+        confidenceLabel = try container.decodeIfPresent(String.self, forKey: .confidenceLabel)
+        disclaimer = try container.decodeIfPresent(String.self, forKey: .disclaimer)
+    }
+
+    init(title: String, summary: String, points: [String], confidenceLabel: String?, disclaimer: String?) {
+        self.title = title
+        self.summary = summary
+        self.points = points
+        self.confidenceLabel = confidenceLabel
+        self.disclaimer = disclaimer
+    }
+
+    static let fallback = MatchOutlookResponse(
+        title: "오늘의 관전 포인트",
+        summary: "서버에서 경기 전망을 불러오지 못했어요. 내 직관 기록 기준의 응원 포인트는 준비되는 대로 표시할게요.",
+        points: [
+            "최근 직관 흐름과 상대 기록을 가볍게 비교해 보세요.",
+            "경기 결과보다 오늘의 응원 포인트와 현장 분위기에 집중해요."
+        ],
+        confidenceLabel: "재미용",
+        disclaimer: "공식 예측이나 베팅 정보가 아닙니다."
+    )
+}
+
+struct CommunityPostsResponse: Decodable {
+    let items: [CommunityPostDTO]
+    let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case items
+        case posts
+        case message
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        items = try container.decodeIfPresent([CommunityPostDTO].self, forKey: .items)
+            ?? container.decodeIfPresent([CommunityPostDTO].self, forKey: .posts)
+            ?? []
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+    }
+}
+
+struct CommunityPostDTO: Decodable, Identifiable, Hashable {
+    let id: String
+    let authorDisplayName: String?
+    let teamID: String?
+    let body: String
+    let createdAt: String?
+    let reportable: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case authorDisplayName
+        case displayName
+        case teamID
+        case teamId
+        case body
+        case content
+        case createdAt
+        case reportable
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        authorDisplayName = try container.decodeIfPresent(String.self, forKey: .authorDisplayName)
+            ?? container.decodeIfPresent(String.self, forKey: .displayName)
+        teamID = try container.decodeIfPresent(String.self, forKey: .teamID)
+            ?? container.decodeIfPresent(String.self, forKey: .teamId)
+        body = try container.decodeIfPresent(String.self, forKey: .body)
+            ?? container.decodeIfPresent(String.self, forKey: .content)
+            ?? ""
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        reportable = try container.decodeIfPresent(Bool.self, forKey: .reportable)
+    }
+}
+
+struct CreateCommunityPostRequest: Encodable {
+    let body: String
+    let teamID: String?
+}
+
 struct KBOStandingsDTO: Decodable {
     let season: Int
     let source: String

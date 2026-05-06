@@ -114,6 +114,34 @@ struct StatisticsView: View {
                 }
             }
 
+            NavigationLink {
+                WinRateAnalysisView(statistics: viewModel.state, logs: appData.feedLogs)
+            } label: {
+                VFCard(background: VFColor.backgroundWarm) {
+                    HStack(spacing: VFSpacing.md) {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(VFColor.victoryOrange)
+                            .frame(width: 44, height: 44)
+                            .background(VFColor.victoryOrange.opacity(0.12))
+                            .clipShape(Circle())
+                        VStack(alignment: .leading, spacing: VFSpacing.xxs) {
+                            Text("승률 분석")
+                                .font(VFTypography.cardTitle)
+                                .foregroundStyle(VFColor.primaryText)
+                            Text("내 직관 데이터 기준으로 상대팀, 구장, 최근 흐름을 더 자세히 봐요.")
+                                .font(.subheadline)
+                                .foregroundStyle(VFColor.secondaryText)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(VFColor.secondaryText)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
             sectionCard(title: "최근 5경기") {
                 if viewModel.state.recentResults.isEmpty {
                     Text("직관 기록을 추가하면 최근 결과가 표시돼요.")

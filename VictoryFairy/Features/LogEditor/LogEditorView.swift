@@ -88,15 +88,18 @@ struct LogEditorView: View {
     @State private var pendingDiaryOverwriteCandidate: KBOGameCandidateDTO?
     @State private var isShowingDiaryOverwriteConfirmation = false
     @State private var safariRoute: SafariRoute?
+    @State private var didStartInitialAIPreflight = false
 
     private let moods = ["짜릿함", "아쉬움", "편안함", "열광적", "분노", "감동"]
     private let highlights = ["홈런", "역전승", "끝내기", "연장전", "호수비", "응원 분위기", "우천 취소"]
     private let tones = ["담백하게", "감성적으로", "유쾌하게", "SNS 캡션처럼"]
     private let companions = ["혼자", "친구", "가족", "연인", "모임"]
     private let editingLog: AttendanceLogViewState?
+    private let startsAIPreflightOnAppear: Bool
 
-    init(initialDate: Date? = nil, editingLog: AttendanceLogViewState? = nil) {
+    init(initialDate: Date? = nil, editingLog: AttendanceLogViewState? = nil, startsAIPreflightOnAppear: Bool = false) {
         self.editingLog = editingLog
+        self.startsAIPreflightOnAppear = startsAIPreflightOnAppear
         let initialViewModel = Self.makeInitialViewModel(initialDate: initialDate, editingLog: editingLog)
         _viewModel = State(initialValue: initialViewModel)
         _seat = State(initialValue: editingLog?.seat ?? "1루 네이비석 204블록")
@@ -179,6 +182,14 @@ struct LogEditorView: View {
         .onAppear {
             if editingLog == nil {
                 viewModel.favoriteTeam = appData.team(id: preferences.favoriteTeamID)?.name ?? viewModel.favoriteTeam
+            }
+            if startsAIPreflightOnAppear, !didStartInitialAIPreflight {
+                didStartInitialAIPreflight = true
+                if validateRequiredFields() {
+                    DispatchQueue.main.async {
+                        isShowingAIPreflight = true
+                    }
+                }
             }
         }
         .onChange(of: viewModel.date) {

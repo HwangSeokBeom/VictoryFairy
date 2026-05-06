@@ -53,6 +53,19 @@ protocol PhotoAnalysisRepository {
     func analyzePhotos(_ files: [MultipartFile], locale: String) async throws -> PhotoAnalysisDTO
 }
 
+protocol NewsRepository {
+    func fetchNews(teamID: String?, limit: Int) async throws -> NewsResponse
+}
+
+protocol MatchOutlookRepository {
+    func fetchOutlook(_ request: MatchOutlookRequest) async throws -> MatchOutlookResponse
+}
+
+protocol CommunityRepository {
+    func fetchPosts() async throws -> CommunityPostsResponse
+    func createPost(_ request: CreateCommunityPostRequest) async throws -> CommunityPostDTO
+}
+
 struct RemoteTeamRepository: TeamRepository {
     let apiClient: APIClient
 
@@ -220,6 +233,39 @@ struct RemotePhotoAnalysisRepository: PhotoAnalysisRepository {
             fields: ["locale": locale],
             files: files
         )
+    }
+}
+
+struct RemoteNewsRepository: NewsRepository {
+    let apiClient: APIClient
+
+    func fetchNews(teamID: String?, limit: Int) async throws -> NewsResponse {
+        var queryItems: [URLQueryItem] = []
+        if let teamID {
+            queryItems.append(URLQueryItem(name: "teamID", value: teamID))
+        }
+        queryItems.append(URLQueryItem(name: "limit", value: "\(limit)"))
+        return try await apiClient.get("/api/v1/news", queryItems: queryItems)
+    }
+}
+
+struct RemoteMatchOutlookRepository: MatchOutlookRepository {
+    let apiClient: APIClient
+
+    func fetchOutlook(_ request: MatchOutlookRequest) async throws -> MatchOutlookResponse {
+        try await apiClient.post("/api/v1/match-outlook", body: request)
+    }
+}
+
+struct RemoteCommunityRepository: CommunityRepository {
+    let apiClient: APIClient
+
+    func fetchPosts() async throws -> CommunityPostsResponse {
+        try await apiClient.get("/api/v1/community/posts")
+    }
+
+    func createPost(_ request: CreateCommunityPostRequest) async throws -> CommunityPostDTO {
+        try await apiClient.post("/api/v1/community/posts", body: request)
     }
 }
 

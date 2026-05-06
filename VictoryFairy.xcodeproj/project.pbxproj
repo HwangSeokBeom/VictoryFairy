@@ -263,6 +263,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "승리요정";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "티켓 사진을 촬영해 직관 기록 입력을 도와드려요.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "공유 카드를 사진 앱에 저장할 때만 접근해요.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -298,6 +299,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "승리요정";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "티켓 사진을 촬영해 직관 기록 입력을 도와드려요.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "공유 카드를 사진 앱에 저장할 때만 접근해요.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

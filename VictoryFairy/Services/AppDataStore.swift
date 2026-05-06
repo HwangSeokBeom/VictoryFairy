@@ -65,6 +65,9 @@ final class AppDataStore: ObservableObject {
     private let kboGameRepository: KBOGameRepository
     private let diaryDraftRepository: DiaryDraftRepository
     private let photoAnalysisRepository: PhotoAnalysisRepository
+    private let newsRepository: NewsRepository
+    private let matchOutlookRepository: MatchOutlookRepository
+    private let communityRepository: CommunityRepository
     private let localAttendanceLogRepository: LocalAttendanceLogRepository?
     private var didLoadInitialData = false
     private var isInitialLoadInFlight = false
@@ -92,6 +95,9 @@ final class AppDataStore: ObservableObject {
         kboGameRepository = RemoteKBOGameRepository(apiClient: apiClient)
         diaryDraftRepository = RemoteDiaryDraftRepository(apiClient: apiClient)
         photoAnalysisRepository = RemotePhotoAnalysisRepository(apiClient: apiClient)
+        newsRepository = RemoteNewsRepository(apiClient: apiClient)
+        matchOutlookRepository = RemoteMatchOutlookRepository(apiClient: apiClient)
+        communityRepository = RemoteCommunityRepository(apiClient: apiClient)
         localAttendanceLogRepository = SwiftDataContainer.makeAttendanceLogRepository()
         selectedSeason = preferences.selectedSeason
         availableSeasons = [SeasonOption(season: preferences.selectedSeason, hasRecords: true)]
@@ -153,6 +159,28 @@ final class AppDataStore: ObservableObject {
             selectedCalendarMonth = Calendar.current.dateInterval(of: .month, for: nextMonth)?.start ?? nextMonth
         }
         await refreshCalendar()
+    }
+
+    func selectCalendarMonth(year: Int, month: Int) async {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = 1
+        guard let nextMonth = Calendar.current.date(from: components) else { return }
+        selectedCalendarMonth = Calendar.current.dateInterval(of: .month, for: nextMonth)?.start ?? nextMonth
+
+        if year != selectedSeason {
+            selectedSeason = year
+            preferences.selectedSeason = year
+            statistics = StatisticsService().summary(logs: [], season: year)
+            availableSeasons = normalizedSeasonOptions(availableSeasons + [SeasonOption(season: year, hasRecords: false)])
+            if remoteSelectedSeasonSupported {
+                await syncPreferencesToServer()
+            }
+            await refreshContent()
+        } else {
+            await refreshCalendar()
+        }
     }
 
     func team(id: String?) -> KBOTeam? {
@@ -384,6 +412,54 @@ final class AppDataStore: ObservableObject {
         } catch {
             serverStatus = .localMode(error.localizedDescription)
             logAPIFallback(endpoint: "POST /api/v1/photos/analyze", fallback: "disabled-or-local", error: error)
+            throw error
+        }
+    }
+
+    func fetchNews(teamID: String?, limit: Int = 20) async throws -> NewsResponse {
+        let teamID = validNewsTeamID(from: teamID)
+        do {
+            let response = try await newsRepository.fetchNews(teamID: teamID, limit: limit)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "GET /api/v1/news", fallback: "none", error: nil)
+            return response
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "GET /api/v1/news", fallback: "empty-state", error: error)
+            throw error
+        }
+    }
+
+    private func validNewsTeamID(from value: String?) -> String? {
+        guard let value else { return nil }
+        if let team = KBOSeed.team(id: KBOSeed.normalizedTeamID(value)) {
+            return team.id
+        }
+        return KBOSeed.team(named: value)?.id
+    }
+
+    func fetchMatchOutlook(request: MatchOutlookRequest) async throws -> MatchOutlookResponse {
+        do {
+            let response = try await matchOutlookRepository.fetchOutlook(request)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/match-outlook", fallback: "none", error: nil)
+            return response
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/match-outlook", fallback: "safe-placeholder", error: error)
+            throw error
+        }
+    }
+
+    func fetchCommunityPosts() async throws -> CommunityPostsResponse {
+        do {
+            let response = try await communityRepository.fetchPosts()
+            serverStatus = .connected
+            logAPIFallback(endpoint: "GET /api/v1/community/posts", fallback: "none", error: nil)
+            return response
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "GET /api/v1/community/posts", fallback: "coming-soon", error: error)
             throw error
         }
     }

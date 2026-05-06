@@ -130,7 +130,7 @@ struct APIClient {
             debugLog("\(method) \(url.absoluteString) failed reason=invalidResponse")
             throw APIError.invalidResponse
         }
-        debugLog("\(method) \(url.absoluteString) status=\(httpResponse.statusCode) deviceID=\(requiresDeviceID)")
+        debugLog("\(method) \(url.absoluteString) status=\(httpResponse.statusCode)")
 
         if httpResponse.statusCode == 304 {
             debugLog("304 received, using local fallback")

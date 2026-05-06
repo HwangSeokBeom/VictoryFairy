@@ -14,6 +14,8 @@ struct HomeView: View {
     let viewModel: HomeViewModel
     @State private var isShowingSettings = false
     @State private var isShowingLogEditor = false
+    @State private var isShowingAIHelper = false
+    @State private var isShowingAIDraftEditor = false
 
     var body: some View {
         ScrollView {
@@ -28,12 +30,15 @@ struct HomeView: View {
                     ) {
                         isShowingLogEditor = true
                     }
+                    featureShortcuts
                 } else {
                     VictoryFairyIndexCard(
                         index: viewModel.dashboard.fairyIndex,
                         label: viewModel.dashboard.fairyLabel,
                         footnote: viewModel.dashboard.fairyFootnote
-                    )
+                    ) {
+                        isShowingAIHelper = true
+                    }
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 148), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
                         ForEach(viewModel.dashboard.metrics) { metric in
@@ -53,6 +58,8 @@ struct HomeView: View {
 
                     calendarPreview
 
+                    featureShortcuts
+
                     quickActionCard
 
                     diarySuggestion
@@ -71,6 +78,34 @@ struct HomeView: View {
         .sheet(isPresented: $isShowingLogEditor) {
             NavigationStack {
                 LogEditorView()
+            }
+        }
+        .sheet(isPresented: $isShowingAIHelper) {
+            HomeAIHelperSheet(
+                recentLog: viewModel.dashboard.recentLogs.first,
+                onStartDraft: {
+                    isShowingAIHelper = false
+                    DispatchQueue.main.async {
+                        isShowingAIDraftEditor = true
+                    }
+                },
+                onAddLog: {
+                    isShowingAIHelper = false
+                    DispatchQueue.main.async {
+                        isShowingLogEditor = true
+                    }
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingAIDraftEditor) {
+            NavigationStack {
+                if let recentLog = viewModel.dashboard.recentLogs.first {
+                    LogEditorView(editingLog: recentLog, startsAIPreflightOnAppear: true)
+                } else {
+                    LogEditorView()
+                }
             }
         }
         .vfScreenBackground()
@@ -116,6 +151,65 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("직관 기록 추가")
             }
+        }
+    }
+
+    private var featureShortcuts: some View {
+        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+            sectionTitle("바로가기")
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: VFSpacing.sm), GridItem(.flexible(), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
+                NavigationLink {
+                    WinRateAnalysisView(statistics: appData.statistics, logs: appData.feedLogs)
+                } label: {
+                    shortcutCard(title: "승률 분석", subtitle: "내 직관 데이터 기준", systemImage: "chart.line.uptrend.xyaxis", tint: theme.primary)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    NewsView()
+                } label: {
+                    shortcutCard(title: "야구 소식", subtitle: "외부 기사 링크", systemImage: "newspaper.fill", tint: VFColor.scoreboardNavy)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    MatchOutlookView()
+                } label: {
+                    shortcutCard(title: "경기 전망", subtitle: "재미로 보는 관전 포인트", systemImage: "sparkles", tint: VFColor.victoryOrange)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    CommunityHomeView()
+                } label: {
+                    shortcutCard(title: "응원톡", subtitle: "팬 커뮤니티 준비 중", systemImage: "bubble.left.and.bubble.right.fill", tint: VFColor.grassGreen)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func shortcutCard(title: String, subtitle: String, systemImage: String, tint: Color) -> some View {
+        VFCard(padding: VFSpacing.md) {
+            VStack(alignment: .leading, spacing: VFSpacing.sm) {
+                Image(systemName: systemImage)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 36, height: 36)
+                    .background(tint.opacity(0.12))
+                    .clipShape(Circle())
+                Text(title)
+                    .font(VFTypography.cardTitle)
+                    .foregroundStyle(VFColor.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(VFColor.secondaryText)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+            }
+            .frame(minHeight: 118, alignment: .topLeading)
         }
     }
 
@@ -172,6 +266,82 @@ struct HomeView: View {
             .font(.system(.headline, design: .rounded).weight(.bold))
             .foregroundStyle(VFColor.primaryText)
             .padding(.top, VFSpacing.xs)
+    }
+}
+
+private struct HomeAIHelperSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let recentLog: AttendanceLogViewState?
+    let onStartDraft: () -> Void
+    let onAddLog: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: VFSpacing.lg) {
+                Text("AI가 직관 기록을 정리해드릴게요")
+                    .font(VFTypography.section)
+                    .foregroundStyle(VFColor.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("최근 직관 후기를 더 자연스럽게 다듬거나, 비어 있는 다이어리 초안을 만들 수 있어요.")
+                    .font(.subheadline)
+                    .foregroundStyle(VFColor.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VFCard(background: VFColor.backgroundWarm) {
+                    VStack(alignment: .leading, spacing: VFSpacing.sm) {
+                        if let recentLog {
+                            Text(recentLog.matchup)
+                                .font(VFTypography.cardTitle)
+                                .foregroundStyle(VFColor.primaryText)
+                            Text("\(recentLog.dateText) · \(recentLog.stadium)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(VFColor.secondaryText)
+                            Text("AI 초안은 저장 전 직접 확인해 주세요")
+                                .font(.caption)
+                                .foregroundStyle(VFColor.secondaryText)
+                        } else {
+                            Text("AI 초안을 만들 직관 기록이 아직 없어요.")
+                                .font(VFTypography.cardTitle)
+                                .foregroundStyle(VFColor.primaryText)
+                            Text("첫 직관을 기록하면 경기 정보로 후기 초안을 시작할 수 있어요.")
+                                .font(.subheadline)
+                                .foregroundStyle(VFColor.secondaryText)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                if let recentLog {
+                    VFPrimaryButton(title: recentLog.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "최근 직관 후기 초안 만들기" : "최근 직관 다듬기", systemImage: "sparkles") {
+                        dismiss()
+                        onStartDraft()
+                    }
+                    VFSecondaryButton(title: "직관 기록 추가하기", systemImage: "calendar.badge.plus") {
+                        dismiss()
+                        onAddLog()
+                    }
+                } else {
+                    VFPrimaryButton(title: "첫 직관 기록하기", systemImage: "calendar.badge.plus") {
+                        dismiss()
+                        onAddLog()
+                    }
+                }
+            }
+            .padding(VFSpacing.lg)
+            .padding(.bottom, VFSpacing.sm)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("취소") {
+                        dismiss()
+                    }
+                }
+            }
+            .navigationTitle("AI 도우미")
+            .navigationBarTitleDisplayMode(.inline)
+            .vfScreenBackground()
+        }
     }
 }
 

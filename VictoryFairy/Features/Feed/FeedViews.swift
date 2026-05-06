@@ -156,7 +156,7 @@ struct AttendancePostCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
 
                         NavigationLink {
-                            ShareCardPreviewView()
+                            ShareCardPreviewView(log: log)
                         } label: {
                             Label("공유", systemImage: "square.and.arrow.up")
                                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
@@ -264,9 +264,9 @@ struct AttendancePostDetailView: View {
                 }
 
                 NavigationLink {
-                    ShareCardPreviewView()
+                    ShareCardPreviewView(log: log)
                 } label: {
-                    Label("공유 카드 만들기", systemImage: "square.and.arrow.up")
+                    Label("카드 저장 및 공유", systemImage: "square.and.arrow.up")
                         .font(.system(.headline, design: .rounded).weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .foregroundStyle(theme.textOnPrimary)
