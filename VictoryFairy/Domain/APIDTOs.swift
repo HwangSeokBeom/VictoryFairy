@@ -571,34 +571,56 @@ struct MatchOutlookRequest: Encodable {
 }
 
 struct MatchOutlookResponse: Decodable, Hashable {
+    static let defaultSummary = "최근 야구 소식과 내 직관 기록을 바탕으로 오늘 경기를 더 재미있게 볼 포인트를 정리했어요."
+
     let title: String
     let summary: String
-    let points: [String]
+    let points: [MatchOutlookPoint]
+    let newsReferences: [MatchOutlookNewsReference]
     let confidenceLabel: String?
+    let generatedBy: String?
     let disclaimer: String?
 
     enum CodingKeys: String, CodingKey {
         case title
         case summary
         case points
+        case newsReferences
         case confidenceLabel
+        case generatedBy
         case disclaimer
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? "오늘의 관전 포인트"
-        summary = try container.decodeIfPresent(String.self, forKey: .summary) ?? "내 직관 기록과 참고용 경기 정보를 바탕으로 만든 응원 포인트예요."
-        points = try container.decodeIfPresent([String].self, forKey: .points) ?? []
+        summary = Self.normalizedSummary(try container.decodeIfPresent(String.self, forKey: .summary))
+        points = try container.decodeIfPresent([MatchOutlookPoint].self, forKey: .points) ?? []
+        newsReferences = try container.decodeIfPresent([MatchOutlookNewsReference].self, forKey: .newsReferences) ?? []
         confidenceLabel = try container.decodeIfPresent(String.self, forKey: .confidenceLabel)
+        generatedBy = try container.decodeIfPresent(String.self, forKey: .generatedBy)
         disclaimer = try container.decodeIfPresent(String.self, forKey: .disclaimer)
+
+        #if DEBUG
+        print("[MatchOutlook] decoded generatedBy=\(generatedBy ?? "nil") points=\(points.count) newsRefs=\(newsReferences.count) title=\(title)")
+        #endif
     }
 
-    init(title: String, summary: String, points: [String], confidenceLabel: String?, disclaimer: String?) {
+    init(
+        title: String,
+        summary: String,
+        points: [MatchOutlookPoint],
+        newsReferences: [MatchOutlookNewsReference] = [],
+        confidenceLabel: String?,
+        generatedBy: String? = nil,
+        disclaimer: String?
+    ) {
         self.title = title
-        self.summary = summary
+        self.summary = Self.normalizedSummary(summary)
         self.points = points
+        self.newsReferences = newsReferences
         self.confidenceLabel = confidenceLabel
+        self.generatedBy = generatedBy
         self.disclaimer = disclaimer
     }
 
@@ -606,22 +628,227 @@ struct MatchOutlookResponse: Decodable, Hashable {
         title: "오늘의 관전 포인트",
         summary: "서버에서 경기 전망을 불러오지 못했어요. 내 직관 기록 기준의 응원 포인트는 준비되는 대로 표시할게요.",
         points: [
-            "최근 직관 흐름과 상대 기록을 가볍게 비교해 보세요.",
-            "경기 결과보다 오늘의 응원 포인트와 현장 분위기에 집중해요."
+            .init(title: nil, body: "최근 직관 흐름과 상대 기록을 가볍게 비교해 보세요."),
+            .init(title: nil, body: "경기 결과보다 오늘의 응원 포인트와 현장 분위기에 집중해요.")
         ],
         confidenceLabel: "재미용",
+        generatedBy: "template",
         disclaimer: "공식 예측이나 베팅 정보가 아닙니다."
+    )
+
+    private static func normalizedSummary(_ summary: String?) -> String {
+        let oldSummaries = [
+            "내 직관 기록과 참고용 경기 정보를 바탕으로 본 응원 포인트예요.",
+            "내 직관 기록과 참고용 경기 정보를 바탕으로 만든 응원 포인트예요."
+        ]
+        guard let summary, !oldSummaries.contains(summary) else {
+            return defaultSummary
+        }
+        return summary
+    }
+}
+
+struct MatchOutlookPoint: Decodable, Hashable {
+    let title: String?
+    let body: String
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case body
+    }
+
+    init(title: String?, body: String) {
+        self.title = title?.nilIfEmpty
+        self.body = body
+    }
+
+    init(from decoder: Decoder) throws {
+        if let container = try? decoder.container(keyedBy: CodingKeys.self) {
+            title = try container.decodeIfPresent(String.self, forKey: .title)?.nilIfEmpty
+            body = try container.decodeIfPresent(String.self, forKey: .body) ?? ""
+            return
+        }
+        let container = try decoder.singleValueContainer()
+        title = nil
+        body = try container.decode(String.self)
+    }
+}
+
+struct MatchOutlookNewsReference: Decodable, Hashable, Identifiable {
+    let id: String
+    let title: String
+    let sourceName: String
+    let url: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case sourceName
+        case source
+        case url
+        case link
+    }
+
+    init(id: String = UUID().uuidString, title: String, sourceName: String, url: String?) {
+        self.id = id
+        self.title = title
+        self.sourceName = sourceName
+        self.url = url
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? "야구 소식"
+        sourceName = try container.decodeIfPresent(String.self, forKey: .sourceName)
+            ?? container.decodeIfPresent(String.self, forKey: .source)
+            ?? "뉴스"
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+            ?? container.decodeIfPresent(String.self, forKey: .link)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+            ?? "\(sourceName)-\(title)-\(url ?? UUID().uuidString)"
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
+}
+
+struct UserProfileDTO: Decodable, Equatable {
+    let nickname: String
+    let favoriteTeamID: String
+    let profileEmoji: String?
+    let profileImageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case nickname
+        case displayName
+        case favoriteTeamID
+        case favoriteTeamId
+        case teamID
+        case teamId
+        case profileEmoji
+        case emoji
+        case profileImageURL
+        case profileImageUrl
+        case avatarURL
+        case avatarUrl
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        nickname = try container.decodeIfPresent(String.self, forKey: .nickname)
+            ?? container.decodeIfPresent(String.self, forKey: .displayName)
+            ?? "응원 팬"
+        favoriteTeamID = try container.decodeIfPresent(String.self, forKey: .favoriteTeamID)
+            ?? container.decodeIfPresent(String.self, forKey: .favoriteTeamId)
+            ?? container.decodeIfPresent(String.self, forKey: .teamID)
+            ?? container.decodeIfPresent(String.self, forKey: .teamId)
+            ?? KBOSeed.teams[0].id
+        profileEmoji = try container.decodeIfPresent(String.self, forKey: .profileEmoji)
+            ?? container.decodeIfPresent(String.self, forKey: .emoji)
+        profileImageURL = try container.decodeIfPresent(String.self, forKey: .profileImageURL)
+            ?? container.decodeIfPresent(String.self, forKey: .profileImageUrl)
+            ?? container.decodeIfPresent(String.self, forKey: .avatarURL)
+            ?? container.decodeIfPresent(String.self, forKey: .avatarUrl)
+    }
+
+    init(nickname: String, favoriteTeamID: String, profileEmoji: String? = "⚾", profileImageURL: String? = nil) {
+        self.nickname = nickname
+        self.favoriteTeamID = favoriteTeamID
+        self.profileEmoji = profileEmoji
+        self.profileImageURL = profileImageURL
+    }
+}
+
+struct UpsertUserProfileRequest: Encodable {
+    let nickname: String
+    let favoriteTeamID: String
+    let profileEmoji: String?
+}
+
+struct LegalLinksDTO: Decodable, Equatable {
+    let home: String
+    let terms: String
+    let privacy: String
+    let support: String
+    let accountDeletion: String
+    let disclaimer: String
+    let communityPolicy: String
+
+    enum CodingKeys: String, CodingKey {
+        case home
+        case terms
+        case privacy
+        case support
+        case accountDeletion
+        case deleteAccount
+        case disclaimer
+        case communityPolicy
+        case communityPolicyURL
+        case communityPolicyUrl
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let fallback = Self.fallback
+        home = try container.decodeIfPresent(String.self, forKey: .home) ?? fallback.home
+        terms = try container.decodeIfPresent(String.self, forKey: .terms) ?? fallback.terms
+        privacy = try container.decodeIfPresent(String.self, forKey: .privacy) ?? fallback.privacy
+        support = try container.decodeIfPresent(String.self, forKey: .support) ?? fallback.support
+        accountDeletion = try container.decodeIfPresent(String.self, forKey: .accountDeletion)
+            ?? container.decodeIfPresent(String.self, forKey: .deleteAccount)
+            ?? fallback.accountDeletion
+        disclaimer = try container.decodeIfPresent(String.self, forKey: .disclaimer) ?? fallback.disclaimer
+        communityPolicy = try container.decodeIfPresent(String.self, forKey: .communityPolicy)
+            ?? container.decodeIfPresent(String.self, forKey: .communityPolicyURL)
+            ?? container.decodeIfPresent(String.self, forKey: .communityPolicyUrl)
+            ?? fallback.communityPolicy
+    }
+
+    init(
+        home: String,
+        terms: String,
+        privacy: String,
+        support: String,
+        accountDeletion: String,
+        disclaimer: String,
+        communityPolicy: String
+    ) {
+        self.home = home
+        self.terms = terms
+        self.privacy = privacy
+        self.support = support
+        self.accountDeletion = accountDeletion
+        self.disclaimer = disclaimer
+        self.communityPolicy = communityPolicy
+    }
+
+    static let fallback = LegalLinksDTO(
+        home: "https://hwangseokbeom.github.io/VictoryFairy-legal/",
+        terms: "https://hwangseokbeom.github.io/VictoryFairy-legal/terms.html",
+        privacy: "https://hwangseokbeom.github.io/VictoryFairy-legal/privacy.html",
+        support: "https://hwangseokbeom.github.io/VictoryFairy-legal/support.html",
+        accountDeletion: "https://hwangseokbeom.github.io/VictoryFairy-legal/delete-account.html",
+        disclaimer: "https://hwangseokbeom.github.io/VictoryFairy-legal/disclaimer.html",
+        communityPolicy: "https://hwangseokbeom.github.io/VictoryFairy-legal/community-policy.html"
     )
 }
 
 struct CommunityPostsResponse: Decodable {
     let items: [CommunityPostDTO]
     let message: String?
+    let policyURL: String?
+    let enabled: Bool?
 
     enum CodingKeys: String, CodingKey {
         case items
         case posts
         case message
+        case policyURL
+        case policyUrl
+        case enabled
     }
 
     init(from decoder: Decoder) throws {
@@ -630,47 +857,189 @@ struct CommunityPostsResponse: Decodable {
             ?? container.decodeIfPresent([CommunityPostDTO].self, forKey: .posts)
             ?? []
         message = try container.decodeIfPresent(String.self, forKey: .message)
+        policyURL = try container.decodeIfPresent(String.self, forKey: .policyURL)
+            ?? container.decodeIfPresent(String.self, forKey: .policyUrl)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+    }
+
+    init(items: [CommunityPostDTO], message: String?, policyURL: String?, enabled: Bool?) {
+        self.items = items
+        self.message = message
+        self.policyURL = policyURL
+        self.enabled = enabled
     }
 }
 
 struct CommunityPostDTO: Decodable, Identifiable, Hashable {
     let id: String
+    let authorID: String?
     let authorDisplayName: String?
+    let authorProfileEmoji: String?
+    let authorProfileImageURL: String?
     let teamID: String?
+    let teamName: String?
     let body: String
     let createdAt: String?
+    let likeCount: Int
+    let reportCount: Int
+    let status: String?
     let reportable: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id
+        case authorID
+        case authorId
+        case userID
+        case userId
         case authorDisplayName
         case displayName
+        case authorProfileEmoji
+        case profileEmoji
+        case authorProfileImageURL
+        case authorProfileImageUrl
+        case profileImageURL
+        case profileImageUrl
         case teamID
         case teamId
+        case teamName
         case body
         case content
         case createdAt
+        case likeCount
+        case reportCount
+        case status
         case reportable
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        authorID = try container.decodeIfPresent(String.self, forKey: .authorID)
+            ?? container.decodeIfPresent(String.self, forKey: .authorId)
+            ?? container.decodeIfPresent(String.self, forKey: .userID)
+            ?? container.decodeIfPresent(String.self, forKey: .userId)
         authorDisplayName = try container.decodeIfPresent(String.self, forKey: .authorDisplayName)
             ?? container.decodeIfPresent(String.self, forKey: .displayName)
+        authorProfileEmoji = try container.decodeIfPresent(String.self, forKey: .authorProfileEmoji)
+            ?? container.decodeIfPresent(String.self, forKey: .profileEmoji)
+        authorProfileImageURL = try container.decodeIfPresent(String.self, forKey: .authorProfileImageURL)
+            ?? container.decodeIfPresent(String.self, forKey: .authorProfileImageUrl)
+            ?? container.decodeIfPresent(String.self, forKey: .profileImageURL)
+            ?? container.decodeIfPresent(String.self, forKey: .profileImageUrl)
         teamID = try container.decodeIfPresent(String.self, forKey: .teamID)
             ?? container.decodeIfPresent(String.self, forKey: .teamId)
+        teamName = try container.decodeIfPresent(String.self, forKey: .teamName)
         body = try container.decodeIfPresent(String.self, forKey: .body)
             ?? container.decodeIfPresent(String.self, forKey: .content)
             ?? ""
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        likeCount = try container.decodeIfPresent(Int.self, forKey: .likeCount) ?? 0
+        reportCount = try container.decodeIfPresent(Int.self, forKey: .reportCount) ?? 0
+        status = try container.decodeIfPresent(String.self, forKey: .status)
         reportable = try container.decodeIfPresent(Bool.self, forKey: .reportable)
+    }
+
+    init(
+        id: String,
+        authorID: String? = nil,
+        authorDisplayName: String?,
+        authorProfileEmoji: String? = nil,
+        authorProfileImageURL: String? = nil,
+        teamID: String?,
+        teamName: String?,
+        body: String,
+        createdAt: String?,
+        likeCount: Int = 0,
+        reportCount: Int = 0,
+        status: String? = "visible",
+        reportable: Bool? = true
+    ) {
+        self.id = id
+        self.authorID = authorID
+        self.authorDisplayName = authorDisplayName
+        self.authorProfileEmoji = authorProfileEmoji
+        self.authorProfileImageURL = authorProfileImageURL
+        self.teamID = teamID
+        self.teamName = teamName
+        self.body = body
+        self.createdAt = createdAt
+        self.likeCount = likeCount
+        self.reportCount = reportCount
+        self.status = status
+        self.reportable = reportable
     }
 }
 
 struct CreateCommunityPostRequest: Encodable {
-    let body: String
+    let content: String
     let teamID: String?
+}
+
+struct ReportCommunityPostRequest: Encodable {
+    let reason: String
+}
+
+struct BlockedUsersResponse: Decodable {
+    let items: [BlockedUserDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case items
+        case users
+        case blockedUsers
+    }
+
+    init(from decoder: Decoder) throws {
+        if let array = try? [BlockedUserDTO](from: decoder) {
+            items = array
+            return
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        items = try container.decodeIfPresent([BlockedUserDTO].self, forKey: .items)
+            ?? container.decodeIfPresent([BlockedUserDTO].self, forKey: .users)
+            ?? container.decodeIfPresent([BlockedUserDTO].self, forKey: .blockedUsers)
+            ?? []
+    }
+
+    init(items: [BlockedUserDTO]) {
+        self.items = items
+    }
+}
+
+struct BlockedUserDTO: Decodable, Identifiable, Hashable {
+    let authorID: String
+    let authorDisplayName: String
+    let blockedAt: String?
+
+    var id: String { authorID }
+
+    enum CodingKeys: String, CodingKey {
+        case authorID
+        case authorId
+        case userID
+        case userId
+        case authorDisplayName
+        case displayName
+        case blockedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        authorID = try container.decodeIfPresent(String.self, forKey: .authorID)
+            ?? container.decodeIfPresent(String.self, forKey: .authorId)
+            ?? container.decodeIfPresent(String.self, forKey: .userID)
+            ?? container.decodeIfPresent(String.self, forKey: .userId)
+            ?? UUID().uuidString
+        authorDisplayName = try container.decodeIfPresent(String.self, forKey: .authorDisplayName)
+            ?? container.decodeIfPresent(String.self, forKey: .displayName)
+            ?? "응원 팬"
+        blockedAt = try container.decodeIfPresent(String.self, forKey: .blockedAt)
+    }
+
+    init(authorID: String, authorDisplayName: String, blockedAt: String?) {
+        self.authorID = authorID
+        self.authorDisplayName = authorDisplayName
+        self.blockedAt = blockedAt
+    }
 }
 
 struct KBOStandingsDTO: Decodable {

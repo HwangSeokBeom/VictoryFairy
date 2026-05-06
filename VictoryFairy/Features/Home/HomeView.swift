@@ -182,7 +182,7 @@ struct HomeView: View {
                 NavigationLink {
                     CommunityHomeView()
                 } label: {
-                    shortcutCard(title: "응원톡", subtitle: "팬 커뮤니티 준비 중", systemImage: "bubble.left.and.bubble.right.fill", tint: VFColor.grassGreen)
+                    shortcutCard(title: "응원톡", subtitle: "팬 응원 나누기", systemImage: "bubble.left.and.bubble.right.fill", tint: VFColor.grassGreen)
                 }
                 .buttonStyle(.plain)
             }

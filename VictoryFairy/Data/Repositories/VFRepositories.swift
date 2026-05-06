@@ -61,9 +61,25 @@ protocol MatchOutlookRepository {
     func fetchOutlook(_ request: MatchOutlookRequest) async throws -> MatchOutlookResponse
 }
 
+protocol UserProfileRepository {
+    func fetchProfile() async throws -> UserProfileDTO
+    func createProfile(_ request: UpsertUserProfileRequest) async throws -> UserProfileDTO
+    func updateProfile(_ request: UpsertUserProfileRequest) async throws -> UserProfileDTO
+    func uploadProfileImage(data: Data, mimeType: String) async throws
+    func deleteProfileImage() async throws
+}
+
+protocol LegalLinksRepository {
+    func fetchLegalLinks() async throws -> LegalLinksDTO
+}
+
 protocol CommunityRepository {
     func fetchPosts() async throws -> CommunityPostsResponse
     func createPost(_ request: CreateCommunityPostRequest) async throws -> CommunityPostDTO
+    func reportPost(id: String, reason: String) async throws
+    func blockAuthor(authorID: String) async throws
+    func unblockAuthor(authorID: String) async throws
+    func fetchBlockedUsers() async throws -> BlockedUsersResponse
 }
 
 struct RemoteTeamRepository: TeamRepository {
@@ -257,6 +273,44 @@ struct RemoteMatchOutlookRepository: MatchOutlookRepository {
     }
 }
 
+struct RemoteUserProfileRepository: UserProfileRepository {
+    let apiClient: APIClient
+
+    func fetchProfile() async throws -> UserProfileDTO {
+        try await apiClient.get("/api/v1/me/profile")
+    }
+
+    func createProfile(_ request: UpsertUserProfileRequest) async throws -> UserProfileDTO {
+        try await apiClient.post("/api/v1/me/profile", body: request)
+    }
+
+    func updateProfile(_ request: UpsertUserProfileRequest) async throws -> UserProfileDTO {
+        try await apiClient.put("/api/v1/me/profile", body: request)
+    }
+
+    func uploadProfileImage(data: Data, mimeType: String) async throws {
+        let file = MultipartFile(
+            fieldName: "image",
+            fileName: "profile-image.jpg",
+            mimeType: mimeType,
+            data: data
+        )
+        let _: EmptyAPIData = try await apiClient.postMultipart("/api/v1/me/profile/image", files: [file])
+    }
+
+    func deleteProfileImage() async throws {
+        let _: EmptyAPIData = try await apiClient.delete("/api/v1/me/profile/image")
+    }
+}
+
+struct RemoteLegalLinksRepository: LegalLinksRepository {
+    let apiClient: APIClient
+
+    func fetchLegalLinks() async throws -> LegalLinksDTO {
+        try await apiClient.get("/api/v1/legal-links", requiresDeviceID: false)
+    }
+}
+
 struct RemoteCommunityRepository: CommunityRepository {
     let apiClient: APIClient
 
@@ -266,6 +320,25 @@ struct RemoteCommunityRepository: CommunityRepository {
 
     func createPost(_ request: CreateCommunityPostRequest) async throws -> CommunityPostDTO {
         try await apiClient.post("/api/v1/community/posts", body: request)
+    }
+
+    func reportPost(id: String, reason: String) async throws {
+        let _: EmptyAPIData = try await apiClient.post(
+            "/api/v1/community/posts/\(id)/report",
+            body: ReportCommunityPostRequest(reason: reason)
+        )
+    }
+
+    func blockAuthor(authorID: String) async throws {
+        let _: EmptyAPIData = try await apiClient.post("/api/v1/community/users/\(authorID)/block", body: EmptyAPIData())
+    }
+
+    func unblockAuthor(authorID: String) async throws {
+        let _: EmptyAPIData = try await apiClient.delete("/api/v1/community/users/\(authorID)/block")
+    }
+
+    func fetchBlockedUsers() async throws -> BlockedUsersResponse {
+        try await apiClient.get("/api/v1/community/blocked-users")
     }
 }
 

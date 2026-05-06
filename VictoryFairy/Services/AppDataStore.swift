@@ -51,6 +51,8 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var selectedCalendarMonth: Date = Date.vfDate(year: 2026, month: 4, day: 1)
     @Published private(set) var selectedSeason: Int
     @Published private(set) var availableSeasons: [SeasonOption]
+    @Published private(set) var userProfile: UserProfileDTO?
+    @Published private(set) var legalLinks: LegalLinksDTO = .fallback
 
     private let preferences: UserPreferencesStore
     private let apiClient: APIClient
@@ -67,6 +69,8 @@ final class AppDataStore: ObservableObject {
     private let photoAnalysisRepository: PhotoAnalysisRepository
     private let newsRepository: NewsRepository
     private let matchOutlookRepository: MatchOutlookRepository
+    private let userProfileRepository: UserProfileRepository
+    private let legalLinksRepository: LegalLinksRepository
     private let communityRepository: CommunityRepository
     private let localAttendanceLogRepository: LocalAttendanceLogRepository?
     private var didLoadInitialData = false
@@ -75,6 +79,8 @@ final class AppDataStore: ObservableObject {
     private var statisticsRefreshSeasonInFlight: Int?
     private var lastFallbackLogKey: String?
     private var remoteSelectedSeasonSupported = false
+    private var didLoadUserProfile = false
+    private var didLoadLegalLinks = false
 
     private var activeSeason: Int { selectedSeason }
 
@@ -97,6 +103,8 @@ final class AppDataStore: ObservableObject {
         photoAnalysisRepository = RemotePhotoAnalysisRepository(apiClient: apiClient)
         newsRepository = RemoteNewsRepository(apiClient: apiClient)
         matchOutlookRepository = RemoteMatchOutlookRepository(apiClient: apiClient)
+        userProfileRepository = RemoteUserProfileRepository(apiClient: apiClient)
+        legalLinksRepository = RemoteLegalLinksRepository(apiClient: apiClient)
         communityRepository = RemoteCommunityRepository(apiClient: apiClient)
         localAttendanceLogRepository = SwiftDataContainer.makeAttendanceLogRepository()
         selectedSeason = preferences.selectedSeason
@@ -120,6 +128,8 @@ final class AppDataStore: ObservableObject {
     func refreshAll() async {
         serverStatus = .checking
         await syncPreferencesFromServer()
+        await loadUserProfileIfNeeded()
+        await loadLegalLinksIfNeeded()
         await refreshSeasons()
         await refreshTeams()
         await refreshContent()
@@ -438,6 +448,28 @@ final class AppDataStore: ObservableObject {
         return KBOSeed.team(named: value)?.id
     }
 
+    private func applyUserProfile(_ profile: UserProfileDTO) {
+        let normalizedTeamID = KBOSeed.normalizedTeamID(profile.favoriteTeamID) ?? profile.favoriteTeamID
+        userProfile = UserProfileDTO(
+            nickname: profile.nickname,
+            favoriteTeamID: normalizedTeamID,
+            profileEmoji: profile.profileEmoji ?? "⚾",
+            profileImageURL: profile.profileImageURL
+        )
+        preferences.userDisplayName = profile.nickname
+        preferences.favoriteTeamID = normalizedTeamID
+    }
+
+    private func isMissingProfile(_ error: Error) -> Bool {
+        if case APIError.httpStatus(404) = error {
+            return true
+        }
+        if case let APIError.server(code, _) = error {
+            return code == "PROFILE_NOT_FOUND" || code == "PROFILE_REQUIRED"
+        }
+        return false
+    }
+
     func fetchMatchOutlook(request: MatchOutlookRequest) async throws -> MatchOutlookResponse {
         do {
             let response = try await matchOutlookRepository.fetchOutlook(request)
@@ -446,9 +478,99 @@ final class AppDataStore: ObservableObject {
             return response
         } catch {
             serverStatus = .localMode(error.localizedDescription)
-            logAPIFallback(endpoint: "POST /api/v1/match-outlook", fallback: "safe-placeholder", error: error)
+            logAPIFallback(endpoint: "POST /api/v1/match-outlook", fallback: "none", error: error)
             throw error
         }
+    }
+
+    func loadUserProfileIfNeeded(force: Bool = false) async {
+        guard force || !didLoadUserProfile else { return }
+        didLoadUserProfile = true
+        do {
+            let profile = try await userProfileRepository.fetchProfile()
+            applyUserProfile(profile)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "GET /api/v1/me/profile", fallback: "none", error: nil)
+        } catch {
+            if isMissingProfile(error) {
+                userProfile = nil
+                serverStatus = .connected
+            } else {
+                logAPIFallback(endpoint: "GET /api/v1/me/profile", fallback: "profileNotRequired", error: error)
+            }
+        }
+    }
+
+    func saveUserProfile(_ request: UpsertUserProfileRequest) async throws -> UserProfileDTO {
+        let normalizedRequest = UpsertUserProfileRequest(
+            nickname: request.nickname.trimmingCharacters(in: .whitespacesAndNewlines),
+            favoriteTeamID: KBOSeed.normalizedTeamID(request.favoriteTeamID) ?? request.favoriteTeamID,
+            profileEmoji: request.profileEmoji?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "⚾"
+        )
+        do {
+            let profile: UserProfileDTO
+            if userProfile == nil {
+                profile = try await userProfileRepository.createProfile(normalizedRequest)
+                logAPIFallback(endpoint: "POST /api/v1/me/profile", fallback: "none", error: nil)
+            } else {
+                profile = try await userProfileRepository.updateProfile(normalizedRequest)
+                logAPIFallback(endpoint: "PUT /api/v1/me/profile", fallback: "none", error: nil)
+            }
+            applyUserProfile(profile)
+            didLoadUserProfile = true
+            serverStatus = .connected
+            return profile
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: userProfile == nil ? "POST /api/v1/me/profile" : "PUT /api/v1/me/profile", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func uploadProfileImage(data: Data, mimeType: String) async throws {
+        do {
+            try await userProfileRepository.uploadProfileImage(data: data, mimeType: mimeType)
+            let profile = try await userProfileRepository.fetchProfile()
+            applyUserProfile(profile)
+            didLoadUserProfile = true
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/me/profile/image", fallback: "none", error: nil)
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/me/profile/image", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func deleteProfileImage() async throws {
+        do {
+            try await userProfileRepository.deleteProfileImage()
+            let profile = try await userProfileRepository.fetchProfile()
+            applyUserProfile(profile)
+            didLoadUserProfile = true
+            serverStatus = .connected
+            logAPIFallback(endpoint: "DELETE /api/v1/me/profile/image", fallback: "none", error: nil)
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "DELETE /api/v1/me/profile/image", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func loadLegalLinksIfNeeded(force: Bool = false) async {
+        guard force || !didLoadLegalLinks else { return }
+        didLoadLegalLinks = true
+        do {
+            legalLinks = try await legalLinksRepository.fetchLegalLinks()
+            logAPIFallback(endpoint: "GET /api/v1/legal-links", fallback: "none", error: nil)
+        } catch {
+            legalLinks = .fallback
+            logAPIFallback(endpoint: "GET /api/v1/legal-links", fallback: "github-pages", error: error)
+        }
+    }
+
+    func legalURL(_ keyPath: KeyPath<LegalLinksDTO, String>) -> URL {
+        URL(string: legalLinks[keyPath: keyPath]) ?? URL(string: LegalLinksDTO.fallback[keyPath: keyPath])!
     }
 
     func fetchCommunityPosts() async throws -> CommunityPostsResponse {
@@ -459,7 +581,69 @@ final class AppDataStore: ObservableObject {
             return response
         } catch {
             serverStatus = .localMode(error.localizedDescription)
-            logAPIFallback(endpoint: "GET /api/v1/community/posts", fallback: "coming-soon", error: error)
+            logAPIFallback(endpoint: "GET /api/v1/community/posts", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func createCommunityPost(_ request: CreateCommunityPostRequest) async throws -> CommunityPostDTO {
+        do {
+            let response = try await communityRepository.createPost(request)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/community/posts", fallback: "none", error: nil)
+            return response
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/community/posts", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func reportCommunityPost(id: String, reason: String) async throws {
+        do {
+            try await communityRepository.reportPost(id: id, reason: reason)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/community/posts/{id}/report", fallback: "none", error: nil)
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/community/posts/{id}/report", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func blockCommunityAuthor(authorID: String) async throws {
+        do {
+            try await communityRepository.blockAuthor(authorID: authorID)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/community/users/{authorID}/block", fallback: "none", error: nil)
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/community/users/{authorID}/block", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func unblockCommunityAuthor(authorID: String) async throws {
+        do {
+            try await communityRepository.unblockAuthor(authorID: authorID)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "DELETE /api/v1/community/users/{authorID}/block", fallback: "none", error: nil)
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "DELETE /api/v1/community/users/{authorID}/block", fallback: "none", error: error)
+            throw error
+        }
+    }
+
+    func fetchBlockedUsers() async throws -> BlockedUsersResponse {
+        do {
+            let response = try await communityRepository.fetchBlockedUsers()
+            serverStatus = .connected
+            logAPIFallback(endpoint: "GET /api/v1/community/blocked-users", fallback: "none", error: nil)
+            return response
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "GET /api/v1/community/blocked-users", fallback: "none", error: error)
             throw error
         }
     }
