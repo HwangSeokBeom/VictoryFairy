@@ -8,7 +8,7 @@ struct APIClient {
     private let encoder: JSONEncoder
 
     init(
-        environment: APIEnvironment = .development,
+        environment: APIEnvironment = .current,
         deviceIDProvider: DeviceIDProvider = DeviceIDProvider(),
         session: URLSession? = nil
     ) {

@@ -203,7 +203,7 @@ struct AttendanceLogViewState: Identifiable, Hashable {
         case .provider:
             return "참고용 경기 정보"
         case .scrapedDev:
-            return KBOReviewSafeSource.visibleLabel(sourceLabel: "개발용 외부 수집 데이터", source: gameSource)
+            return "자동 입력 보조 정보"
         }
     }
 }
@@ -391,7 +391,7 @@ enum KBODataSource: String, Hashable {
         case .provider:
             return "참고용 경기 정보"
         case .scrapedDev:
-            return KBOReviewSafeSource.visibleLabel(sourceLabel: "개발용 외부 수집 데이터", source: rawValue)
+            return "자동 입력 보조 정보"
         case .unavailable, .unknown:
             return "참고용 경기 정보"
         }
@@ -407,13 +407,7 @@ enum KBOReviewSafeSource {
             return "참고용 경기 정보"
         }
 
-        #if DEBUG
-        if let trimmed, !trimmed.isEmpty {
-            return trimmed
-        }
-        #endif
-
-        if trimmed == "개발용 외부 수집 데이터" || sourceType == .scrapedDev {
+        if sourceType == .scrapedDev || trimmed?.contains("개발") == true {
             return "자동 입력 보조 정보"
         }
 
@@ -422,7 +416,7 @@ enum KBOReviewSafeSource {
 
     static func disclosure(_ value: String?) -> String {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-            ?? "공식 기록은 KBO 공식 사이트에서 확인해 주세요."
+            ?? "세부 기록은 KBO 관련 공식 채널에서 확인해 주세요."
     }
 }
 

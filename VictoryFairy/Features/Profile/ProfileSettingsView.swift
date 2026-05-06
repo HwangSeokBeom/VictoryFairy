@@ -185,7 +185,7 @@ struct ProfileSettingsView: View {
                 Divider()
                 legalButton(title: "계정 삭제 안내", url: appData.legalURL(\.accountDeletion), systemImage: "person.crop.circle.badge.xmark")
                 Divider()
-                legalButton(title: "커뮤니티 정책 보기", url: URL(string: LegalLinksDTO.fallback.communityPolicy)!, systemImage: "shield.checkered")
+                legalButton(title: "커뮤니티 정책 보기", url: appData.legalURL(\.communityPolicy), systemImage: "shield.checkered")
                 Divider()
                 legalButton(title: "경기 전망 안내", url: appData.legalURL(\.disclaimer), systemImage: "heart.text.square")
             }
