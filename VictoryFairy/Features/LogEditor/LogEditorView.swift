@@ -66,9 +66,12 @@ struct LogEditorView: View {
     @State private var validationMessage: String?
     @State private var isSaving = false
     @State private var isShowingTicketOCR = false
+    @State private var isShowingAIPreflight = false
     @State private var isGeneratingAIDraft = false
     @State private var aiDraft: DiaryDraftDTO?
     @State private var isShowingAIDraft = false
+    @State private var pendingDraftTextToApply: String?
+    @State private var isShowingAIDraftApplyChoice = false
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var photoLocalRefs: [String] = []
     @State private var isProcessingPhotos = false
@@ -79,6 +82,7 @@ struct LogEditorView: View {
     @State private var kboLookupState: KBOGameLookupState = .idle
     @State private var kboLookupSource: String?
     @State private var kboLookupSourceLabel: String?
+    @State private var kboLookupSourceDisclosure: String?
     @State private var kboCandidates: [KBOGameCandidateDTO] = []
     @State private var isShowingKBOCandidateSelection = false
     @State private var pendingDiaryOverwriteCandidate: KBOGameCandidateDTO?
@@ -88,6 +92,7 @@ struct LogEditorView: View {
     private let moods = ["짜릿함", "아쉬움", "편안함", "열광적", "분노", "감동"]
     private let highlights = ["홈런", "역전승", "끝내기", "연장전", "호수비", "응원 분위기", "우천 취소"]
     private let tones = ["담백하게", "감성적으로", "유쾌하게", "SNS 캡션처럼"]
+    private let companions = ["혼자", "친구", "가족", "연인", "모임"]
     private let editingLog: AttendanceLogViewState?
 
     init(initialDate: Date? = nil, editingLog: AttendanceLogViewState? = nil) {
@@ -113,9 +118,7 @@ struct LogEditorView: View {
                     isProcessingPhotos: isProcessingPhotos,
                     isAnalyzingPhotos: isAnalyzingPhotos,
                     onRemove: removePhoto,
-                    onAnalyze: {
-                        isShowingPhotoAnalysisSelection = true
-                    }
+                    onAnalyze: {}
                 )
                 DiarySectionView(
                     seat: $seat,
@@ -128,6 +131,7 @@ struct LogEditorView: View {
                     moods: moods,
                     highlights: highlights,
                     tones: tones,
+                    companions: companions,
                     isGeneratingAIDraft: isGeneratingAIDraft,
                     onTicketOCR: {
                         isShowingTicketOCR = true
@@ -136,25 +140,11 @@ struct LogEditorView: View {
                         appliedKBOHighlightTags = []
                     },
                     onGenerateTemplate: {
-                        diary = DiaryTemplateGenerator().generate(
-                            favoriteTeamName: viewModel.favoriteTeam,
-                            opponentTeamName: viewModel.opponentTeam,
-                            stadium: viewModel.stadium,
-                            result: viewModel.result,
-                            favoriteTeamScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
-                            opponentTeamScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
-                            moodTags: [selectedMood],
-                            highlightTags: [selectedHighlight],
-                            companionType: companion,
-                            seatText: seat,
-                            shortMemo: shortMemo,
-                            tone: selectedTone
-                        )
+                        Task { await generateTemplateDraftForPreview() }
                     },
                     onGenerateAI: {
-                        Task {
-                            await generateAIDraft()
-                        }
+                        guard validateRequiredFields() else { return }
+                        isShowingAIPreflight = true
                     }
                 )
                 if let saveMessage {
@@ -182,6 +172,7 @@ struct LogEditorView: View {
                 }
             }
             .padding(VFSpacing.lg)
+            .padding(.bottom, VFSpacing.xl)
         }
         .navigationTitle(editingLog == nil ? "직관 기록 추가" : "직관 기록 수정")
         .navigationBarTitleDisplayMode(.inline)
@@ -200,14 +191,22 @@ struct LogEditorView: View {
                 applyTicketSuggestion(suggestion)
             }
         }
+        .sheet(isPresented: $isShowingAIPreflight) {
+            AIPreflightDisclosureSheet {
+                isShowingAIPreflight = false
+                Task { await generateAIDraft() }
+            }
+        }
         .sheet(isPresented: $isShowingAIDraft) {
             if let aiDraft {
                 AIDiaryDraftSheet(draft: aiDraft) {
-                    diary = aiDraft.draftText
-                    isShowingAIDraft = false
+                    requestApplyDraft(aiDraft.draftText)
                 } onRegenerate: {
                     isShowingAIDraft = false
                     Task { await generateAIDraft() }
+                } onUseTemplate: {
+                    isShowingAIDraft = false
+                    Task { await generateTemplateDraftForPreview() }
                 }
             }
         }
@@ -255,6 +254,25 @@ struct LogEditorView: View {
                 self.pendingDiaryOverwriteCandidate = nil
             }
         }
+        .alert("기존 다이어리를 AI 초안으로 바꿀까요?", isPresented: $isShowingAIDraftApplyChoice) {
+            Button("바꾸기", role: .destructive) {
+                guard let pendingDraftTextToApply else { return }
+                diary = pendingDraftTextToApply
+                self.pendingDraftTextToApply = nil
+                isShowingAIDraft = false
+            }
+            Button("이어 붙이기") {
+                guard let pendingDraftTextToApply else { return }
+                diary = diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? pendingDraftTextToApply
+                    : "\(diary)\n\n\(pendingDraftTextToApply)"
+                self.pendingDraftTextToApply = nil
+                isShowingAIDraft = false
+            }
+            Button("취소", role: .cancel) {
+                pendingDraftTextToApply = nil
+            }
+        }
         .sheet(item: $safariRoute) { route in
             SafariView(url: route.url)
         }
@@ -288,13 +306,15 @@ struct LogEditorView: View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text("필수 정보")
-                    .font(VFTypography.section)
+                    .font(.system(.headline, design: .rounded).weight(.bold))
                     .foregroundStyle(VFColor.primaryText)
 
                 DatePicker("경기 날짜", selection: $viewModel.date, displayedComponents: .date)
                     .tint(theme.primary)
 
                 kboGameSuggestionSection
+
+                ticketOCRPrompt
 
                 teamSelectionBlock
 
@@ -377,7 +397,7 @@ struct LogEditorView: View {
             }
             .padding(VFSpacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VFColor.offWhite)
+            .background(VFColor.backgroundWarm)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         case .loaded:
             if kboCandidates.count == 1, let candidate = kboCandidates.first {
@@ -412,6 +432,7 @@ struct LogEditorView: View {
                             kboLookupState = .idle
                             kboLookupSource = nil
                             kboLookupSourceLabel = nil
+                            kboLookupSourceDisclosure = nil
                             kboCandidates = []
                         } label: {
                             Text("직접 입력할게요")
@@ -444,41 +465,70 @@ struct LogEditorView: View {
         }
     }
 
-    private func kboCandidateCard(_ candidate: KBOGameCandidateDTO) -> some View {
-        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+    private var ticketOCRPrompt: some View {
+        Button {
+            isShowingTicketOCR = true
+        } label: {
             HStack(alignment: .top, spacing: VFSpacing.sm) {
-                Image(systemName: "baseball.diamond.bases")
-                    .foregroundStyle(theme.primary)
-                    .frame(width: 32, height: 32)
-                    .background(theme.primary.opacity(0.12))
+                Image(systemName: "ticket")
+                    .foregroundStyle(VFColor.victoryOrange)
+                    .frame(width: 36, height: 36)
+                    .background(VFColor.victoryOrange.opacity(0.12))
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: VFSpacing.xxs) {
-                    Text(candidate.safeSourceLabel(fallbackSource: kboLookupSource, fallbackSourceLabel: kboLookupSourceLabel))
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(theme.primary)
-                        .padding(.horizontal, VFSpacing.sm)
-                        .frame(minHeight: 24)
-                        .background(theme.primary.opacity(0.1))
-                        .clipShape(Capsule())
+                    Text("티켓으로 작성하기")
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        .foregroundStyle(VFColor.primaryText)
+                    Text("티켓 사진에서 날짜·팀·구장·좌석을 찾아볼게요.")
+                        .font(.caption)
+                        .foregroundStyle(VFColor.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("티켓 이미지는 서버로 전송되지 않아요.")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(VFColor.victoryOrange)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(VFColor.secondaryText)
+            }
+            .padding(VFSpacing.md)
+            .background(VFColor.backgroundWarm)
+            .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("티켓으로 작성하기")
+    }
+
+    private func kboCandidateCard(_ candidate: KBOGameCandidateDTO) -> some View {
+        VStack(alignment: .leading, spacing: VFSpacing.md) {
+            HStack(alignment: .top, spacing: VFSpacing.sm) {
+                Image(systemName: "baseball.diamond.bases")
+                    .foregroundStyle(VFColor.victoryOrange)
+                    .frame(width: 36, height: 36)
+                    .background(VFColor.victoryOrange.opacity(0.12))
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 6) {
                     Text(candidate.matchupText)
-                        .font(.system(.headline, design: .rounded).weight(.bold))
+                        .font(.system(.headline, design: .rounded).weight(.heavy))
                         .foregroundStyle(VFColor.primaryText)
                     Text(candidate.stadiumName)
                         .font(.subheadline)
                         .foregroundStyle(VFColor.secondaryText)
-                    Text(candidate.scoreboardText)
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .foregroundStyle(VFColor.primaryText)
                     if let favoriteTeamID = currentFavoriteTeamID, !candidate.isScheduled {
                         Text("내 기록에는 \(candidate.recordScoreText(favoriteTeamID: favoriteTeamID))로 저장돼요")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(theme.primary)
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                            .foregroundStyle(VFColor.primaryText)
                     }
                     if candidate.isScheduled {
                         Text("결과는 경기 후 직접 입력해 주세요.")
                             .font(.caption)
                             .foregroundStyle(VFColor.secondaryText)
                     }
+                    SourceDisclosureView(
+                        label: candidate.safeSourceLabel(fallbackSource: kboLookupSource, fallbackSourceLabel: kboLookupSourceLabel),
+                        disclosure: candidate.sourceDisclosure ?? kboLookupSourceDisclosure
+                    )
                 }
             }
 
@@ -499,6 +549,7 @@ struct LogEditorView: View {
                     kboLookupState = .idle
                     kboLookupSource = nil
                     kboLookupSourceLabel = nil
+                    kboLookupSourceDisclosure = nil
                     kboCandidates = []
                 } label: {
                     Text("직접 입력할게요")
@@ -522,7 +573,7 @@ struct LogEditorView: View {
                 Button {
                     openOfficialRecord(candidate)
                 } label: {
-                    Label("KBO 공식 기록실로 이동", systemImage: "safari")
+                    Label("공식 기록 보기", systemImage: "safari")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
                         .frame(maxWidth: .infinity, minHeight: 42)
                         .foregroundStyle(VFColor.primaryText)
@@ -538,8 +589,18 @@ struct LogEditorView: View {
             }
         }
         .padding(VFSpacing.md)
-        .background(VFColor.offWhite)
+        .background(
+            LinearGradient(
+                colors: [VFColor.backgroundWarm, VFColor.card],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
+                .stroke(VFColor.victoryOrange.opacity(0.22), lineWidth: 1)
+        )
     }
 
     private func kboLookupMessageCard(title: String, message: String, systemImage: String) -> some View {
@@ -560,7 +621,7 @@ struct LogEditorView: View {
         }
         .padding(VFSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VFColor.offWhite)
+        .background(VFColor.backgroundWarm)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
@@ -655,6 +716,7 @@ struct LogEditorView: View {
             kboLookupState = .idle
             kboLookupSource = nil
             kboLookupSourceLabel = nil
+            kboLookupSourceDisclosure = nil
             kboCandidates = []
             return
         }
@@ -663,6 +725,7 @@ struct LogEditorView: View {
         kboLookupState = .loading
         kboLookupSource = nil
         kboLookupSourceLabel = nil
+        kboLookupSourceDisclosure = nil
         kboCandidates = []
 
         do {
@@ -670,6 +733,7 @@ struct LogEditorView: View {
             guard Calendar.current.isDate(lookupDate, inSameDayAs: viewModel.date) else { return }
             kboLookupSource = response.source
             kboLookupSourceLabel = response.sourceLabel
+            kboLookupSourceDisclosure = response.sourceDisclosure
             kboCandidates = response.items
             kboLookupState = response.items.isEmpty ? .empty : .loaded
             isShowingKBOCandidateSelection = response.items.count > 1
@@ -677,6 +741,7 @@ struct LogEditorView: View {
             guard Calendar.current.isDate(lookupDate, inSameDayAs: viewModel.date) else { return }
             kboLookupSource = nil
             kboLookupSourceLabel = nil
+            kboLookupSourceDisclosure = nil
             kboCandidates = []
             kboLookupState = .failed
         }
@@ -731,6 +796,7 @@ struct LogEditorView: View {
         kboLookupState = .idle
         kboLookupSource = nil
         kboLookupSourceLabel = nil
+        kboLookupSourceDisclosure = nil
         kboCandidates = []
     }
 
@@ -803,7 +869,27 @@ struct LogEditorView: View {
         isGeneratingAIDraft = true
         defer { isGeneratingAIDraft = false }
 
-        let request = DiaryDraftRequest(
+        do {
+            aiDraft = try await appData.createDiaryDraft(request: makeDiaryDraftRequest())
+            validationMessage = nil
+            isShowingAIDraft = true
+        } catch APIError.server(let code, _) where code == "AI_FEATURE_DISABLED" {
+            validationMessage = "AI 기능이 아직 비활성화되어 있어요. 기본 문장으로 시작해볼까요?"
+            await generateTemplateDraftForPreview()
+        } catch APIError.server(let code, _) where code == "AI_CONFIG_MISSING" {
+            validationMessage = "AI 설정을 확인해야 해요. 기본 문장으로 시작해볼까요?"
+            await generateTemplateDraftForPreview()
+        } catch APIError.server(let code, _) where code == "AI_DAILY_LIMIT_EXCEEDED" {
+            validationMessage = "오늘 사용할 수 있는 AI 초안 횟수를 모두 사용했어요."
+            await generateTemplateDraftForPreview()
+        } catch {
+            validationMessage = "AI 초안을 만들지 못했어요. 기본 문장으로 채워볼게요."
+            await generateTemplateDraftForPreview()
+        }
+    }
+
+    private func makeDiaryDraftRequest() -> DiaryDraftRequest {
+        DiaryDraftRequest(
             gameDate: DateFormatter.vfAPIDate.string(from: viewModel.date),
             favoriteTeamName: viewModel.favoriteTeam,
             opponentTeamName: viewModel.opponentTeam,
@@ -817,15 +903,72 @@ struct LogEditorView: View {
             extraNoteSanitized: shortMemo.sanitizedExtraNote,
             locale: "ko-KR"
         )
+    }
 
+    private func makeTemplateDraftRequest() -> TemplateDraftRequest {
+        let request = makeDiaryDraftRequest()
+        return TemplateDraftRequest(
+            gameDate: request.gameDate,
+            favoriteTeamName: request.favoriteTeamName,
+            opponentTeamName: request.opponentTeamName,
+            stadiumName: request.stadiumName,
+            result: request.result,
+            scoreText: request.scoreText,
+            moodTags: request.moodTags,
+            highlightTags: request.highlightTags,
+            companionType: request.companionType,
+            tone: request.tone,
+            extraNoteSanitized: request.extraNoteSanitized,
+            locale: request.locale
+        )
+    }
+
+    private func generateTemplateDraftForPreview() async {
+        guard validateRequiredFields() else { return }
         do {
-            aiDraft = try await appData.createDiaryDraft(request: request)
-            validationMessage = nil
+            aiDraft = try await appData.createTemplateDraft(request: makeTemplateDraftRequest()).diaryDraft
             isShowingAIDraft = true
-        } catch APIError.server(let code, _) where code == "AI_FEATURE_DISABLED" {
-            validationMessage = "AI 후기 기능은 아직 사용할 수 없어요."
         } catch {
-            validationMessage = "AI 후기 기능은 아직 사용할 수 없어요."
+            aiDraft = localTemplateDraft()
+            isShowingAIDraft = true
+        }
+    }
+
+    private func localTemplateDraft() -> DiaryDraftDTO {
+        let draft = DiaryTemplateGenerator().generate(
+            favoriteTeamName: viewModel.favoriteTeam,
+            opponentTeamName: viewModel.opponentTeam,
+            stadium: viewModel.stadium,
+            result: viewModel.result,
+            favoriteTeamScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
+            opponentTeamScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
+            moodTags: [selectedMood],
+            highlightTags: [selectedHighlight],
+            companionType: companion,
+            seatText: seat,
+            shortMemo: shortMemo,
+            tone: selectedTone
+        )
+        return DiaryDraftDTO(
+            draftText: draft,
+            summaryText: "기본 문장 초안",
+            shareText: nil,
+            hashtags: ["#승리요정", "#KBO직관"],
+            model: "local-template",
+            safetyNotice: "저장 전 직접 확인해 주세요.",
+            warnings: []
+        )
+    }
+
+    private func requestApplyDraft(_ draftText: String) {
+        let trimmed = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            diary = trimmed
+            isShowingAIDraft = false
+        } else {
+            pendingDraftTextToApply = trimmed
+            isShowingAIDraftApplyChoice = true
         }
     }
 
@@ -890,8 +1033,13 @@ struct LogEditorView: View {
     private var sanitizedCompanionType: String? {
         let trimmed = companion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let allowed = ["혼자", "친구", "가족", "연인", "동료"]
-        return allowed.contains(trimmed) ? trimmed : "동행"
+        switch trimmed {
+        case "혼자": return "alone"
+        case "친구": return "friends"
+        case "가족": return "family"
+        case "연인": return "partner"
+        default: return "group"
+        }
     }
 
     private var saveTags: [String] {
@@ -948,13 +1096,10 @@ private struct KBOGameFavoritePerspective {
 
 private extension KBOGameCandidateDTO {
     func safeSourceLabel(fallbackSource: String?, fallbackSourceLabel: String? = nil) -> String {
-        if let sourceLabel, !sourceLabel.isEmpty {
-            return sourceLabel
-        }
-        if let fallbackSourceLabel, !fallbackSourceLabel.isEmpty {
-            return fallbackSourceLabel
-        }
-        return KBODataSource(serverValue: source ?? fallbackSource).displayLabel
+        KBOReviewSafeSource.visibleLabel(
+            sourceLabel: sourceLabel ?? fallbackSourceLabel,
+            source: source ?? fallbackSource
+        )
     }
 
     var suggestedStadiumName: String {
@@ -1266,6 +1411,7 @@ struct DiarySectionView: View {
     let moods: [String]
     let highlights: [String]
     let tones: [String]
+    let companions: [String]
     var isGeneratingAIDraft = false
     var onTicketOCR: () -> Void = {}
     var onHighlightChange: () -> Void = {}
@@ -1280,7 +1426,6 @@ struct DiarySectionView: View {
                     .foregroundStyle(VFColor.primaryText)
 
                 textField("좌석", text: $seat)
-                textField("같이 간 사람", text: $companion)
                 textField("한 줄 메모", text: $shortMemo)
 
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
@@ -1291,6 +1436,7 @@ struct DiarySectionView: View {
                         TextEditor(text: $diary)
                             .frame(minHeight: 130)
                             .scrollContentBackground(.hidden)
+                            .foregroundStyle(VFColor.primaryText)
                             .padding(VFSpacing.xs)
                             .background(VFColor.offWhite)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
@@ -1307,12 +1453,10 @@ struct DiarySectionView: View {
                 chipGroup(title: "분위기", values: moods, selection: $selectedMood)
                 chipGroup(title: "하이라이트", values: highlights, selection: $selectedHighlight, onChange: onHighlightChange)
                 chipGroup(title: "말투", values: tones, selection: $selectedTone)
+                chipGroup(title: "동행 유형", values: companions, selection: $companion)
 
                 VStack(spacing: VFSpacing.sm) {
-                    VFSecondaryButton(title: "티켓 사진으로 채우기", systemImage: "ticket") {
-                        onTicketOCR()
-                    }
-                    VFSecondaryButton(title: "문장 자동 채우기", systemImage: "text.badge.plus") {
+                    VFSecondaryButton(title: "기본 문장으로 채우기", systemImage: "text.badge.plus") {
                         onGenerateTemplate()
                     }
                     VFSecondaryButton(title: isGeneratingAIDraft ? "AI 초안 만드는 중" : "AI로 후기 초안 만들기", systemImage: "sparkles") {
@@ -1335,8 +1479,10 @@ struct DiarySectionView: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(VFColor.secondaryText)
-            TextField(title, text: text)
+            TextField(title, text: text, prompt: Text(title).foregroundStyle(VFColor.secondaryText))
                 .textFieldStyle(.plain)
+                .foregroundStyle(VFColor.primaryText)
+                .tint(VFColor.victoryOrange)
                 .padding(VFSpacing.sm)
                 .background(VFColor.offWhite)
                 .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
@@ -1426,15 +1572,6 @@ struct PhotoAttachmentEditorSection: View {
                             }
                         }
                     }
-
-                    VFSecondaryButton(
-                        title: isAnalyzingPhotos ? "사진 분석 중" : "사진 분석으로 후기 보강",
-                        systemImage: "sparkles"
-                    ) {
-                        onAnalyze()
-                    }
-                    .disabled(isAnalyzingPhotos)
-                    .opacity(isAnalyzingPhotos ? 0.55 : 1)
                 }
             }
         }
@@ -1564,11 +1701,80 @@ struct PhotoAnalysisResultSheet: View {
     }
 }
 
+struct SourceDisclosureView: View {
+    let label: String
+    let disclosure: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VFSpacing.xxs) {
+            Text(label)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(VFColor.victoryOrange)
+                .padding(.horizontal, VFSpacing.sm)
+                .frame(minHeight: 24)
+                .background(VFColor.victoryOrange.opacity(0.1))
+                .clipShape(Capsule())
+            Text(KBOReviewSafeSource.disclosure(disclosure))
+                .font(.caption2)
+                .foregroundStyle(VFColor.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+struct AIPreflightDisclosureSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onConfirm: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: VFSpacing.lg) {
+                Text("AI 초안을 만들기 전에")
+                    .font(VFTypography.section)
+                    .foregroundStyle(VFColor.primaryText)
+
+                VFCard(background: VFColor.backgroundWarm) {
+                    VStack(alignment: .leading, spacing: VFSpacing.sm) {
+                        disclosureRow("경기 정보와 선택한 분위기/하이라이트가 서버로 전송돼요.")
+                        disclosureRow("사진 원본, 정확한 위치, 동행자 실명은 보내지 않아요.")
+                        disclosureRow("AI 초안은 저장 전 직접 확인해 주세요.")
+                    }
+                }
+
+                Spacer()
+
+                VFPrimaryButton(title: "초안 만들기", systemImage: "sparkles") {
+                    onConfirm()
+                }
+                VFSecondaryButton(title: "취소", systemImage: "xmark") {
+                    dismiss()
+                }
+            }
+            .padding(VFSpacing.lg)
+            .navigationTitle("AI 초안")
+            .navigationBarTitleDisplayMode(.inline)
+            .vfScreenBackground()
+        }
+    }
+
+    private func disclosureRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: VFSpacing.sm) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(VFColor.victoryOrange)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(VFColor.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 struct AIDiaryDraftSheet: View {
     @Environment(\.dismiss) private var dismiss
     let draft: DiaryDraftDTO
     let onApply: () -> Void
     let onRegenerate: () -> Void
+    let onUseTemplate: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -1580,13 +1786,13 @@ struct AIDiaryDraftSheet: View {
 
                     VFCard {
                         VStack(alignment: .leading, spacing: VFSpacing.md) {
-                            Text("AI 초안")
-                                .font(VFTypography.cardTitle)
-                                .foregroundStyle(VFColor.primaryText)
-                            Text(draft.draftText)
-                                .font(VFTypography.body)
-                                .foregroundStyle(VFColor.primaryText)
-                                .fixedSize(horizontal: false, vertical: true)
+                            if let summary = draft.summaryText, !summary.isEmpty {
+                                labeledText(title: "요약", text: summary)
+                            }
+                            labeledText(title: draft.model == "local-template" || draft.model == "template" ? "기본 문장" : "AI 초안", text: draft.draftText)
+                            if let shareText = draft.shareText, !shareText.isEmpty {
+                                labeledText(title: "공유 문구", text: shareText)
+                            }
                             if !draft.hashtags.isEmpty {
                                 FlowLayout(spacing: VFSpacing.xs) {
                                     ForEach(draft.hashtags, id: \.self) { hashtag in
@@ -1608,6 +1814,9 @@ struct AIDiaryDraftSheet: View {
                     VFSecondaryButton(title: "다시 만들기", systemImage: "arrow.clockwise") {
                         onRegenerate()
                     }
+                    VFSecondaryButton(title: "기본 문장으로 채우기", systemImage: "text.badge.plus") {
+                        onUseTemplate()
+                    }
                     VFSecondaryButton(title: "취소", systemImage: "xmark") {
                         dismiss()
                     }
@@ -1617,6 +1826,18 @@ struct AIDiaryDraftSheet: View {
             .navigationTitle("AI 후기 초안")
             .navigationBarTitleDisplayMode(.inline)
             .vfScreenBackground()
+        }
+    }
+
+    private func labeledText(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: VFSpacing.xs) {
+            Text(title)
+                .font(VFTypography.cardTitle)
+                .foregroundStyle(VFColor.primaryText)
+            Text(text)
+                .font(VFTypography.body)
+                .foregroundStyle(VFColor.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

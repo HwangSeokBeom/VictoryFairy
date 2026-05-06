@@ -49,11 +49,14 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var lastSaveMessage: String?
     @Published private(set) var selectedFeedResultFilter: FeedResultFilter = .all
     @Published private(set) var selectedCalendarMonth: Date = Date.vfDate(year: 2026, month: 4, day: 1)
+    @Published private(set) var selectedSeason: Int
+    @Published private(set) var availableSeasons: [SeasonOption]
 
     private let preferences: UserPreferencesStore
     private let apiClient: APIClient
     private let teamRepository: TeamRepository
     private let preferencesRepository: PreferencesRepository
+    private let seasonRepository: SeasonRepository
     private let attendanceLogRepository: AttendanceLogRepository
     private let feedRepository: FeedRepository
     private let calendarRepository: CalendarRepository
@@ -64,7 +67,13 @@ final class AppDataStore: ObservableObject {
     private let photoAnalysisRepository: PhotoAnalysisRepository
     private let localAttendanceLogRepository: LocalAttendanceLogRepository?
     private var didLoadInitialData = false
-    private let activeSeason = 2026
+    private var isInitialLoadInFlight = false
+    private var feedRefreshKeyInFlight: String?
+    private var statisticsRefreshSeasonInFlight: Int?
+    private var lastFallbackLogKey: String?
+    private var remoteSelectedSeasonSupported = false
+
+    private var activeSeason: Int { selectedSeason }
 
     init(
         preferences: UserPreferencesStore,
@@ -74,6 +83,7 @@ final class AppDataStore: ObservableObject {
         self.apiClient = apiClient
         teamRepository = RemoteTeamRepository(apiClient: apiClient)
         preferencesRepository = RemotePreferencesRepository(apiClient: apiClient)
+        seasonRepository = RemoteSeasonRepository(apiClient: apiClient)
         attendanceLogRepository = RemoteAttendanceLogRepository(apiClient: apiClient)
         feedRepository = RemoteFeedRepository(apiClient: apiClient)
         calendarRepository = RemoteCalendarRepository(apiClient: apiClient)
@@ -83,14 +93,20 @@ final class AppDataStore: ObservableObject {
         diaryDraftRepository = RemoteDiaryDraftRepository(apiClient: apiClient)
         photoAnalysisRepository = RemotePhotoAnalysisRepository(apiClient: apiClient)
         localAttendanceLogRepository = SwiftDataContainer.makeAttendanceLogRepository()
+        selectedSeason = preferences.selectedSeason
+        availableSeasons = [SeasonOption(season: preferences.selectedSeason, hasRecords: true)]
         teams = KBOSeed.teams
         feedLogs = []
         calendarLogs = []
-        statistics = StatisticsService().summary(logs: [], season: 2026)
+        statistics = StatisticsService().summary(logs: [], season: preferences.selectedSeason)
+        selectedCalendarMonth = Self.monthStart(year: preferences.selectedSeason, matching: selectedCalendarMonth)
     }
 
     func loadInitialDataIfNeeded() async {
         guard !didLoadInitialData else { return }
+        guard !isInitialLoadInFlight else { return }
+        isInitialLoadInFlight = true
+        defer { isInitialLoadInFlight = false }
         didLoadInitialData = true
         await refreshAll()
     }
@@ -98,6 +114,7 @@ final class AppDataStore: ObservableObject {
     func refreshAll() async {
         serverStatus = .checking
         await syncPreferencesFromServer()
+        await refreshSeasons()
         await refreshTeams()
         await refreshContent()
     }
@@ -109,8 +126,26 @@ final class AppDataStore: ObservableObject {
     }
 
     func selectFeedResultFilter(_ filter: FeedResultFilter) async {
+        guard filter != selectedFeedResultFilter else { return }
         selectedFeedResultFilter = filter
         await refreshFeed()
+    }
+
+    var selectedSeasonLabel: String {
+        availableSeasons.first { $0.season == selectedSeason }?.label ?? "\(selectedSeason) 시즌"
+    }
+
+    func selectSeason(_ season: Int) async {
+        guard season != selectedSeason else { return }
+        selectedSeason = season
+        preferences.selectedSeason = season
+        selectedCalendarMonth = Self.monthStart(year: season, matching: selectedCalendarMonth)
+        statistics = StatisticsService().summary(logs: [], season: season)
+        availableSeasons = normalizedSeasonOptions(availableSeasons + [SeasonOption(season: season, hasRecords: false)])
+        if remoteSelectedSeasonSupported {
+            await syncPreferencesToServer()
+        }
+        await refreshContent()
     }
 
     func moveCalendarMonth(by value: Int) async {
@@ -301,6 +336,19 @@ final class AppDataStore: ObservableObject {
         }
     }
 
+    func createTemplateDraft(request: TemplateDraftRequest) async throws -> TemplateDraftResponse {
+        do {
+            let draft = try await diaryDraftRepository.createTemplateDraft(request)
+            serverStatus = .connected
+            logAPIFallback(endpoint: "POST /api/v1/diary/template-draft", fallback: "none", error: nil)
+            return draft
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
+            logAPIFallback(endpoint: "POST /api/v1/diary/template-draft", fallback: "local-template", error: error)
+            throw error
+        }
+    }
+
     func fetchKBOGameCandidates(date: Date, favoriteTeamID: String) async throws -> KBOGameCandidatesDTO {
         let apiDate = DateFormatter.vfAPIDate.string(from: date)
         let normalizedTeamID = KBOSeed.normalizedTeamID(favoriteTeamID) ?? favoriteTeamID
@@ -343,7 +391,12 @@ final class AppDataStore: ObservableObject {
     private func syncPreferencesFromServer() async {
         do {
             let remote = try await preferencesRepository.fetchPreferences()
+            remoteSelectedSeasonSupported = remote.selectedSeason != nil
             preferences.applyRemote(remote)
+            if let selectedSeason = remote.selectedSeason {
+                self.selectedSeason = selectedSeason
+                self.selectedCalendarMonth = Self.monthStart(year: selectedSeason, matching: selectedCalendarMonth)
+            }
             serverStatus = .connected
         } catch {
             serverStatus = .localMode(error.localizedDescription)
@@ -352,10 +405,29 @@ final class AppDataStore: ObservableObject {
 
     private func syncPreferencesToServer() async {
         do {
-            _ = try await preferencesRepository.updatePreferences(preferences.updateRequest)
+            _ = try await preferencesRepository.updatePreferences(preferences.updateRequest(selectedSeason: remoteSelectedSeasonSupported ? selectedSeason : nil))
             serverStatus = .connected
         } catch {
             serverStatus = .localMode(error.localizedDescription)
+        }
+    }
+
+    private func refreshSeasons() async {
+        do {
+            let response = try await seasonRepository.fetchSeasons()
+            let remoteOptions = response.items.map {
+                SeasonOption(season: $0.season, label: $0.label, hasRecords: $0.hasRecords ?? false)
+            }
+            availableSeasons = normalizedSeasonOptions(remoteOptions + [SeasonOption(season: selectedSeason, hasRecords: true)])
+            if let currentSeason = response.currentSeason, !availableSeasons.contains(where: { $0.season == selectedSeason }) {
+                selectedSeason = currentSeason
+                preferences.selectedSeason = currentSeason
+                selectedCalendarMonth = Self.monthStart(year: currentSeason, matching: selectedCalendarMonth)
+            }
+            serverStatus = .connected
+        } catch {
+            availableSeasons = await localSeasonOptions()
+            logAPIFallback(endpoint: "GET /api/v1/seasons", fallback: "local", error: error)
         }
     }
 
@@ -371,17 +443,24 @@ final class AppDataStore: ObservableObject {
     }
 
     private func refreshFeed() async {
-        feedState = .loading
+        let season = activeSeason
         let result = selectedFeedResultFilter.result
+        let requestKey = "\(season)|\(result?.serverValue ?? "all")"
+        guard feedRefreshKeyInFlight != requestKey else { return }
+        feedRefreshKeyInFlight = requestKey
+        defer { feedRefreshKeyInFlight = nil }
+        feedState = .loading
         do {
-            let remoteLogs = try await feedRepository.fetchFeed(season: activeSeason, result: result)
-            let localLogs = (try? await localAttendanceLogRepository?.fetchFeed(season: activeSeason, result: result)) ?? []
+            let remoteLogs = try await feedRepository.fetchFeed(season: season, result: result)
+            guard requestKey == "\(activeSeason)|\(selectedFeedResultFilter.result?.serverValue ?? "all")" else { return }
+            let localLogs = (try? await localAttendanceLogRepository?.fetchFeed(season: season, result: result)) ?? []
             let logs = merge(remoteLogs: remoteLogs, localLogs: localLogs)
             feedLogs = logs
             feedState = logs.isEmpty ? .empty : .loaded
             serverStatus = .connected
         } catch {
-            let localLogs = (try? await localAttendanceLogRepository?.fetchFeed(season: activeSeason, result: result)) ?? []
+            guard requestKey == "\(activeSeason)|\(selectedFeedResultFilter.result?.serverValue ?? "all")" else { return }
+            let localLogs = (try? await localAttendanceLogRepository?.fetchFeed(season: season, result: result)) ?? []
             feedLogs = localLogs
             feedState = fallbackState(
                 error: error,
@@ -389,7 +468,7 @@ final class AppDataStore: ObservableObject {
                 localMessage: "서버 피드를 불러오지 못해 기기 저장 기록을 보여줘요."
             )
             serverStatus = .localMode(error.localizedDescription)
-            logAPIFallback(endpoint: result.map { "GET /api/v1/feed?result=\($0.serverValue)" } ?? "GET /api/v1/feed", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
+            logAPIFallback(endpoint: feedEndpointDescription(season: season, result: result), fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
         }
     }
 
@@ -418,16 +497,22 @@ final class AppDataStore: ObservableObject {
     }
 
     private func refreshStatistics() async {
+        let season = activeSeason
+        guard statisticsRefreshSeasonInFlight != season else { return }
+        statisticsRefreshSeasonInFlight = season
+        defer { statisticsRefreshSeasonInFlight = nil }
         statisticsState = .loading
         do {
-            let remoteStatistics = try await statisticsRepository.fetchStatistics(season: activeSeason)
-            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: activeSeason)) ?? []
+            let remoteStatistics = try await statisticsRepository.fetchStatistics(season: season)
+            guard season == activeSeason else { return }
+            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: season)) ?? []
             let mergedLogs = merge(remoteLogs: feedLogs, localLogs: localLogs)
-            statistics = mergedLogs.isEmpty ? remoteStatistics : StatisticsMapper.viewState(logs: mergedLogs, season: activeSeason)
+            statistics = mergedLogs.isEmpty ? remoteStatistics : StatisticsMapper.viewState(logs: mergedLogs, season: season)
             serverStatus = .connected
         } catch {
-            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: activeSeason)) ?? []
-            statistics = StatisticsMapper.viewState(logs: localLogs, season: activeSeason)
+            guard season == activeSeason else { return }
+            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: season)) ?? []
+            statistics = StatisticsMapper.viewState(logs: localLogs, season: season)
             serverStatus = .localMode(error.localizedDescription)
             logAPIFallback(endpoint: "GET /api/v1/statistics/*", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
         }
@@ -436,13 +521,16 @@ final class AppDataStore: ObservableObject {
     }
 
     private func refreshKBOStandings() async {
+        let season = activeSeason
         do {
-            let standings = try await kboStandingsRepository.fetchStandings(season: activeSeason)
+            let standings = try await kboStandingsRepository.fetchStandings(season: season)
+            guard season == activeSeason else { return }
             statistics = StatisticsMapper.applyingKBOStandings(standings, to: statistics)
             serverStatus = .connected
-            logAPIFallback(endpoint: "GET /api/v1/kbo/standings", fallback: "none", error: nil)
+            logAPIFallback(endpoint: "GET /api/v1/kbo/standings?season=\(season)", fallback: "none", error: nil)
         } catch {
-            logAPIFallback(endpoint: "GET /api/v1/kbo/standings", fallback: "placeholder", error: error)
+            guard season == activeSeason else { return }
+            logAPIFallback(endpoint: "GET /api/v1/kbo/standings?season=\(season)", fallback: "placeholder", error: error)
         }
     }
 
@@ -500,6 +588,42 @@ final class AppDataStore: ObservableObject {
         ].joined(separator: "|")
     }
 
+    private func localSeasonOptions() async -> [SeasonOption] {
+        let currentYear = Calendar.current.component(.year, from: .now)
+        let localSeasons = (try? await localAttendanceLogRepository?.fetchAvailableSeasons()) ?? []
+        let sampleSeasons = AttendanceLogSample.logs.map { Calendar.current.component(.year, from: $0.date) }
+        let seasons = Set([selectedSeason, currentYear] + localSeasons + sampleSeasons)
+        return normalizedSeasonOptions(seasons.map { SeasonOption(season: $0, hasRecords: localSeasons.contains($0) || sampleSeasons.contains($0)) })
+    }
+
+    private func normalizedSeasonOptions(_ options: [SeasonOption]) -> [SeasonOption] {
+        var bestBySeason: [Int: SeasonOption] = [:]
+        for option in options {
+            if let existing = bestBySeason[option.season] {
+                bestBySeason[option.season] = SeasonOption(
+                    season: option.season,
+                    label: option.label.isEmpty ? existing.label : option.label,
+                    hasRecords: existing.hasRecords || option.hasRecords
+                )
+            } else {
+                bestBySeason[option.season] = option
+            }
+        }
+        return bestBySeason.values.sorted { $0.season > $1.season }
+    }
+
+    private func feedEndpointDescription(season: Int, result: GameResult?) -> String {
+        if let result {
+            return "GET /api/v1/feed?season=\(season)&result=\(result.serverValue)"
+        }
+        return "GET /api/v1/feed?season=\(season)"
+    }
+
+    private static func monthStart(year: Int, matching date: Date) -> Date {
+        let month = Calendar.current.component(.month, from: date)
+        return Date.vfDate(year: year, month: month, day: 1)
+    }
+
     private func fallbackState(error: Error, localIsEmpty: Bool, localMessage: String) -> RemoteDataState {
         if let apiError = error as? APIError, apiError == .notModifiedWithoutCache {
             return localIsEmpty
@@ -513,13 +637,20 @@ final class AppDataStore: ObservableObject {
 
     private func logAPIFallback(endpoint: String, fallback: String, error: Error?) {
         #if DEBUG
+        let reason: String
         if let apiError = error as? APIError {
-            print("[API] \(endpoint) failed reason=\(apiError.debugReason) fallback=\(fallback)")
+            reason = apiError.debugReason
         } else if let error {
-            print("[API] \(endpoint) failed reason=\(error.localizedDescription) fallback=\(fallback)")
+            reason = error.localizedDescription
         } else {
+            lastFallbackLogKey = nil
             print("[API] \(endpoint) fallback=\(fallback)")
+            return
         }
+        let logKey = "\(endpoint)|\(fallback)|\(reason)"
+        guard logKey != lastFallbackLogKey else { return }
+        lastFallbackLogKey = logKey
+        print("[API] \(endpoint) failed reason=\(reason) fallback=\(fallback)")
         #endif
     }
 
@@ -538,12 +669,13 @@ final class AppDataStore: ObservableObject {
 }
 
 private extension UserPreferencesStore {
-    var updateRequest: UpdatePreferencesRequest {
+    func updateRequest(selectedSeason: Int?) -> UpdatePreferencesRequest {
         UpdatePreferencesRequest(
             hasCompletedOnboarding: hasCompletedOnboarding,
             favoriteTeamID: KBOSeed.normalizedTeamID(favoriteTeamID),
             teamThemeEnabled: teamThemeEnabled,
-            displayName: userDisplayName
+            displayName: userDisplayName,
+            selectedSeason: selectedSeason
         )
     }
 
@@ -559,6 +691,9 @@ private extension UserPreferencesStore {
         }
         if let displayName = preferences.displayName {
             self.userDisplayName = displayName
+        }
+        if let selectedSeason = preferences.selectedSeason {
+            self.selectedSeason = selectedSeason
         }
     }
 }

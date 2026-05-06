@@ -9,6 +9,10 @@ protocol PreferencesRepository {
     func updatePreferences(_ request: UpdatePreferencesRequest) async throws -> PreferencesDTO
 }
 
+protocol SeasonRepository {
+    func fetchSeasons() async throws -> SeasonsDTO
+}
+
 protocol AttendanceLogRepository {
     func fetchAttendanceLogs(season: Int) async throws -> [AttendanceLogViewState]
     func createAttendanceLog(_ request: CreateAttendanceLogRequest) async throws -> AttendanceLogViewState
@@ -38,6 +42,7 @@ protocol KBOGameRepository {
 
 protocol DiaryDraftRepository {
     func createDiaryDraft(_ request: DiaryDraftRequest) async throws -> DiaryDraftDTO
+    func createTemplateDraft(_ request: TemplateDraftRequest) async throws -> TemplateDraftResponse
 }
 
 protocol TicketParserRepository {
@@ -66,6 +71,14 @@ struct RemotePreferencesRepository: PreferencesRepository {
 
     func updatePreferences(_ request: UpdatePreferencesRequest) async throws -> PreferencesDTO {
         try await apiClient.put("/api/v1/me/preferences", body: request)
+    }
+}
+
+struct RemoteSeasonRepository: SeasonRepository {
+    let apiClient: APIClient
+
+    func fetchSeasons() async throws -> SeasonsDTO {
+        try await apiClient.get("/api/v1/seasons")
     }
 }
 
@@ -183,6 +196,10 @@ struct RemoteDiaryDraftRepository: DiaryDraftRepository {
 
     func createDiaryDraft(_ request: DiaryDraftRequest) async throws -> DiaryDraftDTO {
         try await apiClient.post("/api/v1/ai/diary-draft", body: request)
+    }
+
+    func createTemplateDraft(_ request: TemplateDraftRequest) async throws -> TemplateDraftResponse {
+        try await apiClient.post("/api/v1/diary/template-draft", body: request)
     }
 }
 

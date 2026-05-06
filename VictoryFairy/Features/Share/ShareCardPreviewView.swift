@@ -19,6 +19,7 @@ struct ShareCardPreviewView: View {
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationTitle("공유 카드")
         .navigationBarTitleDisplayMode(.inline)

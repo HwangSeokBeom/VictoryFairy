@@ -6,19 +6,32 @@ struct TicketFieldSuggestion: Hashable {
     var opponentTeamName: String?
     var stadiumName: String?
     var seatText: String?
+    var confidence: Double? = nil
+    var warnings: [String] = []
+    var teamCandidates: [String] = []
     var rawText: String
 
     var hasAnyField: Bool {
         gameDate != nil || favoriteTeamName != nil || opponentTeamName != nil || stadiumName != nil || seatText != nil
     }
 
+    var isLowConfidence: Bool {
+        confidence.map { $0 < 0.58 } ?? false
+    }
+
     func merged(with remote: TicketParseOCRTextDTO) -> TicketFieldSuggestion {
-        TicketFieldSuggestion(
+        let remoteTeams = remote.teamCandidates.compactMap { candidate in
+            normalizedTeamName(candidate.teamName ?? candidate.teamID)
+        }
+        return TicketFieldSuggestion(
             gameDate: remote.gameDate.map(Date.vfParseServerDate) ?? gameDate,
             favoriteTeamName: normalizedTeamName(remote.favoriteTeamName) ?? favoriteTeamName,
             opponentTeamName: normalizedTeamName(remote.opponentTeamName) ?? opponentTeamName,
             stadiumName: remote.stadiumName ?? stadiumName,
             seatText: remote.seatText ?? seatText,
+            confidence: remote.confidence ?? confidence,
+            warnings: warnings + remote.warnings.map(\.message),
+            teamCandidates: Array(NSOrderedSet(array: teamCandidates + remoteTeams)) as? [String] ?? teamCandidates + remoteTeams,
             rawText: rawText
         )
     }
@@ -47,6 +60,9 @@ struct TicketTextParser {
             opponentTeamName: opponent,
             stadiumName: detectedStadium(in: normalized),
             seatText: detectedSeat(in: normalized),
+            confidence: nil,
+            warnings: [],
+            teamCandidates: teams,
             rawText: normalized
         )
     }

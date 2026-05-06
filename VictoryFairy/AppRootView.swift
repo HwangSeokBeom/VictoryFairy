@@ -27,104 +27,92 @@ struct MainTabView: View {
     @State private var selectedTab: MainTab = .home
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        ZStack(alignment: .bottom) {
+            selectedContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            FloatingTabBar(selectedTab: $selectedTab)
+                .padding(.horizontal, VFSpacing.md)
+                .padding(.bottom, VFTabBarMetrics.customTabBarBottomInset)
+        }
+        .animation(.snappy(duration: 0.22), value: selectedTab)
+    }
+
+    @ViewBuilder
+    private var selectedContent: some View {
+        switch selectedTab {
+        case .home:
             NavigationStack {
                 HomeView(viewModel: HomeViewModel(dashboard: .sample(logs: appData.feedLogs)))
             }
-            .tag(MainTab.home)
-            .tabItem {
-                tabLabel(for: .home)
-            }
-
+        case .feed:
             NavigationStack {
                 FeedView(viewModel: FeedViewModel(logs: appData.feedLogs, selectedResultFilter: appData.selectedFeedResultFilter, dataState: appData.feedState))
             }
-            .tag(MainTab.feed)
-            .tabItem {
-                tabLabel(for: .feed)
-            }
-
+        case .calendar:
             NavigationStack {
                 AttendanceCalendarView(logs: appData.calendarLogs, dataState: appData.calendarState, month: appData.selectedCalendarMonth)
             }
-            .tag(MainTab.calendar)
-            .tabItem {
-                tabLabel(for: .calendar)
-            }
-
+        case .statistics:
             NavigationStack {
                 StatisticsView(viewModel: StatisticsViewModel(state: appData.statistics, dataState: appData.statisticsState))
             }
-            .tag(MainTab.statistics)
-            .tabItem {
-                tabLabel(for: .statistics)
-            }
         }
-        .tint(Self.selectedTabColor)
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarBackground(Color.white.opacity(0.88), for: .tabBar)
-        .onAppear {
-            configureTabBarAppearance()
-        }
-    }
-
-    private static let selectedTabColor = Color(hex: "#FF6B1A")
-
-    private func tabLabel(for tab: MainTab) -> some View {
-        Label(tab.title, systemImage: tab.systemImage)
-            .accessibilityLabel(selectedTab == tab ? "\(tab.title), 선택됨" : tab.title)
-    }
-
-    private func configureTabBarAppearance() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        appearance.backgroundColor = UIColor(Color.white.opacity(0.88))
-        appearance.shadowColor = UIColor(Color.black.opacity(0.04))
-        appearance.selectionIndicatorImage = Self.selectionIndicatorImage()
-
-        let inactiveColor = UIColor(Color(hex: "#111827"))
-        let selectedColor = UIColor(Self.selectedTabColor)
-        let normalFont = UIFont.systemFont(ofSize: 11, weight: .medium)
-        let selectedFont = UIFont.systemFont(ofSize: 11, weight: .bold)
-
-        [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance].forEach { itemAppearance in
-            itemAppearance.normal.iconColor = inactiveColor.withAlphaComponent(0.72)
-            itemAppearance.normal.titleTextAttributes = [
-                .foregroundColor: inactiveColor.withAlphaComponent(0.72),
-                .font: normalFont
-            ]
-            itemAppearance.selected.iconColor = selectedColor
-            itemAppearance.selected.titleTextAttributes = [
-                .foregroundColor: selectedColor,
-                .font: selectedFont
-            ]
-        }
-
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
-    }
-
-    private static func selectionIndicatorImage() -> UIImage {
-        let size = CGSize(width: 78, height: 42)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { context in
-            UIColor(Color(hex: "#FFF0E7")).setFill()
-            UIBezierPath(
-                roundedRect: CGRect(x: 4, y: 3, width: size.width - 8, height: size.height - 6),
-                cornerRadius: 20
-            ).fill()
-            UIColor(Color(hex: "#FFB082")).setStroke()
-            context.cgContext.setLineWidth(1)
-            UIBezierPath(
-                roundedRect: CGRect(x: 4.5, y: 3.5, width: size.width - 9, height: size.height - 7),
-                cornerRadius: 19.5
-            ).stroke()
-        }
-        .resizableImage(withCapInsets: UIEdgeInsets(top: 20, left: 36, bottom: 20, right: 36), resizingMode: .stretch)
     }
 }
 
-private enum MainTab: Hashable {
+private struct FloatingTabBar: View {
+    @Binding var selectedTab: MainTab
+
+    var body: some View {
+        HStack(spacing: VFSpacing.xs) {
+            ForEach(MainTab.allCases, id: \.self) { tab in
+                tabButton(for: tab)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, minHeight: VFTabBarMetrics.customTabBarHeight)
+        .background(VFColor.cardTranslucent)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(.white.opacity(0.9), lineWidth: 0.8)
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 24, y: 12)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func tabButton(for tab: MainTab) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            selectedTab = tab
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: tab.systemImage)
+                    .font(.system(size: 18, weight: isSelected ? .bold : .semibold))
+                Text(tab.title)
+                    .font(.system(size: 11, weight: isSelected ? .bold : .semibold, design: .rounded))
+            }
+            .foregroundStyle(isSelected ? VFColor.victoryOrange : VFColor.secondaryText)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(VFColor.victoryOrange.opacity(0.13))
+                        .overlay(Capsule().stroke(VFColor.victoryOrange.opacity(0.28), lineWidth: 1))
+                }
+            }
+            .scaleEffect(isSelected ? 1.03 : 1)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isSelected ? "\(tab.title), 선택됨" : tab.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private enum MainTab: Hashable, CaseIterable {
     case home
     case feed
     case calendar

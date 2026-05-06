@@ -35,7 +35,7 @@ struct HomeView: View {
                         footnote: viewModel.dashboard.fairyFootnote
                     )
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 148), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
                         ForEach(viewModel.dashboard.metrics) { metric in
                             MetricCard(metric: metric)
                         }
@@ -53,14 +53,13 @@ struct HomeView: View {
 
                     calendarPreview
 
-                    VFPrimaryButton(title: "직관 기록 추가", systemImage: "plus") {
-                        isShowingLogEditor = true
-                    }
+                    quickActionCard
 
                     diarySuggestion
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
@@ -87,9 +86,37 @@ struct HomeView: View {
 
     private var homeSubtitle: String {
         if let teamName = appData.team(id: preferences.favoriteTeamID)?.name {
-            return "\(teamName) 직관 기록으로 보는 이번 시즌"
+            return "\(teamName) 직관 기록으로 보는 이번 시즌 흐름"
         }
         return viewModel.dashboard.subtitle
+    }
+
+    private var quickActionCard: some View {
+        VFCard(background: VFColor.backgroundWarm) {
+            HStack(spacing: VFSpacing.md) {
+                VStack(alignment: .leading, spacing: VFSpacing.xs) {
+                    Text("오늘 다녀온 경기가 있나요?")
+                        .font(VFTypography.cardTitle)
+                        .foregroundStyle(VFColor.primaryText)
+                    Text("날짜와 팀만 골라도 경기 정보가 자동으로 채워져요.")
+                        .font(.subheadline)
+                        .foregroundStyle(VFColor.secondaryText)
+                }
+                Spacer()
+                Button {
+                    isShowingLogEditor = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 46, height: 46)
+                        .background(VFColor.victoryOrange)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("직관 기록 추가")
+            }
+        }
     }
 
     private var calendarPreview: some View {
@@ -142,7 +169,7 @@ struct HomeView: View {
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(VFTypography.section)
+            .font(.system(.headline, design: .rounded).weight(.bold))
             .foregroundStyle(VFColor.primaryText)
             .padding(.top, VFSpacing.xs)
     }

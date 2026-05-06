@@ -37,17 +37,21 @@ final class TicketOCRViewModel: ObservableObject {
         defer { isProcessing = false }
 
         do {
-            let rawText = try await service.recognizeText(from: data)
-            let localSuggestion = TicketTextParser(currentFavoriteTeamName: currentFavoriteTeamName).parse(rawText)
+            let recognition = try await service.recognizeText(from: data)
+            var localSuggestion = TicketTextParser(currentFavoriteTeamName: currentFavoriteTeamName).parse(recognition.text)
+            localSuggestion.confidence = recognition.averageConfidence
+            if localSuggestion.isLowConfidence {
+                localSuggestion.warnings.append("인식이 불확실해요.")
+            }
             suggestion = localSuggestion
             do {
-                let remoteSuggestion = try await parserRepository.parseOCRText(TicketParseOCRTextRequest(ocrText: rawText, locale: "ko-KR"))
+                let remoteSuggestion = try await parserRepository.parseOCRText(TicketParseOCRTextRequest(ocrText: recognition.text, locale: "ko-KR"))
                 suggestion = localSuggestion.merged(with: remoteSuggestion)
             } catch {
                 suggestion = localSuggestion
             }
             message = suggestion.hasAnyField
-                ? "인식한 내용이 정확한지 확인해 주세요."
+                ? "OCR 결과는 틀릴 수 있어요. 저장 전 꼭 확인해 주세요."
                 : "티켓 정보를 인식하지 못했어요. 직접 입력해 주세요."
         } catch {
             suggestion = TicketFieldSuggestion(rawText: "")

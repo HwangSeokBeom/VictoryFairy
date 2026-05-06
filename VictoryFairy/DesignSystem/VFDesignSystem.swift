@@ -4,18 +4,22 @@ import UIKit
 #endif
 
 enum VFColor {
-    static let background = Color(hex: "#F6F8FB")
+    static let background = Color(hex: "#F7F8FA")
+    static let backgroundWarm = Color(hex: "#F7F3EA")
     static let card = Color(hex: "#FFFFFF")
-    static let primaryText = Color(hex: "#0E1A2B")
-    static let secondaryText = Color(hex: "#5C667A")
-    static let scoreboardNavy = Color(hex: "#13233F")
+    static let cardTranslucent = Color.white.opacity(0.86)
+    static let primaryText = Color(hex: "#111827")
+    static let secondaryText = Color(hex: "#6B7280")
+    static let tertiaryText = Color(hex: "#9CA3AF")
+    static let scoreboardNavy = Color(hex: "#101A2E")
+    static let victoryOrange = Color(hex: "#FF6B1A")
     static let grassGreen = Color(hex: "#2E9B63")
     static let winGreen = Color(hex: "#1F9D55")
-    static let lossRed = Color(hex: "#D64545")
-    static let drawGray = Color(hex: "#7A8599")
-    static let canceledGray = Color(hex: "#9AA3B2")
-    static let mutedLine = Color(hex: "#DCE2EC")
-    static let offWhite = Color(hex: "#F5F2EA")
+    static let lossRed = Color(hex: "#E5484D")
+    static let drawGray = Color(hex: "#8B95A1")
+    static let canceledGray = Color(hex: "#A3AAB5")
+    static let mutedLine = Color(hex: "#E5E7EB")
+    static let offWhite = Color(hex: "#F7F3EA")
 }
 
 enum VFSpacing {
@@ -28,25 +32,33 @@ enum VFSpacing {
     static let xxl: CGFloat = 32
 }
 
+enum VFTabBarMetrics {
+    static let customTabBarHeight: CGFloat = 64
+    static let customTabBarBottomInset: CGFloat = 2
+    static let extraBreathingRoom: CGFloat = 28
+    static let tabContentBottomPadding = customTabBarHeight + customTabBarBottomInset + extraBreathingRoom
+}
+
 enum VFRadius {
     static let sm: CGFloat = 10
-    static let md: CGFloat = 16
+    static let md: CGFloat = 18
     static let lg: CGFloat = 22
+    static let xl: CGFloat = 26
     static let pill: CGFloat = 999
 }
 
 enum VFTypography {
-    static let title = Font.system(.largeTitle, design: .rounded).weight(.bold)
-    static let section = Font.system(.title3, design: .rounded).weight(.bold)
+    static let title = Font.system(size: 27, weight: .bold, design: .rounded)
+    static let section = Font.system(size: 20, weight: .bold, design: .rounded)
     static let cardTitle = Font.system(.headline, design: .rounded).weight(.semibold)
     static let body = Font.system(.body, design: .default)
     static let caption = Font.system(.caption, design: .default).weight(.medium)
-    static let number = Font.system(.largeTitle, design: .rounded).weight(.heavy)
+    static let number = Font.system(size: 34, weight: .heavy, design: .rounded)
 }
 
 struct VFShadow {
-    static let cardColor = Color.black.opacity(0.06)
-    static let cardRadius: CGFloat = 18
+    static let cardColor = Color.black.opacity(0.055)
+    static let cardRadius: CGFloat = 16
 }
 
 extension Color {
@@ -95,10 +107,16 @@ extension Color {
 
 struct VFCard<Content: View>: View {
     let padding: CGFloat
+    var background: Color
     @ViewBuilder var content: Content
 
-    init(padding: CGFloat = VFSpacing.md, @ViewBuilder content: () -> Content) {
+    init(
+        padding: CGFloat = VFSpacing.md,
+        background: Color = VFColor.card,
+        @ViewBuilder content: () -> Content
+    ) {
         self.padding = padding
+        self.background = background
         self.content = content()
     }
 
@@ -106,11 +124,12 @@ struct VFCard<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VFColor.card)
+            .background(background.opacity(0.96))
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous)
-                    .stroke(VFColor.mutedLine.opacity(0.75), lineWidth: 1)
+                    .stroke(.white.opacity(0.9), lineWidth: 0.7)
             )
             .shadow(color: VFShadow.cardColor, radius: VFShadow.cardRadius, y: 8)
     }
@@ -130,8 +149,15 @@ struct VFPrimaryButton: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(theme.textOnPrimary)
-        .background(theme.primary)
+        .background(
+            LinearGradient(
+                colors: [VFColor.victoryOrange, theme.primary.opacity(0.92)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+        .shadow(color: VFColor.victoryOrange.opacity(0.18), radius: 10, y: 5)
         .accessibilityLabel(title)
     }
 }
@@ -149,8 +175,12 @@ struct VFSecondaryButton: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(VFColor.primaryText)
-        .background(VFColor.offWhite)
+        .background(VFColor.backgroundWarm)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
+                .stroke(VFColor.mutedLine.opacity(0.9), lineWidth: 1)
+        )
         .accessibilityLabel(title)
     }
 }
@@ -163,26 +193,38 @@ struct VFChip: View {
 
     var body: some View {
         let selectedTint = tint ?? theme.primary
+        let selectedTextColor = selectedTint.vfIsLight ? VFColor.primaryText : selectedTint
         Text(title)
             .font(.system(.subheadline, design: .rounded).weight(.semibold))
-            .foregroundStyle(isSelected ? selectedTint.vfReadableForegroundColor : VFColor.primaryText)
+            .foregroundStyle(isSelected ? selectedTextColor : VFColor.primaryText)
             .padding(.horizontal, VFSpacing.md)
             .frame(minHeight: 36)
-            .background(isSelected ? selectedTint : VFColor.card)
+            .background(isSelected ? selectedTint.opacity(0.14) : VFColor.card.opacity(0.94))
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(isSelected ? selectedTint : VFColor.mutedLine, lineWidth: 1))
+            .overlay(Capsule().stroke(isSelected ? selectedTint.opacity(0.5) : VFColor.mutedLine.opacity(0.95), lineWidth: 1))
     }
 }
 
 struct VFScreenBackground: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(VFColor.background.ignoresSafeArea())
+            .background {
+                LinearGradient(
+                    colors: [VFColor.backgroundWarm.opacity(0.9), VFColor.background, Color.white.opacity(0.7)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+            }
     }
 }
 
 extension View {
     func vfScreenBackground() -> some View {
         modifier(VFScreenBackground())
+    }
+
+    func vfTabContentPadding() -> some View {
+        padding(.bottom, VFTabBarMetrics.tabContentBottomPadding)
     }
 }

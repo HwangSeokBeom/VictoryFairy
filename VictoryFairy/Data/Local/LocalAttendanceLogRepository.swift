@@ -63,6 +63,13 @@ struct LocalAttendanceLogRepository: AttendanceLogRepository, FeedRepository, Ca
         try context.save()
     }
 
+    func fetchAvailableSeasons() async throws -> [Int] {
+        let context = ModelContext(container)
+        let descriptor = FetchDescriptor<SwiftDataAttendanceLogEntity>()
+        let seasons = try context.fetch(descriptor).map(\.season)
+        return Array(Set(seasons)).sorted(by: >)
+    }
+
     func fetchFeed(season: Int, result: GameResult? = nil) async throws -> [AttendanceLogViewState] {
         let logs = try await fetchAttendanceLogs(season: season)
         guard let result else { return logs }

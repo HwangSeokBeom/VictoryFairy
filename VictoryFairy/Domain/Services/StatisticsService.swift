@@ -32,6 +32,7 @@ struct StatisticsService {
             opponentRankings: ranking(logs: logs, key: \.matchup, unit: "회 상대"),
             kboStandings: [],
             kboSourceText: nil,
+            kboDisclosureText: nil,
             kboUpdatedText: "최근 갱신: 갱신일 정보 없음",
             kboSource: .unknown
         )
@@ -100,31 +101,19 @@ struct DiaryTemplateGenerator {
         shortMemo: String,
         tone: String = "담백하게"
     ) -> String {
-        let matchup = "\(favoriteTeamName) vs \(opponentTeamName)"
         let scoreText = {
             guard let favoriteTeamScore, let opponentTeamScore else { return result.title }
-            return "\(favoriteTeamScore):\(opponentTeamScore)"
+            return "\(favoriteTeamScore):\(opponentTeamScore) \(result.diaryTitle)"
         }()
-        let mood = moodTags.first ?? "경기장"
-        let highlight = highlightTags.first ?? "응원 분위기"
-        let companionText = companionType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : "\(companionType)와 "
-        let seatSentence = seatText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : " \(seatText)에서 바라본 장면도 선명했다."
-        let memoSentence = shortMemo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : " \(shortMemo)"
 
         if result == .canceled {
-            return "오늘은 \(stadium)에서 \(matchup) 경기를 기다렸지만 경기가 취소됐다.\(seatSentence)\(memoSentence) 다음 직관을 다시 기대해 본다."
+            return "경기는 취소됐지만, 야구장에 도착했던 순간과 함께한 시간은 기록으로 남겨두고 싶다."
         }
 
-        let resultText = "\(scoreText) \(result.diaryTitle)"
-        switch tone {
-        case "유쾌하게":
-            return "\(companionText)\(stadium)에서 \(matchup) 직관 완료. 결과는 \(resultText). 오늘의 키워드는 \(mood), \(highlight).\(seatSentence)\(memoSentence)"
-        case "SNS 캡션처럼":
-            return "\(stadium) \(matchup) 직관. \(resultText)로 마무리된 \(mood) 가득했던 하루. #\(highlight)"
-        case "감성적으로":
-            return "오늘은 \(companionText)\(stadium)에서 \(matchup) 경기를 직관했다. 결과는 \(resultText)였고, \(mood)한 마음과 \(highlight)의 장면이 오래 남을 것 같다.\(seatSentence)\(memoSentence)"
-        default:
-            return "오늘은 \(companionText)\(stadium)에서 \(matchup) 경기를 직관했다. 결과는 \(resultText)였고, 경기장의 \(mood)한 분위기와 \(highlight)이 기억에 남았다.\(seatSentence)\(memoSentence)"
+        if result == .win {
+            return "오늘은 \(stadium)에서 \(favoriteTeamName)와 \(opponentTeamName)의 경기를 직관했다. 결과는 \(scoreText), 기분 좋게 마무리한 직관이었다."
         }
+
+        return "오늘은 \(stadium)에서 \(favoriteTeamName)와 \(opponentTeamName)의 경기를 직관했다. 결과는 \(scoreText)였지만, 경기장의 분위기와 응원은 오래 기억에 남았다."
     }
 }

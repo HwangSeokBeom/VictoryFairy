@@ -14,11 +14,12 @@ struct FeedView: View {
     @EnvironmentObject private var appData: AppDataStore
     let viewModel: FeedViewModel
     @State private var isShowingLogEditor = false
+    @State private var isShowingSeasonPicker = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "직관 피드") {
+                ScreenHeaderView(title: "직관 피드", subtitle: "내가 직접 본 경기만 모아봤어요") {
                     HeaderIconButton(systemImage: "plus", accessibilityLabel: "직관 기록 추가") {
                         isShowingLogEditor = true
                     }
@@ -26,7 +27,12 @@ struct FeedView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: VFSpacing.sm) {
-                        VFChip(title: "2026 시즌", isSelected: true)
+                        Button {
+                            isShowingSeasonPicker = true
+                        } label: {
+                            VFChip(title: appData.selectedSeasonLabel, isSelected: true, tint: theme.primary)
+                        }
+                        .buttonStyle(.plain)
                         ForEach(FeedResultFilter.allCases) { filter in
                             Button {
                                 Task {
@@ -48,8 +54,8 @@ struct FeedView: View {
 
                 if viewModel.logs.isEmpty {
                     EmptyStateView(
-                        title: viewModel.selectedResultFilter == .all ? "아직 피드에 남긴 직관이 없어요." : "해당 결과의 직관 기록이 없어요.",
-                        message: viewModel.selectedResultFilter == .all ? "첫 직관을 피드에 남겨보세요." : "다른 결과를 선택하거나 새 직관 기록을 남겨보세요.",
+                        title: viewModel.selectedResultFilter == .all ? "첫 직관을 기록하고 나만의 시즌을 시작해보세요." : "해당 결과의 직관 기록이 없어요.",
+                        message: viewModel.selectedResultFilter == .all ? "내가 직접 본 경기만 차곡차곡 모아둘게요." : "다른 결과를 선택하거나 새 직관 기록을 남겨보세요.",
                         buttonTitle: "직관 기록 추가"
                     ) {
                         isShowingLogEditor = true
@@ -63,6 +69,7 @@ struct FeedView: View {
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
@@ -70,6 +77,17 @@ struct FeedView: View {
             NavigationStack {
                 LogEditorView()
             }
+        }
+        .sheet(isPresented: $isShowingSeasonPicker) {
+            SeasonPickerSheet(
+                seasons: appData.availableSeasons,
+                selectedSeason: appData.selectedSeason
+            ) { season in
+                Task {
+                    await appData.selectSeason(season)
+                }
+            }
+            .presentationDetents([.medium])
         }
         .vfScreenBackground()
     }
@@ -81,76 +99,74 @@ struct AttendancePostCard: View {
     var showsActions = true
 
     var body: some View {
-        VFCard(padding: 0) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(theme.primary)
-                    .frame(width: 5)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    scoreboardHeader
-
-                    VStack(alignment: .leading, spacing: VFSpacing.md) {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: VFSpacing.xxs) {
-                                Text(log.dateText)
-                                    .font(.system(.caption, design: .rounded).weight(.semibold))
-                                    .foregroundStyle(VFColor.secondaryText)
-                                Text(log.stadium)
-                                    .font(.subheadline)
-                                    .foregroundStyle(VFColor.secondaryText)
-                            }
-                            Spacer()
-                            ResultBadge(result: log.result, scoreText: log.result == .canceled ? nil : log.scoreText)
-                        }
-
-                        if !log.photoLocalRefs.isEmpty {
-                            PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 150)
-                        }
-
-                        Text(log.caption)
-                            .font(VFTypography.body)
+        VFCard(padding: VFSpacing.md) {
+            VStack(alignment: .leading, spacing: VFSpacing.md) {
+                HStack(alignment: .center, spacing: VFSpacing.sm) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(log.dateText)
+                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                            .foregroundStyle(VFColor.tertiaryText)
+                        Text(log.matchup)
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
                             .foregroundStyle(VFColor.primaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if let sourceLabel = log.subtleSourceLabel {
-                            Text(sourceLabel)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(VFColor.secondaryText)
-                        }
-
-                        tagRow
-
-                        if showsActions {
-                            HStack(spacing: VFSpacing.sm) {
-                                NavigationLink {
-                                    AttendancePostDetailView(log: log)
-                                } label: {
-                                    Text("자세히 보기")
-                                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                        .frame(maxWidth: .infinity, minHeight: 44)
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.white)
-                                .background(theme.secondary)
-                                .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-
-                                NavigationLink {
-                                    ShareCardPreviewView()
-                                } label: {
-                                    Text("공유")
-                                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                        .frame(maxWidth: .infinity, minHeight: 44)
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(VFColor.primaryText)
-                                .background(VFColor.offWhite)
-                                .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                            }
-                        }
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.82)
                     }
-                    .padding(VFSpacing.md)
+                    Spacer()
+                    ResultBadge(result: log.result, scoreText: log.result == .canceled ? nil : log.scoreText)
+                }
+
+                scoreboardHeader
+
+                if !log.photoLocalRefs.isEmpty {
+                    PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 150)
+                }
+
+                VStack(alignment: .leading, spacing: VFSpacing.xs) {
+                    Text(log.caption.isEmpty ? log.memo : log.caption)
+                        .font(VFTypography.body)
+                        .foregroundStyle(VFColor.primaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let sourceLabel = log.subtleSourceLabel {
+                        Text(sourceLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(VFColor.secondaryText)
+                            .padding(.horizontal, VFSpacing.sm)
+                            .frame(minHeight: 26)
+                            .background(VFColor.backgroundWarm)
+                            .clipShape(Capsule())
+                    }
+                }
+
+                tagRow
+
+                if showsActions {
+                    HStack(spacing: VFSpacing.sm) {
+                        NavigationLink {
+                            AttendancePostDetailView(log: log)
+                        } label: {
+                            Label("자세히 보기", systemImage: "chevron.right")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.white)
+                        .background(VFColor.scoreboardNavy)
+                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+
+                        NavigationLink {
+                            ShareCardPreviewView()
+                        } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(VFColor.primaryText)
+                        .background(VFColor.backgroundWarm)
+                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+                    }
                 }
             }
         }
@@ -159,40 +175,44 @@ struct AttendancePostCard: View {
     }
 
     private var scoreboardHeader: some View {
-        ZStack(alignment: .bottomLeading) {
+        HStack(spacing: VFSpacing.md) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("SCORE")
+                    .font(.caption2.weight(.black))
+                    .foregroundStyle(.white.opacity(0.58))
+                Text(log.resultScoreText)
+                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                if let team = selectedTeam {
+                    Text(team.shortName)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(VFColor.victoryOrange)
+                        .padding(.horizontal, VFSpacing.sm)
+                        .frame(minHeight: 24)
+                        .background(.white.opacity(0.92))
+                        .clipShape(Capsule())
+                        .accessibilityLabel("응원팀 \(team.shortName)")
+                }
+                Text(log.stadium)
+                    .font(.system(.caption, design: .rounded).weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.76))
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .padding(VFSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
             LinearGradient(
-                colors: [theme.gradientStart, theme.secondary.opacity(0.9), theme.gradientEnd.opacity(0.78)],
+                colors: [VFColor.scoreboardNavy, theme.secondary.opacity(0.88)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-
-            VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                HStack(spacing: VFSpacing.sm) {
-                    Text(log.matchup)
-                        .font(.system(.title2, design: .rounded).weight(.heavy))
-                        .foregroundStyle(.white)
-                        .minimumScaleFactor(0.78)
-                    if let team = selectedTeam {
-                        Text(team.shortName)
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(theme.primary)
-                            .padding(.horizontal, VFSpacing.sm)
-                            .frame(minHeight: 26)
-                            .background(.white.opacity(0.9))
-                            .clipShape(Capsule())
-                            .accessibilityLabel("응원팀 \(team.shortName)")
-                    }
-                }
-                Text(log.resultScoreText)
-                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                    .foregroundStyle(VFColor.offWhite)
-                Text(log.stadium)
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.72))
-            }
-            .padding(VFSpacing.lg)
-        }
-        .frame(minHeight: 170)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
     private var selectedTeam: KBOTeam? {
@@ -272,6 +292,7 @@ struct AttendancePostDetailView: View {
                 .buttonStyle(.plain)
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationTitle("직관 상세")
         .navigationBarTitleDisplayMode(.inline)
@@ -344,7 +365,7 @@ struct AttendancePostDetailView: View {
         if let url = log.officialRecordURL.flatMap(URL.init(string:)) {
             VFCard {
                 VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                    Text("공식 기록")
+                    Text("공식 기록 보기")
                         .font(VFTypography.cardTitle)
                         .foregroundStyle(VFColor.primaryText)
                     Text("상세 기록은 KBO 공식 페이지에서 확인해 주세요.")
@@ -354,7 +375,7 @@ struct AttendancePostDetailView: View {
                         safariRoute = SafariRoute(url: url)
                         debugLogKBO("official link opened=true")
                     } label: {
-                        Label("KBO 공식 기록실로 이동", systemImage: "safari")
+                        Label("공식 기록 보기", systemImage: "safari")
                             .font(.system(.subheadline, design: .rounded).weight(.bold))
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .foregroundStyle(theme.textOnPrimary)

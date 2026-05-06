@@ -7,6 +7,7 @@ final class UserPreferencesStore: ObservableObject {
         static let favoriteTeamID = "favoriteTeamID"
         static let teamThemeEnabled = "teamThemeEnabled"
         static let userDisplayName = "userDisplayName"
+        static let selectedSeason = "selectedSeason"
     }
 
     private let defaults: UserDefaults
@@ -39,6 +40,10 @@ final class UserPreferencesStore: ObservableObject {
         }
     }
 
+    @Published var selectedSeason: Int {
+        didSet { defaults.set(selectedSeason, forKey: Key.selectedSeason) }
+    }
+
     var favoriteTeam: KBOTeam? {
         KBOSeed.team(id: favoriteTeamID)
     }
@@ -53,6 +58,8 @@ final class UserPreferencesStore: ObservableObject {
         favoriteTeamID = KBOSeed.normalizedTeamID(defaults.string(forKey: Key.favoriteTeamID))
         teamThemeEnabled = defaults.object(forKey: Key.teamThemeEnabled) as? Bool ?? true
         userDisplayName = defaults.string(forKey: Key.userDisplayName)
+        selectedSeason = defaults.object(forKey: Key.selectedSeason) as? Int
+            ?? Calendar.current.component(.year, from: .now)
     }
 
     static func preview(
@@ -64,6 +71,7 @@ final class UserPreferencesStore: ObservableObject {
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
         defaults.set(hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
         defaults.set(teamThemeEnabled, forKey: Key.teamThemeEnabled)
+        defaults.set(Calendar.current.component(.year, from: .now), forKey: Key.selectedSeason)
         if let favoriteTeamID {
             defaults.set(favoriteTeamID, forKey: Key.favoriteTeamID)
         } else {

@@ -12,16 +12,16 @@ struct ScreenHeaderView<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: VFSpacing.md) {
-            VStack(alignment: .leading, spacing: VFSpacing.xxs) {
+        HStack(alignment: .top, spacing: VFSpacing.md) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
                     .font(VFTypography.title)
                     .foregroundStyle(VFColor.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.88)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.subheadline)
+                        .font(.system(.subheadline, design: .default).weight(.medium))
                         .foregroundStyle(VFColor.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -29,10 +29,13 @@ struct ScreenHeaderView<Trailing: View>: View {
             Spacer(minLength: VFSpacing.sm)
             trailing
         }
-        .frame(maxWidth: .infinity, minHeight: 52, alignment: .center)
-        .padding(.top, VFSpacing.xs)
+        .frame(maxWidth: .infinity, minHeight: 48, alignment: .top)
+        .padding(.top, VFSpacing.sm)
+        .padding(.bottom, VFSpacing.xs)
     }
 }
+
+typealias AppScreenHeader<Trailing: View> = ScreenHeaderView<Trailing>
 
 struct HeaderIconButton: View {
     @Environment(\.appTheme) private var theme
@@ -44,14 +47,59 @@ struct HeaderIconButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(.headline, design: .rounded).weight(.bold))
-                .foregroundStyle(theme.primary)
+                .foregroundStyle(VFColor.victoryOrange)
                 .frame(width: 44, height: 44)
-                .background(VFColor.card)
+                .background(VFColor.cardTranslucent)
+                .background(.ultraThinMaterial)
                 .clipShape(Circle())
-                .overlay(Circle().stroke(VFColor.mutedLine, lineWidth: 1))
+                .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 0.8))
+                .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+struct SeasonPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let seasons: [SeasonOption]
+    let selectedSeason: Int
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(seasons) { option in
+                    Button {
+                        onSelect(option.season)
+                        dismiss()
+                    } label: {
+                        HStack(spacing: VFSpacing.sm) {
+                            VStack(alignment: .leading, spacing: VFSpacing.xxs) {
+                                Text(option.label)
+                                    .font(.system(.headline, design: .rounded).weight(.semibold))
+                                    .foregroundStyle(VFColor.primaryText)
+                                if option.hasRecords {
+                                    Text("기록 있음")
+                                        .font(.caption)
+                                        .foregroundStyle(VFColor.secondaryText)
+                                }
+                            }
+                            Spacer()
+                            if option.season == selectedSeason {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(VFColor.victoryOrange)
+                                    .accessibilityLabel("선택됨")
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("시즌 선택")
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 
@@ -61,17 +109,16 @@ struct ResultBadge: View {
 
     var body: some View {
         HStack(spacing: VFSpacing.xs) {
-            Circle()
-                .fill(result.color)
-                .frame(width: 8, height: 8)
             Text(scoreText.map { "\($0) \(result.title)" } ?? result.title)
                 .font(.system(.caption, design: .rounded).weight(.bold))
+                .monospacedDigit()
         }
         .foregroundStyle(result.color)
         .padding(.horizontal, VFSpacing.sm)
-        .frame(minHeight: 30)
+        .frame(minHeight: 28)
         .background(result.color.opacity(0.12))
         .clipShape(Capsule())
+        .overlay(Capsule().stroke(result.color.opacity(0.24), lineWidth: 1))
         .accessibilityLabel(scoreText.map { "\($0) \(result.title)" } ?? result.title)
     }
 }
@@ -104,7 +151,8 @@ struct VictoryFairyIndexCard: View {
 
             HStack(alignment: .lastTextBaseline, spacing: VFSpacing.sm) {
                 Text(index)
-                    .font(.system(size: 64, weight: .heavy, design: .rounded))
+                    .font(.system(size: 56, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
                     .foregroundStyle(.white)
                     .minimumScaleFactor(0.7)
                 Text("점")
@@ -120,17 +168,28 @@ struct VictoryFairyIndexCard: View {
                     .clipShape(Capsule())
             }
         }
-        .padding(VFSpacing.xl)
+        .padding(VFSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(
-                colors: [theme.gradientStart, theme.secondary.opacity(0.9), theme.gradientEnd.opacity(0.86)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            ZStack(alignment: .bottomTrailing) {
+                LinearGradient(
+                    colors: [VFColor.scoreboardNavy, theme.secondary.opacity(0.88), VFColor.scoreboardNavy.opacity(0.92)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                VStack(spacing: 18) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        Rectangle()
+                            .fill(.white.opacity(0.055))
+                            .frame(height: 1)
+                    }
+                }
+                .rotationEffect(.degrees(-12))
+                .offset(x: 30, y: 16)
+            }
         )
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
-        .shadow(color: theme.primary.opacity(0.22), radius: 18, y: 10)
+        .shadow(color: VFColor.scoreboardNavy.opacity(0.18), radius: 18, y: 10)
     }
 }
 
@@ -144,13 +203,14 @@ struct MetricCard: View {
                     .font(.system(.caption, design: .rounded).weight(.semibold))
                     .foregroundStyle(VFColor.secondaryText)
                 Text(metric.value)
-                    .font(.system(.title3, design: .rounded).weight(.bold))
+                    .font(.system(.title3, design: .rounded).weight(.heavy))
+                    .monospacedDigit()
                     .foregroundStyle(VFColor.primaryText)
                     .lineLimit(2)
                     .minimumScaleFactor(0.78)
                 Text(metric.detail)
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.tertiaryText)
             }
         }
     }
@@ -220,9 +280,9 @@ struct EmptyStateView: View {
             VStack(spacing: VFSpacing.md) {
                 Image(systemName: systemImage)
                     .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(theme.primary)
+                    .foregroundStyle(VFColor.victoryOrange)
                     .frame(width: 58, height: 58)
-                    .background(theme.primary.opacity(0.12))
+                    .background(VFColor.victoryOrange.opacity(0.12))
                     .clipShape(Circle())
                 Text(title)
                     .font(VFTypography.cardTitle)

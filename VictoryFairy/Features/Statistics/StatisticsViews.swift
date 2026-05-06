@@ -9,14 +9,21 @@ struct StatisticsViewModel {
 
 struct StatisticsView: View {
     @Environment(\.appTheme) private var theme
+    @EnvironmentObject private var appData: AppDataStore
     let viewModel: StatisticsViewModel
     @State private var selectedSection: StatisticsSection = .kbo
+    @State private var isShowingSeasonPicker = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "통계") {
-                    VFChip(title: "2026 시즌", isSelected: true, tint: theme.primary)
+                ScreenHeaderView(title: "통계", subtitle: "KBO 흐름과 내 직관 데이터를 함께 봐요") {
+                    Button {
+                        isShowingSeasonPicker = true
+                    } label: {
+                        VFChip(title: appData.selectedSeasonLabel, isSelected: true, tint: theme.primary)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 DataStateBanner(state: viewModel.dataState)
@@ -30,25 +37,42 @@ struct StatisticsView: View {
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $isShowingSeasonPicker) {
+            SeasonPickerSheet(
+                seasons: appData.availableSeasons,
+                selectedSeason: appData.selectedSeason
+            ) { season in
+                Task {
+                    await appData.selectSeason(season)
+                }
+            }
+            .presentationDetents([.medium])
+        }
         .vfScreenBackground()
     }
 
     private var kboCurrentSection: some View {
         VStack(alignment: .leading, spacing: VFSpacing.lg) {
-            sectionCard(title: "KBO 현재 통계") {
+            sectionCard(title: "KBO 현재") {
                 if viewModel.state.kboSource == .unavailable || viewModel.state.kboStandings.isEmpty {
-                    EmptyKBOStatsPlaceholder()
+                    EmptyKBOStatsPlaceholder(disclosureText: viewModel.state.kboDisclosureText)
                 } else {
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                        KBOStandingsMetadata(
+                        SourceUpdatedInfoView(
                             sourceText: viewModel.state.kboSourceText,
                             updatedText: viewModel.state.kboUpdatedText
                         )
                         if viewModel.state.kboSource == .adminResult || viewModel.state.kboSource == .adminImport || viewModel.state.kboSource == .manualSeed {
-                            Text("공식 순위와 다를 수 있어요.")
+                            Text("참고용으로만 확인해 주세요.")
+                                .font(.caption)
+                                .foregroundStyle(VFColor.secondaryText)
+                        }
+                        if let disclosureText = viewModel.state.kboDisclosureText {
+                            Text(disclosureText)
                                 .font(.caption)
                                 .foregroundStyle(VFColor.secondaryText)
                         }
@@ -73,7 +97,7 @@ struct StatisticsView: View {
 
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
                         Text("내 직관 통계")
-                            .font(VFTypography.section)
+                            .font(.system(.headline, design: .rounded).weight(.bold))
                             .foregroundStyle(VFColor.primaryText)
                         Text(viewModel.state.totalGames == 0 ? "표본 수집 중" : "\(viewModel.state.totalGames)경기 기록")
                             .font(.subheadline)
@@ -138,7 +162,7 @@ struct StatisticsView: View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text(title)
-                    .font(VFTypography.section)
+                    .font(.system(.headline, design: .rounded).weight(.bold))
                     .foregroundStyle(VFColor.primaryText)
                 content()
             }
@@ -150,7 +174,7 @@ struct StatisticsView: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 HStack {
                     Text(title)
-                        .font(VFTypography.section)
+                        .font(.system(.headline, design: .rounded).weight(.bold))
                         .foregroundStyle(VFColor.primaryText)
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -195,11 +219,13 @@ struct StatisticsSectionPicker: View {
         HStack(spacing: VFSpacing.xs) {
             ForEach(StatisticsSection.allCases) { section in
                 Button {
-                    selection = section
+                    withAnimation(.snappy(duration: 0.2)) {
+                        selection = section
+                    }
                 } label: {
                     Text(section.title)
                         .font(.system(.subheadline, design: .rounded).weight(selection == section ? .bold : .semibold))
-                        .foregroundStyle(selection == section ? VFColor.primaryText : VFColor.secondaryText)
+                        .foregroundStyle(selection == section ? VFColor.victoryOrange : VFColor.secondaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
                         .frame(maxWidth: .infinity, minHeight: 38)
@@ -210,24 +236,25 @@ struct StatisticsSectionPicker: View {
                 .background {
                     if selection == section {
                         RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                            .fill(VFColor.card)
-                            .shadow(color: Color.black.opacity(0.10), radius: 8, y: 3)
+                            .fill(VFColor.victoryOrange.opacity(0.12))
+                            .shadow(color: VFColor.victoryOrange.opacity(0.12), radius: 8, y: 3)
                     }
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                        .stroke(selection == section ? VFColor.mutedLine : Color.clear, lineWidth: 1)
+                        .stroke(selection == section ? VFColor.victoryOrange.opacity(0.28) : Color.clear, lineWidth: 1)
                 }
-                .accessibilityLabel(section.title)
+                .accessibilityLabel(selection == section ? "\(section.title), 선택됨" : section.title)
                 .accessibilityAddTraits(selection == section ? .isSelected : [])
             }
         }
         .padding(VFSpacing.xs)
-        .background(Color(hex: "#E9EDF5"))
+        .background(VFColor.cardTranslucent)
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous)
-                .stroke(VFColor.mutedLine.opacity(0.9), lineWidth: 1)
+                .stroke(.white.opacity(0.9), lineWidth: 0.8)
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("통계 구분")
@@ -235,6 +262,8 @@ struct StatisticsSectionPicker: View {
 }
 
 struct EmptyKBOStatsPlaceholder: View {
+    var disclosureText: String?
+
     var body: some View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             HStack(spacing: VFSpacing.sm) {
@@ -256,38 +285,34 @@ struct EmptyKBOStatsPlaceholder: View {
                 .font(.caption)
                 .foregroundStyle(VFColor.secondaryText)
                 .padding(.top, VFSpacing.xs)
+            if let disclosureText {
+                Text(disclosureText)
+                    .font(.caption)
+                    .foregroundStyle(VFColor.secondaryText)
+            }
         }
     }
 }
 
-struct KBOStandingsMetadata: View {
+struct SourceUpdatedInfoView: View {
     let sourceText: String?
     let updatedText: String
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: VFSpacing.sm) {
-                sourceLabel
-                updatedLabel
-            }
-
             VStack(alignment: .leading, spacing: VFSpacing.xxs) {
-                sourceLabel
-                updatedLabel
+                combinedLabel
             }
         }
+        .padding(VFSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(VFColor.backgroundWarm)
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         .padding(.bottom, VFSpacing.xs)
     }
 
-    private var sourceLabel: some View {
-        Text(sourceText ?? "개발용 외부 수집 데이터")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(VFColor.secondaryText)
-            .lineLimit(2)
-    }
-
-    private var updatedLabel: some View {
-        Text(updatedText)
+    private var combinedLabel: some View {
+        Text("\(sourceText ?? "참고용 경기 정보") · \(updatedText)")
             .font(.caption.weight(.semibold))
             .foregroundStyle(VFColor.primaryText)
             .lineLimit(2)
@@ -298,31 +323,10 @@ struct KBOStandingsTable: View {
     let items: [KBOStandingViewState]
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: VFSpacing.xs) {
             standingsHeader
             ForEach(items) { item in
-                Divider()
-                    .overlay(VFColor.mutedLine.opacity(0.65))
-                HStack(spacing: VFSpacing.sm) {
-                    Text("\(item.rank)")
-                        .font(.system(.subheadline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.scoreboardNavy)
-                        .frame(width: 34, alignment: .leading)
-                    Text(item.teamName)
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.88)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("\(item.wins)").frame(width: 24, alignment: .trailing)
-                    Text("\(item.losses)").frame(width: 24, alignment: .trailing)
-                    Text("\(item.draws)").frame(width: 24, alignment: .trailing)
-                    Text(item.winRateText)
-                        .font(.system(.caption, design: .rounded).weight(.bold))
-                        .frame(width: 54, alignment: .trailing)
-                }
-                .font(.caption)
-                .foregroundStyle(VFColor.primaryText)
-                .padding(.vertical, VFSpacing.sm + 2)
+                KBOStandingRow(item: item)
             }
         }
     }
@@ -339,6 +343,39 @@ struct KBOStandingsTable: View {
         .font(.caption2.weight(.bold))
         .foregroundStyle(VFColor.secondaryText)
         .padding(.bottom, VFSpacing.xs)
+    }
+}
+
+struct KBOStandingRow: View {
+    let item: KBOStandingViewState
+
+    var body: some View {
+        HStack(spacing: VFSpacing.sm) {
+            Text("\(item.rank)")
+                .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                .foregroundStyle(item.rank <= 3 ? .white : VFColor.scoreboardNavy)
+                .frame(width: 32, height: 32)
+                .background(item.rank <= 3 ? VFColor.scoreboardNavy : VFColor.backgroundWarm)
+                .clipShape(Circle())
+            Text(item.teamName)
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.88)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                Text("\(item.wins)-\(item.losses)-\(item.draws)")
+                    .frame(width: 64, alignment: .trailing)
+                Text(item.winRateText)
+                    .fontWeight(.bold)
+                    .frame(width: 48, alignment: .trailing)
+            }
+            .font(.system(.caption, design: .rounded).monospacedDigit())
+        }
+        .foregroundStyle(VFColor.primaryText)
+        .padding(.vertical, VFSpacing.sm)
+        .padding(.horizontal, VFSpacing.sm)
+        .background(VFColor.background.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 }
 
@@ -457,6 +494,7 @@ struct StadiumStatsView: View {
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationTitle("구장별 통계")
         .navigationBarTitleDisplayMode(.inline)
@@ -530,6 +568,7 @@ struct OpponentStatsView: View {
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationTitle("상대팀별 통계")
         .navigationBarTitleDisplayMode(.inline)
@@ -604,6 +643,7 @@ struct SeasonStatsView: View {
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .navigationTitle("시즌 기록")
         .navigationBarTitleDisplayMode(.inline)

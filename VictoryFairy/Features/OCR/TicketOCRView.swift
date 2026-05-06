@@ -6,6 +6,12 @@ struct TicketOCRView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: TicketOCRViewModel
     @State private var isShowingCamera = false
+    @State private var editedDate = Date()
+    @State private var hasEditedDate = false
+    @State private var editedFavoriteTeam = ""
+    @State private var editedOpponentTeam = ""
+    @State private var editedStadium = ""
+    @State private var editedSeat = ""
     let onApply: (TicketFieldSuggestion) -> Void
 
     init(currentFavoriteTeamName: String, onApply: @escaping (TicketFieldSuggestion) -> Void) {
@@ -17,6 +23,17 @@ struct TicketOCRView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: VFSpacing.lg) {
+                    VFCard(background: VFColor.backgroundWarm) {
+                        HStack(alignment: .top, spacing: VFSpacing.sm) {
+                            Image(systemName: "lock.shield")
+                                .foregroundStyle(VFColor.victoryOrange)
+                            Text("티켓 이미지는 서버로 전송되지 않아요. 기기에서 글자를 먼저 인식하고, 인식된 텍스트만 분석해요.")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(VFColor.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
                     HStack(spacing: VFSpacing.sm) {
                         PhotosPicker(selection: $viewModel.selectedItem, matching: .images) {
                             pickerLabel("티켓 사진 선택", systemImage: "photo")
@@ -38,11 +55,10 @@ struct TicketOCRView: View {
                         .foregroundStyle(VFColor.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    suggestionCard
-                    rawTextCard
+                    confirmationCard
 
-                    VFPrimaryButton(title: "적용하기", systemImage: "checkmark") {
-                        onApply(viewModel.suggestion)
+                    VFPrimaryButton(title: "이 정보 적용", systemImage: "checkmark") {
+                        onApply(editedSuggestion)
                         dismiss()
                     }
                     .disabled(!viewModel.suggestion.hasAnyField)
@@ -52,7 +68,7 @@ struct TicketOCRView: View {
                         viewModel.reset()
                     }
 
-                    VFSecondaryButton(title: "취소", systemImage: "xmark") {
+                    VFSecondaryButton(title: "직접 입력", systemImage: "square.and.pencil") {
                         dismiss()
                     }
                 }
@@ -67,6 +83,9 @@ struct TicketOCRView: View {
             }
             .onChange(of: viewModel.selectedItem) {
                 Task { await viewModel.processSelectedItem() }
+            }
+            .onChange(of: viewModel.suggestion) {
+                syncEditedFields(with: viewModel.suggestion)
             }
             .sheet(isPresented: $isShowingCamera) {
                 TicketCameraPicker { image in
@@ -87,7 +106,145 @@ struct TicketOCRView: View {
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
-    private var suggestionCard: some View {
+    private var confirmationCard: some View {
+        VFCard {
+            VStack(alignment: .leading, spacing: VFSpacing.md) {
+                VStack(alignment: .leading, spacing: VFSpacing.xs) {
+                    Text("티켓에서 찾은 정보예요")
+                        .font(VFTypography.section)
+                        .foregroundStyle(VFColor.primaryText)
+                    Text("OCR 결과는 틀릴 수 있어요. 저장 전 꼭 확인해 주세요.")
+                        .font(.caption)
+                        .foregroundStyle(VFColor.secondaryText)
+                }
+
+                if viewModel.suggestion.isLowConfidence {
+                    Label("인식이 불확실해요.", systemImage: "exclamationmark.triangle")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(VFColor.victoryOrange)
+                        .padding(.horizontal, VFSpacing.sm)
+                        .frame(minHeight: 30)
+                        .background(VFColor.victoryOrange.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+
+                if !viewModel.suggestion.warnings.isEmpty {
+                    VStack(alignment: .leading, spacing: VFSpacing.xxs) {
+                        ForEach(viewModel.suggestion.warnings, id: \.self) { warning in
+                            Text(warning)
+                                .font(.caption)
+                                .foregroundStyle(VFColor.secondaryText)
+                        }
+                    }
+                }
+
+                Toggle("날짜 적용", isOn: $hasEditedDate)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .tint(VFColor.victoryOrange)
+                if hasEditedDate {
+                    DatePicker("날짜", selection: $editedDate, displayedComponents: .date)
+                        .tint(VFColor.victoryOrange)
+                } else {
+                    Text("날짜는 현재 선택값을 유지해요.")
+                        .font(.caption)
+                        .foregroundStyle(VFColor.secondaryText)
+                }
+
+                editableTeamRow(title: "응원팀", selection: $editedFavoriteTeam)
+                editableTeamRow(title: "상대팀", selection: $editedOpponentTeam)
+                editableTextField("구장", text: $editedStadium, placeholder: "현재 구장 유지")
+                editableTextField("좌석", text: $editedSeat, placeholder: "좌석 직접 입력")
+
+                if let confidence = viewModel.suggestion.confidence {
+                    Text("인식 신뢰도 \(Int((confidence * 100).rounded()))%")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(VFColor.secondaryText)
+                }
+            }
+        }
+    }
+
+    private var editedSuggestion: TicketFieldSuggestion {
+        TicketFieldSuggestion(
+            gameDate: hasEditedDate ? editedDate : nil,
+            favoriteTeamName: editedFavoriteTeam.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank,
+            opponentTeamName: editedOpponentTeam.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank,
+            stadiumName: editedStadium.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank,
+            seatText: editedSeat.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank,
+            confidence: viewModel.suggestion.confidence,
+            warnings: viewModel.suggestion.warnings,
+            teamCandidates: viewModel.suggestion.teamCandidates,
+            rawText: ""
+        )
+    }
+
+    private func syncEditedFields(with suggestion: TicketFieldSuggestion) {
+        if let gameDate = suggestion.gameDate {
+            editedDate = gameDate
+            hasEditedDate = true
+        } else {
+            hasEditedDate = false
+        }
+        editedFavoriteTeam = suggestion.favoriteTeamName ?? ""
+        editedOpponentTeam = suggestion.opponentTeamName ?? ""
+        editedStadium = suggestion.stadiumName ?? ""
+        editedSeat = suggestion.seatText ?? ""
+    }
+
+    private func editableTeamRow(title: String, selection: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: VFSpacing.xs) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(VFColor.secondaryText)
+            Menu {
+                Button("비워두기") {
+                    selection.wrappedValue = ""
+                }
+                ForEach(teamOptions, id: \.self) { team in
+                    Button(team) {
+                        selection.wrappedValue = team
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(selection.wrappedValue.isEmpty ? "직접 입력 유지" : selection.wrappedValue)
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(selection.wrappedValue.isEmpty ? VFColor.secondaryText : VFColor.primaryText)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .foregroundStyle(VFColor.secondaryText)
+                }
+                .padding(VFSpacing.sm)
+                .frame(minHeight: 44)
+                .background(VFColor.offWhite)
+                .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+            }
+        }
+    }
+
+    private var teamOptions: [String] {
+        let detected = viewModel.suggestion.teamCandidates
+        let allTeams = KBOSeed.teams.map(\.name)
+        return Array(NSOrderedSet(array: detected + allTeams)) as? [String] ?? allTeams
+    }
+
+    private func editableTextField(_ title: String, text: Binding<String>, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: VFSpacing.xs) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(VFColor.secondaryText)
+            TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(VFColor.secondaryText))
+                .textFieldStyle(.plain)
+                .foregroundStyle(VFColor.primaryText)
+                .tint(VFColor.victoryOrange)
+                .padding(VFSpacing.sm)
+                .frame(minHeight: 44)
+                .background(VFColor.offWhite)
+                .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+        }
+    }
+
+    private var legacySuggestionCard: some View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text("추천 입력값")
@@ -128,6 +285,12 @@ struct TicketOCRView: View {
                 .foregroundStyle(value == nil ? VFColor.secondaryText : VFColor.primaryText)
             Spacer()
         }
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
     }
 }
 

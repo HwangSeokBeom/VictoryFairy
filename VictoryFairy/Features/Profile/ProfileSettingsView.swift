@@ -67,7 +67,7 @@ struct ProfileSettingsView: View {
                         Text("AI 기능 안내")
                             .font(VFTypography.section)
                             .foregroundStyle(VFColor.primaryText)
-                        Text("AI 후기 기능은 추후 제공 예정이에요.")
+                        Text("AI 후기 초안은 서버에서 만들고 저장 전 직접 확인해요.")
                             .font(.subheadline)
                             .foregroundStyle(VFColor.primaryText)
                         Text("사진, 정확한 위치, 동행자 실명은 기본적으로 AI에 전송하지 않도록 설계합니다.")

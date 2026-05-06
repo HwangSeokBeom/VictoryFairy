@@ -40,6 +40,7 @@ enum StatisticsMapper {
             },
             kboStandings: [],
             kboSourceText: nil,
+            kboDisclosureText: nil,
             kboUpdatedText: "최근 갱신: 갱신일 정보 없음",
             kboSource: .unknown
         )
@@ -70,6 +71,7 @@ enum StatisticsMapper {
                 )
             },
             kboSourceText: sourceText(for: standings),
+            kboDisclosureText: disclosureText(for: standings),
             kboUpdatedText: updatedText(for: standings),
             kboSource: KBOStandingsSource(serverValue: standings.source)
         )
@@ -86,23 +88,15 @@ enum StatisticsMapper {
     }
 
     private static func sourceText(for standings: KBOStandingsDTO) -> String? {
-        let serverLabel = standings.sourceLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let safeServerLabel = serverLabel?.contains("공식") == true ? nil : serverLabel
+        guard KBOStandingsSource(serverValue: standings.source) != .unavailable else { return nil }
+        return KBOReviewSafeSource.visibleLabel(sourceLabel: standings.sourceLabel, source: standings.source)
+    }
 
-        switch KBOStandingsSource(serverValue: standings.source) {
-        case .manualSeed, .adminResult, .adminImport:
-            return safeServerLabel?.nilIfEmpty ?? "관리자 입력 데이터"
-        case .official:
-            return safeServerLabel?.nilIfEmpty ?? "외부 수집 데이터"
-        case .provider:
-            return safeServerLabel?.nilIfEmpty ?? "외부 제공 데이터"
-        case .scrapedDev:
-            return safeServerLabel?.nilIfEmpty ?? "개발용 외부 수집 데이터"
-        case .unavailable:
+    private static func disclosureText(for standings: KBOStandingsDTO) -> String? {
+        guard standings.sourceDisclosure?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty != nil else {
             return nil
-        case .unknown:
-            return safeServerLabel?.nilIfEmpty ?? "참고용 데이터"
         }
+        return KBOReviewSafeSource.disclosure(standings.sourceDisclosure)
     }
 
     private static func updatedText(for standings: KBOStandingsDTO) -> String {

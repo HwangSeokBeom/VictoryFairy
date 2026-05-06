@@ -18,6 +18,7 @@ struct PreferencesDTO: Decodable {
     let favoriteTeamID: String?
     let teamThemeEnabled: Bool?
     let displayName: String?
+    let selectedSeason: Int?
     let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
@@ -25,6 +26,7 @@ struct PreferencesDTO: Decodable {
         case favoriteTeamID
         case teamThemeEnabled
         case displayName
+        case selectedSeason
         case updatedAt
     }
 
@@ -34,6 +36,7 @@ struct PreferencesDTO: Decodable {
         favoriteTeamID = try container.decodeIfPresent(String.self, forKey: .favoriteTeamID)
         teamThemeEnabled = try container.decodeIfPresent(Bool.self, forKey: .teamThemeEnabled)
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        selectedSeason = try container.decodeIfPresent(Int.self, forKey: .selectedSeason)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
 }
@@ -43,6 +46,54 @@ struct UpdatePreferencesRequest: Encodable {
     let favoriteTeamID: String?
     let teamThemeEnabled: Bool
     let displayName: String?
+    var selectedSeason: Int? = nil
+}
+
+struct SeasonsDTO: Decodable {
+    let currentSeason: Int?
+    let items: [SeasonDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case currentSeason
+        case items
+        case seasons
+    }
+
+    init(from decoder: Decoder) throws {
+        if let array = try? [SeasonDTO](from: decoder) {
+            currentSeason = nil
+            items = array
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        currentSeason = try container.decodeIfPresent(Int.self, forKey: .currentSeason)
+        items = try container.decodeIfPresent([SeasonDTO].self, forKey: .items)
+            ?? container.decodeIfPresent([SeasonDTO].self, forKey: .seasons)
+            ?? []
+    }
+}
+
+struct SeasonDTO: Decodable {
+    let season: Int
+    let label: String?
+    let hasRecords: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case season
+        case year
+        case label
+        case hasRecords
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        season = try container.decodeIfPresent(Int.self, forKey: .season)
+            ?? container.decodeIfPresent(Int.self, forKey: .year)
+            ?? Calendar.current.component(.year, from: .now)
+        label = try container.decodeIfPresent(String.self, forKey: .label)
+        hasRecords = try container.decodeIfPresent(Bool.self, forKey: .hasRecords)
+    }
 }
 
 struct AttendanceLogDTO: Decodable, Identifiable {
@@ -454,6 +505,7 @@ struct KBOStandingsDTO: Decodable {
     let season: Int
     let source: String
     let sourceLabel: String?
+    let sourceDisclosure: String?
     let updatedAt: String?
     let lastUpdatedAt: String?
     let collectedAt: String?
@@ -465,6 +517,7 @@ struct KBOStandingsDTO: Decodable {
         case season
         case source
         case sourceLabel
+        case sourceDisclosure
         case updatedAt
         case lastUpdatedAt
         case collectedAt
@@ -478,6 +531,7 @@ struct KBOStandingsDTO: Decodable {
         season = try container.decodeIfPresent(Int.self, forKey: .season) ?? 2026
         source = try container.decodeIfPresent(String.self, forKey: .source) ?? "unavailable"
         sourceLabel = try container.decodeIfPresent(String.self, forKey: .sourceLabel)
+        sourceDisclosure = try container.decodeIfPresent(String.self, forKey: .sourceDisclosure)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
         lastUpdatedAt = try container.decodeIfPresent(String.self, forKey: .lastUpdatedAt)
         collectedAt = try container.decodeIfPresent(String.self, forKey: .collectedAt)
@@ -508,6 +562,7 @@ struct KBOGameCandidatesDTO: Decodable {
     let teamID: String
     let source: String
     let sourceLabel: String?
+    let sourceDisclosure: String?
     let items: [KBOGameCandidateDTO]
     let message: String?
 
@@ -516,6 +571,7 @@ struct KBOGameCandidatesDTO: Decodable {
         case teamID
         case source
         case sourceLabel
+        case sourceDisclosure
         case items
         case games
         case message
@@ -527,6 +583,7 @@ struct KBOGameCandidatesDTO: Decodable {
         teamID = try container.decodeIfPresent(String.self, forKey: .teamID) ?? ""
         source = try container.decodeIfPresent(String.self, forKey: .source) ?? "manual"
         sourceLabel = try container.decodeIfPresent(String.self, forKey: .sourceLabel)
+        sourceDisclosure = try container.decodeIfPresent(String.self, forKey: .sourceDisclosure)
         items = try container.decodeIfPresent([KBOGameCandidateDTO].self, forKey: .items)
             ?? container.decodeIfPresent([KBOGameCandidateDTO].self, forKey: .games)
             ?? []
@@ -598,6 +655,7 @@ struct KBOGameCandidateDTO: Decodable, Identifiable, Hashable {
     let winnerTeamID: String?
     let source: String?
     let sourceLabel: String?
+    let sourceDisclosure: String?
     let officialLinks: KBOOfficialLinksDTO?
     let attendanceSuggestion: KBOAttendanceSuggestionDTO?
     let resultSummary: String?
@@ -618,6 +676,7 @@ struct KBOGameCandidateDTO: Decodable, Identifiable, Hashable {
         case winnerTeamID
         case source
         case sourceLabel
+        case sourceDisclosure
         case officialLinks
         case attendanceSuggestion
         case resultSummary
@@ -626,20 +685,25 @@ struct KBOGameCandidateDTO: Decodable, Identifiable, Hashable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        gameID = try container.decode(String.self, forKey: .gameID)
-        date = try container.decode(String.self, forKey: .date)
+        gameID = try container.decodeIfPresent(String.self, forKey: .gameID) ?? UUID().uuidString
+        date = try container.decodeIfPresent(String.self, forKey: .date) ?? DateFormatter.vfAPIDate.string(from: .now)
         season = try container.decodeIfPresent(Int.self, forKey: .season)
-        homeTeamID = try container.decode(String.self, forKey: .homeTeamID)
-        awayTeamID = try container.decode(String.self, forKey: .awayTeamID)
-        homeTeamName = try container.decode(String.self, forKey: .homeTeamName)
-        awayTeamName = try container.decode(String.self, forKey: .awayTeamName)
-        stadiumName = try container.decode(String.self, forKey: .stadiumName)
-        status = try container.decode(String.self, forKey: .status)
+        homeTeamID = try container.decodeIfPresent(String.self, forKey: .homeTeamID) ?? ""
+        awayTeamID = try container.decodeIfPresent(String.self, forKey: .awayTeamID) ?? ""
+        homeTeamName = try container.decodeIfPresent(String.self, forKey: .homeTeamName)
+            ?? KBOSeed.team(id: homeTeamID)?.name
+            ?? "홈팀"
+        awayTeamName = try container.decodeIfPresent(String.self, forKey: .awayTeamName)
+            ?? KBOSeed.team(id: awayTeamID)?.name
+            ?? "원정팀"
+        stadiumName = try container.decodeIfPresent(String.self, forKey: .stadiumName) ?? "구장 미정"
+        status = try container.decodeIfPresent(String.self, forKey: .status) ?? "unknown"
         homeScore = try container.decodeIfPresent(Int.self, forKey: .homeScore)
         awayScore = try container.decodeIfPresent(Int.self, forKey: .awayScore)
         winnerTeamID = try container.decodeIfPresent(String.self, forKey: .winnerTeamID)
         source = try container.decodeIfPresent(String.self, forKey: .source)
         sourceLabel = try container.decodeIfPresent(String.self, forKey: .sourceLabel)
+        sourceDisclosure = try container.decodeIfPresent(String.self, forKey: .sourceDisclosure)
         officialLinks = try container.decodeIfPresent(KBOOfficialLinksDTO.self, forKey: .officialLinks)
         attendanceSuggestion = try container.decodeIfPresent(KBOAttendanceSuggestionDTO.self, forKey: .attendanceSuggestion)
         resultSummary = try container.decodeIfPresent(String.self, forKey: .resultSummary)
@@ -665,9 +729,113 @@ struct DiaryDraftRequest: Encodable {
 struct DiaryDraftDTO: Decodable {
     let draftText: String
     let summaryText: String?
+    let shareText: String?
     let hashtags: [String]
     let model: String?
     let safetyNotice: String?
+    let warnings: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case draftText
+        case diaryText
+        case summaryText
+        case shareText
+        case hashtags
+        case model
+        case safetyNotice
+        case warnings
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        draftText = try container.decodeIfPresent(String.self, forKey: .draftText)
+            ?? container.decodeIfPresent(String.self, forKey: .diaryText)
+            ?? ""
+        summaryText = try container.decodeIfPresent(String.self, forKey: .summaryText)
+        shareText = try container.decodeIfPresent(String.self, forKey: .shareText)
+        hashtags = try container.decodeIfPresent([String].self, forKey: .hashtags) ?? []
+        model = try container.decodeIfPresent(String.self, forKey: .model)
+        safetyNotice = try container.decodeIfPresent(String.self, forKey: .safetyNotice)
+            ?? container.decodeIfPresent([String].self, forKey: .warnings)?.first
+        warnings = try container.decodeIfPresent([String].self, forKey: .warnings) ?? []
+    }
+}
+
+typealias DiaryDraftResponse = DiaryDraftDTO
+
+struct TemplateDraftRequest: Encodable {
+    let gameDate: String
+    let favoriteTeamName: String
+    let opponentTeamName: String
+    let stadiumName: String
+    let result: String
+    let scoreText: String
+    let moodTags: [String]
+    let highlightTags: [String]
+    let companionType: String?
+    let tone: String
+    let extraNoteSanitized: String?
+    let locale: String
+}
+
+struct TemplateDraftResponse: Decodable {
+    let draftText: String
+    let summaryText: String?
+    let shareText: String?
+    let hashtags: [String]
+    let safetyNotice: String?
+
+    enum CodingKeys: String, CodingKey {
+        case draftText
+        case diaryText
+        case summaryText
+        case shareText
+        case hashtags
+        case safetyNotice
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        draftText = try container.decodeIfPresent(String.self, forKey: .draftText)
+            ?? container.decodeIfPresent(String.self, forKey: .diaryText)
+            ?? ""
+        summaryText = try container.decodeIfPresent(String.self, forKey: .summaryText)
+        shareText = try container.decodeIfPresent(String.self, forKey: .shareText)
+        hashtags = try container.decodeIfPresent([String].self, forKey: .hashtags) ?? []
+        safetyNotice = try container.decodeIfPresent(String.self, forKey: .safetyNotice)
+    }
+
+    var diaryDraft: DiaryDraftDTO {
+        DiaryDraftDTO(
+            draftText: draftText,
+            summaryText: summaryText,
+            shareText: shareText,
+            hashtags: hashtags,
+            model: "template",
+            safetyNotice: safetyNotice,
+            warnings: []
+        )
+    }
+}
+
+extension DiaryDraftDTO {
+    init(
+        draftText: String,
+        summaryText: String?,
+        shareText: String?,
+        hashtags: [String],
+        model: String?,
+        safetyNotice: String?,
+        warnings: [String]
+    ) {
+        self.draftText = draftText
+        self.summaryText = summaryText
+        self.shareText = shareText
+        self.hashtags = hashtags
+        self.model = model
+        self.safetyNotice = safetyNotice
+        self.warnings = warnings
+    }
 }
 
 struct TicketParseOCRTextRequest: Encodable {
@@ -675,12 +843,17 @@ struct TicketParseOCRTextRequest: Encodable {
     let locale: String
 }
 
+typealias TicketOCRParseRequest = TicketParseOCRTextRequest
+
 struct TicketParseOCRTextDTO: Decodable {
     let gameDate: String?
     let favoriteTeamName: String?
     let opponentTeamName: String?
     let stadiumName: String?
     let seatText: String?
+    let confidence: Double?
+    let warnings: [TicketParseWarning]
+    let teamCandidates: [TicketCandidate]
 
     enum CodingKeys: String, CodingKey {
         case gameDate
@@ -693,6 +866,10 @@ struct TicketParseOCRTextDTO: Decodable {
         case stadium
         case seatText
         case seat
+        case confidence
+        case warnings
+        case teamCandidates
+        case candidates
     }
 
     init(from decoder: Decoder) throws {
@@ -707,6 +884,63 @@ struct TicketParseOCRTextDTO: Decodable {
             ?? container.decodeIfPresent(String.self, forKey: .stadium)
         seatText = try container.decodeIfPresent(String.self, forKey: .seatText)
             ?? container.decodeIfPresent(String.self, forKey: .seat)
+        confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+        warnings = try container.decodeIfPresent([TicketParseWarning].self, forKey: .warnings) ?? []
+        teamCandidates = try container.decodeIfPresent([TicketCandidate].self, forKey: .teamCandidates)
+            ?? container.decodeIfPresent([TicketCandidate].self, forKey: .candidates)
+            ?? []
+    }
+}
+
+typealias TicketOCRParseResponse = TicketParseOCRTextDTO
+
+struct TicketCandidate: Decodable, Hashable, Identifiable {
+    var id: String { [teamID, teamName, role].compactMap(\.self).joined(separator: "-") }
+    let teamID: String?
+    let teamName: String?
+    let role: String?
+    let confidence: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case teamID
+        case id
+        case teamName
+        case name
+        case role
+        case confidence
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        teamID = try container.decodeIfPresent(String.self, forKey: .teamID)
+            ?? container.decodeIfPresent(String.self, forKey: .id)
+        teamName = try container.decodeIfPresent(String.self, forKey: .teamName)
+            ?? container.decodeIfPresent(String.self, forKey: .name)
+        role = try container.decodeIfPresent(String.self, forKey: .role)
+        confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+    }
+}
+
+struct TicketParseWarning: Decodable, Hashable, Identifiable {
+    var id: String { code ?? message }
+    let code: String?
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case message
+    }
+
+    init(from decoder: Decoder) throws {
+        if let container = try? decoder.singleValueContainer(),
+           let value = try? container.decode(String.self) {
+            code = nil
+            message = value
+            return
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        code = try container.decodeIfPresent(String.self, forKey: .code)
+        message = try container.decodeIfPresent(String.self, forKey: .message) ?? "확인이 필요해요."
     }
 }
 

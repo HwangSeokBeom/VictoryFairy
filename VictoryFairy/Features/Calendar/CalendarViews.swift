@@ -1,19 +1,125 @@
 import SwiftUI
 
+private enum CalendarResultFilter: String, CaseIterable, Identifiable {
+    case all
+    case win
+    case loss
+    case draw
+    case canceled
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all: "전체"
+        case .win: "승"
+        case .loss: "패"
+        case .draw: "무"
+        case .canceled: "취소"
+        }
+    }
+
+    var result: GameResult? {
+        switch self {
+        case .all: nil
+        case .win: .win
+        case .loss: .loss
+        case .draw: .draw
+        case .canceled: .canceled
+        }
+    }
+
+    func matches(_ log: AttendanceLogViewState) -> Bool {
+        result.map { log.result == $0 } ?? true
+    }
+}
+
+private enum CalendarTeamFilter: Hashable {
+    case all
+    case favorite
+    case team(String)
+
+    var title: String {
+        switch self {
+        case .all: "전체 팀"
+        case .favorite: "응원팀"
+        case .team(let name): name
+        }
+    }
+
+    func matches(_ log: AttendanceLogViewState, favoriteTeam: KBOTeam?) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .favorite:
+            guard let favoriteTeam else { return true }
+            return log.matchup.localizedCaseInsensitiveContains(favoriteTeam.name)
+                || log.matchup.localizedCaseInsensitiveContains(favoriteTeam.shortName)
+        case .team(let name):
+            return log.matchup.localizedCaseInsensitiveContains(name)
+        }
+    }
+}
+
+private enum CalendarPhotoFilter: String, CaseIterable, Identifiable {
+    case all
+    case withPhoto
+    case withoutPhoto
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all: "전체"
+        case .withPhoto: "사진 있음"
+        case .withoutPhoto: "사진 없음"
+        }
+    }
+
+    func matches(_ log: AttendanceLogViewState) -> Bool {
+        switch self {
+        case .all: true
+        case .withPhoto: !log.photoLocalRefs.isEmpty
+        case .withoutPhoto: log.photoLocalRefs.isEmpty
+        }
+    }
+}
+
+private enum CalendarRecordFilter: String, CaseIterable, Identifiable {
+    case all
+    case recorded
+    case unrecorded
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all: "전체 날짜"
+        case .recorded: "기록 있는 날짜"
+        case .unrecorded: "기록 없는 날짜"
+        }
+    }
+}
+
 struct AttendanceCalendarView: View {
     @Environment(\.appTheme) private var theme
     @EnvironmentObject private var appData: AppDataStore
+    @EnvironmentObject private var preferences: UserPreferencesStore
     let logs: [AttendanceLogViewState]
     var dataState: RemoteDataState = .loaded
     var month = Date.vfDate(year: 2026, month: 4, day: 1)
     @State private var selectedDay: CalendarSelectedDay?
     @State private var editorDate: Date?
     @State private var isShowingLogEditor = false
+    @State private var resultFilter: CalendarResultFilter = .all
+    @State private var teamFilter: CalendarTeamFilter = .all
+    @State private var photoFilter: CalendarPhotoFilter = .all
+    @State private var recordFilter: CalendarRecordFilter = .all
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "직관 캘린더") {
+                ScreenHeaderView(title: "직관 캘린더", subtitle: "날짜별 직관 기록과 결과를 확인해요") {
                     HeaderIconButton(systemImage: "calendar.badge.plus", accessibilityLabel: "직관 기록 추가") {
                         openEditor(date: selectedDay?.date ?? month)
                     }
@@ -21,7 +127,7 @@ struct AttendanceCalendarView: View {
 
                 DataStateBanner(state: dataState)
 
-                VFCard {
+                VFCard(background: VFColor.backgroundWarm) {
                     VStack(alignment: .leading, spacing: VFSpacing.md) {
                         HStack(spacing: VFSpacing.sm) {
                             monthButton(systemImage: "chevron.left", accessibilityLabel: "이전 달") {
@@ -29,7 +135,7 @@ struct AttendanceCalendarView: View {
                                 Task { await appData.moveCalendarMonth(by: -1) }
                             }
                             Text(monthTitle)
-                                .font(VFTypography.section)
+                                .font(.system(size: 21, weight: .bold, design: .rounded))
                                 .foregroundStyle(VFColor.primaryText)
                                 .frame(maxWidth: .infinity)
                             monthButton(systemImage: "chevron.right", accessibilityLabel: "다음 달") {
@@ -38,11 +144,14 @@ struct AttendanceCalendarView: View {
                             }
                         }
 
-                        Text("이번 달 \(logs.count)경기")
-                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundStyle(theme.primary)
+                        HStack {
+                            Text(summaryTitle)
+                                .font(.system(.subheadline, design: .rounded).weight(.bold))
+                                .foregroundStyle(VFColor.primaryText)
+                            Spacer()
+                        }
 
-                        FlowLayout(spacing: VFSpacing.sm) {
+                        FlowLayout(spacing: VFSpacing.xs) {
                             summaryChip("승 \(count(.win))", color: VFColor.winGreen)
                             summaryChip("패 \(count(.loss))", color: VFColor.lossRed)
                             summaryChip("무 \(count(.draw))", color: VFColor.drawGray)
@@ -51,26 +160,29 @@ struct AttendanceCalendarView: View {
                     }
                 }
 
-                CalendarMonthView(month: month, logs: logs, selectedDate: selectedDay?.date) { date in
+                calendarFilters
+
+                CalendarMonthView(month: month, logs: displayedCalendarLogs, selectedDate: selectedDay?.date) { date in
                     selectedDay = CalendarSelectedDay(date: date, logs: logs(on: date))
                 }
 
                 legend
 
-                if logs.isEmpty {
+                if shouldShowFilteredEmptyState {
                     EmptyStateView(
-                        title: "아직 이번 달 직관 기록이 없어요.",
-                        message: "캘린더에서 날짜를 눌러 새 직관을 남길 수 있어요.",
+                        title: emptyStateTitle,
+                        message: emptyStateMessage,
                         buttonTitle: "이 날짜에 기록 추가",
                         systemImage: "calendar.badge.plus"
                     ) {
                         openEditor(date: selectedDay?.date ?? month)
                     }
-                } else if let log = selectedDay?.logs.first ?? logs.first {
+                } else if let log = selectedDay?.logs.first ?? matchingLogs.first {
                     selectedPreview(log)
                 }
             }
             .padding(VFSpacing.lg)
+            .vfTabContentPadding()
         }
         .sheet(item: $selectedDay) { day in
             CalendarDayDetailSheet(day: day) { date in
@@ -117,11 +229,157 @@ struct AttendanceCalendarView: View {
     }
 
     private func logs(on date: Date) -> [AttendanceLogViewState] {
-        logs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        guard recordFilter != .unrecorded else { return [] }
+        return matchingLogs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
 
     private func count(_ result: GameResult) -> Int {
-        logs.filter { $0.result == result }.count
+        matchingLogs.filter { $0.result == result }.count
+    }
+
+    private var matchingLogs: [AttendanceLogViewState] {
+        logs.filter { log in
+            resultFilter.matches(log)
+                && teamFilter.matches(log, favoriteTeam: favoriteTeam)
+                && photoFilter.matches(log)
+        }
+    }
+
+    private var displayedCalendarLogs: [AttendanceLogViewState] {
+        recordFilter == .unrecorded ? [] : matchingLogs
+    }
+
+    private var favoriteTeam: KBOTeam? {
+        appData.team(id: preferences.favoriteTeamID)
+    }
+
+    private var summaryTitle: String {
+        if recordFilter == .unrecorded {
+            return "기록 없는 날짜 보기"
+        }
+        return activeFilterCount == 0 ? "이번 달 \(matchingLogs.count)경기" : "조건에 맞는 \(matchingLogs.count)경기"
+    }
+
+    private var activeFilterCount: Int {
+        [resultFilter != .all, teamFilter != .all, photoFilter != .all, recordFilter != .all].filter { $0 }.count
+    }
+
+    private var shouldShowFilteredEmptyState: Bool {
+        recordFilter == .unrecorded ? false : matchingLogs.isEmpty
+    }
+
+    private var emptyStateTitle: String {
+        activeFilterCount == 0 ? "아직 이번 달 직관 기록이 없어요." : "조건에 맞는 직관 기록이 없어요."
+    }
+
+    private var emptyStateMessage: String {
+        activeFilterCount == 0 ? "캘린더에서 날짜를 눌러 새 직관을 남길 수 있어요." : "필터를 초기화하거나 다른 조건을 선택해 보세요."
+    }
+
+    private var calendarFilters: some View {
+        VFCard {
+            VStack(alignment: .leading, spacing: VFSpacing.sm) {
+                HStack {
+                    Text("필터")
+                        .font(VFTypography.cardTitle)
+                        .foregroundStyle(VFColor.primaryText)
+                    Spacer()
+                    Button("초기화") {
+                        resetFilters()
+                    }
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(VFColor.victoryOrange)
+                    .disabled(activeFilterCount == 0)
+                    .opacity(activeFilterCount == 0 ? 0.45 : 1)
+                }
+
+                filterRow {
+                    ForEach(CalendarResultFilter.allCases) { filter in
+                        filterChip(title: filter.title, isSelected: resultFilter == filter, tint: filter.result?.color ?? theme.primary) {
+                            resultFilter = filter
+                            refreshSelectedDay()
+                        }
+                    }
+                }
+
+                filterRow {
+                    ForEach(teamFilterOptions, id: \.self) { filter in
+                        filterChip(title: filter.title, isSelected: teamFilter == filter, tint: theme.secondary) {
+                            teamFilter = filter
+                            refreshSelectedDay()
+                        }
+                    }
+                }
+
+                filterRow {
+                    ForEach(CalendarPhotoFilter.allCases) { filter in
+                        filterChip(title: filter.title, isSelected: photoFilter == filter, tint: VFColor.scoreboardNavy) {
+                            photoFilter = filter
+                            refreshSelectedDay()
+                        }
+                    }
+                }
+
+                filterRow {
+                    ForEach(CalendarRecordFilter.allCases) { filter in
+                        filterChip(title: filter.title, isSelected: recordFilter == filter, tint: VFColor.victoryOrange) {
+                            recordFilter = filter
+                            refreshSelectedDay()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func filterRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: VFSpacing.xs) {
+                content()
+            }
+        }
+    }
+
+    private func filterChip(title: String, isSelected: Bool, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VFChip(title: title, isSelected: isSelected, tint: tint)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isSelected ? "\(title), 선택됨" : title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var teamFilterOptions: [CalendarTeamFilter] {
+        var filters: [CalendarTeamFilter] = [.all]
+        if favoriteTeam != nil {
+            filters.append(.favorite)
+        }
+        for filter in detectedTeams.map({ CalendarTeamFilter.team($0.shortName) }) where !filters.contains(filter) {
+            filters.append(filter)
+        }
+        return filters
+    }
+
+    private var detectedTeams: [KBOTeam] {
+        KBOSeed.teams.filter { team in
+            logs.contains { log in
+                log.matchup.localizedCaseInsensitiveContains(team.name)
+                    || log.matchup.localizedCaseInsensitiveContains(team.shortName)
+            }
+        }
+    }
+
+    private func resetFilters() {
+        resultFilter = .all
+        teamFilter = .all
+        photoFilter = .all
+        recordFilter = .all
+        refreshSelectedDay()
+    }
+
+    private func refreshSelectedDay() {
+        guard let selectedDay else { return }
+        self.selectedDay = CalendarSelectedDay(date: selectedDay.date, logs: logs(on: selectedDay.date))
     }
 
     private func summaryChip(_ title: String, color: Color) -> some View {
@@ -146,29 +404,39 @@ struct AttendanceCalendarView: View {
             }
         }
         .padding(.horizontal, VFSpacing.xs)
+        .padding(.vertical, VFSpacing.xs)
     }
 
     private func selectedPreview(_ log: AttendanceLogViewState) -> some View {
         VFCard {
             HStack(spacing: VFSpacing.md) {
                 RoundedRectangle(cornerRadius: VFRadius.pill)
-                    .fill(theme.primary)
+                    .fill(log.result.color)
                     .frame(width: 5)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
+                    Text(log.dateText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(VFColor.tertiaryText)
                     Text(log.matchup)
                         .font(VFTypography.cardTitle)
                         .foregroundStyle(VFColor.primaryText)
-                    Text(log.resultScoreText)
-                        .font(.system(.subheadline, design: .rounded).weight(.bold))
-                        .foregroundStyle(log.result.color)
-                    Text(log.stadium)
-                        .font(.subheadline)
+                    HStack(spacing: VFSpacing.xs) {
+                        Text(log.stadium)
+                        if !log.photoLocalRefs.isEmpty {
+                            Label("사진 있음", systemImage: "photo.fill")
+                                .accessibilityLabel("사진 있음")
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(VFColor.secondaryText)
+                    Text(log.memo)
+                        .font(.caption)
                         .foregroundStyle(VFColor.secondaryText)
+                        .lineLimit(2)
                 }
                 Spacer()
-                Image(systemName: "chevron.up")
-                    .foregroundStyle(VFColor.secondaryText)
+                ResultBadge(result: log.result, scoreText: log.result == .canceled ? nil : log.scoreText)
             }
         }
     }
@@ -197,8 +465,9 @@ struct CalendarMonthView: View {
                     ForEach(days, id: \.date) { day in
                         CalendarDayCell(
                             day: day,
-                            result: log(on: day.date)?.result,
-                            isSelected: selectedDate.map { Calendar.current.isDate($0, inSameDayAs: day.date) } ?? false
+                            logs: logs(on: day.date),
+                            isSelected: selectedDate.map { Calendar.current.isDate($0, inSameDayAs: day.date) } ?? false,
+                            isToday: Calendar.current.isDateInToday(day.date)
                         ) {
                             onDateTap(day.date)
                         }
@@ -233,8 +502,8 @@ struct CalendarMonthView: View {
             + trailingDates.map { CalendarDay(date: $0, isInDisplayedMonth: false) })
     }
 
-    private func log(on date: Date) -> AttendanceLogViewState? {
-        logs.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
+    private func logs(on date: Date) -> [AttendanceLogViewState] {
+        logs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
 }
 
@@ -244,46 +513,111 @@ struct CalendarDay: Hashable {
 }
 
 struct CalendarDayCell: View {
-    @Environment(\.appTheme) private var theme
     let day: CalendarDay
-    let result: GameResult?
+    let logs: [AttendanceLogViewState]
     let isSelected: Bool
+    let isToday: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: VFSpacing.xxs) {
-                Text("\(Calendar.current.component(.day, from: day.date))")
-                    .font(.system(.subheadline, design: .rounded).weight(day.isInDisplayedMonth ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? theme.textOnPrimary : (day.isInDisplayedMonth ? VFColor.primaryText : VFColor.secondaryText.opacity(0.45)))
-                if let result {
-                    CalendarResultDot(result: result)
-                } else {
-                    Circle()
-                        .fill(.clear)
-                        .frame(width: 7, height: 7)
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: VFSpacing.xxs) {
+                    Text("\(Calendar.current.component(.day, from: day.date))")
+                        .font(.system(.subheadline, design: .rounded).weight(day.isInDisplayedMonth ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? .white : (day.isInDisplayedMonth ? VFColor.primaryText : VFColor.secondaryText.opacity(0.45)))
+
+                    if logs.isEmpty {
+                        Circle()
+                            .fill(.clear)
+                            .frame(width: 7, height: 7)
+                    } else {
+                        HStack(spacing: 2) {
+                            ForEach(Array(logs.prefix(3))) { log in
+                                CalendarResultDot(result: log.result, size: logs.count > 1 ? 6 : 8)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        if let teamShortName {
+                            Text(teamShortName)
+                                .font(.system(size: 8, weight: .bold, design: .rounded))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.secondaryText)
+                                .frame(maxWidth: 28)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 54)
+
+                if logs.count > 1 {
+                    Text("\(logs.count)")
+                        .font(.system(size: 9, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(width: 17, height: 17)
+                        .background(VFColor.scoreboardNavy)
+                        .clipShape(Circle())
+                        .accessibilityLabel("\(logs.count)개 기록")
+                } else if hasPhoto {
+                    Image(systemName: "photo.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(isSelected ? VFColor.victoryOrange : VFColor.scoreboardNavy)
+                        .frame(width: 17, height: 17)
+                        .background(.white.opacity(0.92))
+                        .clipShape(Circle())
+                        .accessibilityLabel("사진 있음")
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(isSelected ? theme.primary : (result.map { $0.color.opacity(0.08) } ?? Color.clear))
+            .background(isSelected ? VFColor.scoreboardNavy : (logs.first.map { $0.result.color.opacity(0.08) } ?? Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                    .stroke(isSelected ? theme.primary : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? VFColor.victoryOrange : (isToday ? VFColor.victoryOrange.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isSelected ? "날짜 \(Calendar.current.component(.day, from: day.date)), 선택됨" : "날짜 \(Calendar.current.component(.day, from: day.date))")
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var hasPhoto: Bool {
+        logs.contains { !$0.photoLocalRefs.isEmpty }
+    }
+
+    private var teamShortName: String? {
+        guard let matchup = logs.first?.matchup else { return nil }
+        return KBOSeed.teams.first {
+            matchup.localizedCaseInsensitiveContains($0.name) || matchup.localizedCaseInsensitiveContains($0.shortName)
+        }?.shortName
+    }
+
+    private var accessibilityLabel: String {
+        let dayText = "날짜 \(Calendar.current.component(.day, from: day.date))"
+        var parts = [dayText]
+        if isSelected {
+            parts.append("선택됨")
+        }
+        if logs.count > 1 {
+            parts.append("\(logs.count)개 기록")
+        }
+        if let first = logs.first {
+            parts.append(first.result.title)
+            parts.append(first.matchup)
+        }
+        if hasPhoto {
+            parts.append("사진 있음")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 
 struct CalendarResultDot: View {
     let result: GameResult
+    var size: CGFloat = 8
 
     var body: some View {
         Circle()
             .fill(result.color)
-            .frame(width: 8, height: 8)
+            .frame(width: size, height: size)
             .accessibilityLabel(result.title)
     }
 }
@@ -331,6 +665,21 @@ struct CalendarDayDetailSheet: View {
                                 Text(log.stadium)
                                     .font(.subheadline)
                                     .foregroundStyle(VFColor.secondaryText)
+                                HStack(spacing: VFSpacing.xs) {
+                                    Text(log.scoreText)
+                                    Text("·")
+                                    Text(log.dateText)
+                                    if !log.seat.isEmpty {
+                                        Text("·")
+                                        Text(log.seat)
+                                    }
+                                }
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(VFColor.secondaryText)
+                                if !log.photoLocalRefs.isEmpty {
+                                    PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 86)
+                                        .accessibilityLabel("사진 있음")
+                                }
                                 Text(log.memo)
                                     .font(VFTypography.body)
                                     .foregroundStyle(VFColor.primaryText)

@@ -71,6 +71,20 @@ enum FeedResultFilter: String, CaseIterable, Identifiable {
     }
 }
 
+struct SeasonOption: Identifiable, Hashable {
+    let season: Int
+    let label: String
+    let hasRecords: Bool
+
+    var id: Int { season }
+
+    init(season: Int, label: String? = nil, hasRecords: Bool = false) {
+        self.season = season
+        self.label = label ?? "\(season) 시즌"
+        self.hasRecords = hasRecords
+    }
+}
+
 struct KBOTeam: Identifiable, Hashable {
     let id: String
     let name: String
@@ -181,15 +195,15 @@ struct AttendanceLogViewState: Identifiable, Hashable {
     var subtleSourceLabel: String? {
         switch KBODataSource(serverValue: gameSource) {
         case .adminSchedule, .adminResult, .adminImport:
-            return "관리자 입력 경기 정보"
+            return "참고용 경기 정보"
         case .manualSeed, .unavailable, .unknown:
             return nil
         case .official:
-            return "공식 경기 정보"
+            return "참고용 경기 정보"
         case .provider:
-            return "제공사 경기 정보"
+            return "참고용 경기 정보"
         case .scrapedDev:
-            return "개발용 외부 수집 데이터"
+            return KBOReviewSafeSource.visibleLabel(sourceLabel: "개발용 외부 수집 데이터", source: gameSource)
         }
     }
 }
@@ -217,9 +231,14 @@ struct HomeDashboardViewState {
         let topStadium = Dictionary(grouping: logs, by: \.stadium)
             .max { $0.value.count < $1.value.count }
             .map { "\($0.key) \($0.value.count)회" } ?? "-"
+        let recentFlow = logs
+            .sorted { $0.date > $1.date }
+            .prefix(5)
+            .map(\.result.title)
+            .joined(separator: " ")
 
         return HomeDashboardViewState(
-            title: "승리요정",
+            title: "오늘의 승리요정",
             subtitle: "내 직관 기록으로 보는 이번 시즌",
             fairyIndex: index.map(String.init) ?? "-",
             fairyLabel: indexService.grade(index: index),
@@ -227,6 +246,7 @@ struct HomeDashboardViewState {
             metrics: [
                 .init(title: "총 직관", value: "\(logs.count)경기", detail: "무 \(draws) · 취소 \(canceled)"),
                 .init(title: "시즌 승률", value: "\(winRate)%", detail: "승패 기준"),
+                .init(title: "최근 흐름", value: recentFlow.isEmpty ? "-" : recentFlow, detail: "최근 5경기"),
                 .init(title: "최다 구장", value: topStadium, detail: "직관 기준")
             ],
             recentLogs: Array(logs.sorted { $0.date > $1.date }.prefix(1)),
@@ -235,7 +255,7 @@ struct HomeDashboardViewState {
     }
 
     static let empty = HomeDashboardViewState(
-        title: "승리요정",
+        title: "오늘의 승리요정",
         subtitle: "내 직관 기록으로 보는 이번 시즌",
         fairyIndex: "-",
         fairyLabel: "표본 수집 중",
@@ -273,6 +293,7 @@ struct StatisticsViewState {
     let opponentRankings: [RankingViewState]
     let kboStandings: [KBOStandingViewState]
     let kboSourceText: String?
+    let kboDisclosureText: String?
     let kboUpdatedText: String
     let kboSource: KBOStandingsSource
 
@@ -303,7 +324,8 @@ struct StatisticsViewState {
             .init(rank: 1, teamName: "KIA 타이거즈", wins: 0, losses: 0, draws: 0, winRateText: "-", gamesBehindText: "-"),
             .init(rank: 2, teamName: "한화 이글스", wins: 0, losses: 0, draws: 0, winRateText: "-", gamesBehindText: "-")
         ],
-        kboSourceText: "개발용 외부 수집 데이터",
+        kboSourceText: "참고용 경기 정보",
+        kboDisclosureText: "공식 기록은 KBO 공식 사이트에서 확인해 주세요.",
         kboUpdatedText: "최근 갱신: 2026.05.06 20:58",
         kboSource: .manualSeed
     )
@@ -361,18 +383,52 @@ enum KBODataSource: String, Hashable {
     var displayLabel: String {
         switch self {
         case .adminSchedule, .adminResult, .adminImport:
-            return "관리자 입력 데이터"
+            return "참고용 경기 정보"
         case .manualSeed:
             return "참고용 경기 정보"
         case .official:
-            return "공식 기록"
+            return "참고용 경기 정보"
         case .provider:
-            return "제공사 데이터"
+            return "참고용 경기 정보"
         case .scrapedDev:
-            return "개발용 외부 수집 데이터"
+            return KBOReviewSafeSource.visibleLabel(sourceLabel: "개발용 외부 수집 데이터", source: rawValue)
         case .unavailable, .unknown:
             return "참고용 경기 정보"
         }
+    }
+}
+
+enum KBOReviewSafeSource {
+    static func visibleLabel(sourceLabel: String?, source: String?) -> String {
+        let trimmed = sourceLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sourceType = KBODataSource(serverValue: source)
+
+        if sourceType == .official || trimmed?.contains("공식") == true {
+            return "참고용 경기 정보"
+        }
+
+        #if DEBUG
+        if let trimmed, !trimmed.isEmpty {
+            return trimmed
+        }
+        #endif
+
+        if trimmed == "개발용 외부 수집 데이터" || sourceType == .scrapedDev {
+            return "자동 입력 보조 정보"
+        }
+
+        return trimmed?.nilIfEmpty ?? "참고용 경기 정보"
+    }
+
+    static func disclosure(_ value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            ?? "공식 기록은 KBO 공식 사이트에서 확인해 주세요."
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 

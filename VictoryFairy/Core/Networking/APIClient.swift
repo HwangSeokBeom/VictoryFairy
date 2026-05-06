@@ -26,6 +26,7 @@ struct APIClient {
         decoder.dateDecodingStrategy = .iso8601
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
+        environment.logDebugConfiguration()
     }
 
     func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem] = [], requiresDeviceID: Bool = true) async throws -> T {
@@ -100,18 +101,7 @@ struct APIClient {
         body: RequestBody?,
         requiresDeviceID: Bool
     ) async throws -> T {
-        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
-            throw APIError.invalidURL
-        }
-        let trimmedPath = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        components.path = [baseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")), trimmedPath]
-            .filter { !$0.isEmpty }
-            .joined(separator: "/")
-        components.path = "/" + components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        components.queryItems = queryItems.isEmpty ? nil : queryItems
-        guard let url = components.url else {
-            throw APIError.invalidURL
-        }
+        let url = environment.endpointURL(baseURL: baseURL, path: path, queryItems: queryItems)
 
         var request = URLRequest(url: url, timeoutInterval: environment.timeout)
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -132,15 +122,15 @@ struct APIClient {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
-            debugLog("\(method) \(endpointDisplay(path)) failed reason=requestFailed(\(error.localizedDescription))")
+            debugLog("\(method) \(url.absoluteString) failed reason=requestFailed(\(error.localizedDescription))")
             throw APIError.requestFailed(error.localizedDescription)
         }
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            debugLog("\(method) \(endpointDisplay(path)) failed reason=invalidResponse")
+            debugLog("\(method) \(url.absoluteString) failed reason=invalidResponse")
             throw APIError.invalidResponse
         }
-        debugLog("\(method) \(endpointDisplay(path)) status=\(httpResponse.statusCode) deviceID=\(requiresDeviceID)")
+        debugLog("\(method) \(url.absoluteString) status=\(httpResponse.statusCode) deviceID=\(requiresDeviceID)")
 
         if httpResponse.statusCode == 304 {
             debugLog("304 received, using local fallback")
@@ -200,17 +190,7 @@ struct APIClient {
         files: [MultipartFile],
         requiresDeviceID: Bool
     ) async throws -> T {
-        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
-            throw APIError.invalidURL
-        }
-        let trimmedPath = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        components.path = [baseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")), trimmedPath]
-            .filter { !$0.isEmpty }
-            .joined(separator: "/")
-        components.path = "/" + components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let url = components.url else {
-            throw APIError.invalidURL
-        }
+        let url = environment.endpointURL(baseURL: baseURL, path: path, queryItems: [])
 
         let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: url, timeoutInterval: environment.timeout)
@@ -227,15 +207,15 @@ struct APIClient {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
-            debugLog("POST \(endpointDisplay(path)) failed reason=requestFailed(\(error.localizedDescription))")
+            debugLog("POST \(url.absoluteString) failed reason=requestFailed(\(error.localizedDescription))")
             throw APIError.requestFailed(error.localizedDescription)
         }
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            debugLog("POST \(endpointDisplay(path)) failed reason=invalidResponse")
+            debugLog("POST \(url.absoluteString) failed reason=invalidResponse")
             throw APIError.invalidResponse
         }
-        debugLog("POST \(endpointDisplay(path)) status=\(httpResponse.statusCode) multipart=true")
+        debugLog("POST \(url.absoluteString) status=\(httpResponse.statusCode) multipart=true")
 
         guard (200..<300).contains(httpResponse.statusCode) else {
             if data.isEmpty {
@@ -285,10 +265,6 @@ struct APIClient {
         }
         data.append("--\(boundary)--\(lineBreak)")
         return data
-    }
-
-    private func endpointDisplay(_ path: String) -> String {
-        "/" + path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
     private func debugLog(_ message: String) {
