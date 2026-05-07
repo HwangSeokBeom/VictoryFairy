@@ -27,14 +27,15 @@ struct MainTabView: View {
     @State private var selectedTab: MainTab = .home
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            selectedContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            FloatingTabBar(selectedTab: $selectedTab)
-                .padding(.horizontal, VFSpacing.md)
-                .padding(.bottom, VFTabBarMetrics.customTabBarBottomInset)
-        }
+        selectedContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                FloatingTabBar(selectedTab: $selectedTab)
+                    .padding(.horizontal, VFSpacing.md)
+                    .padding(.top, 6)
+                    .padding(.bottom, VFTabBarMetrics.customTabBarBottomInset)
+                    .background(.clear)
+            }
         .animation(.snappy(duration: 0.22), value: selectedTab)
     }
 
@@ -74,12 +75,12 @@ private struct FloatingTabBar: View {
         .frame(maxWidth: .infinity, minHeight: VFTabBarMetrics.customTabBarHeight)
         .background(VFColor.cardTranslucent)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(.white.opacity(0.9), lineWidth: 0.8)
         )
-        .shadow(color: Color.black.opacity(0.12), radius: 24, y: 12)
+        .shadow(color: Color.black.opacity(0.10), radius: 16, y: 6)
         .accessibilityElement(children: .contain)
     }
 

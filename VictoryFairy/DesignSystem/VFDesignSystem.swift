@@ -33,10 +33,10 @@ enum VFSpacing {
 }
 
 enum VFTabBarMetrics {
-    static let customTabBarHeight: CGFloat = 64
-    static let customTabBarBottomInset: CGFloat = 10
-    static let extraBreathingRoom: CGFloat = 48
-    static let tabContentBottomPadding = customTabBarHeight + customTabBarBottomInset + extraBreathingRoom
+    static let customTabBarHeight: CGFloat = 66
+    static let customTabBarBottomInset: CGFloat = 0
+    static let extraBreathingRoom: CGFloat = 20
+    static let tabContentBottomPadding = customTabBarHeight + extraBreathingRoom
 }
 
 enum VFRadius {

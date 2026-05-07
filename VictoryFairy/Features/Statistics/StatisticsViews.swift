@@ -153,14 +153,14 @@ struct StatisticsView: View {
             }
 
             NavigationLink {
-                StadiumStatsView(rankings: viewModel.state.stadiumRankings)
+                StadiumStatsView(stats: viewModel.state.stadiumStats)
             } label: {
                 rankingSection(title: "구장별 랭킹", rankings: viewModel.state.stadiumRankings)
             }
             .buttonStyle(.plain)
 
             NavigationLink {
-                OpponentStatsView(rankings: viewModel.state.opponentRankings)
+                OpponentStatsView(stats: viewModel.state.opponentStats)
             } label: {
                 rankingSection(title: "상대팀별 랭킹", rankings: viewModel.state.opponentRankings)
             }
@@ -473,51 +473,27 @@ struct DonutSegment: Shape {
 
 struct StadiumStatsView: View {
     @Environment(\.appTheme) private var theme
-    let rankings: [RankingViewState]
+    let stats: [StatGroupViewState]
+    @State private var sort: WinRateRankingSort = .winRate
+    @State private var isShowingLogEditor = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                Text("구장별 통계")
-                    .font(VFTypography.title)
-                    .foregroundStyle(VFColor.primaryText)
+                statsSortPicker
 
-                if rankings.isEmpty {
+                if stats.isEmpty {
                     EmptyStateView(
                         title: "아직 구장별 통계가 없어요.",
                         message: "직관 기록을 추가하면 구장별 성적이 계산돼요.",
-                        buttonTitle: "추후 제공",
+                        buttonTitle: "첫 직관 기록하기",
                         systemImage: "mappin.and.ellipse"
-                    )
-                    .disabled(true)
+                    ) {
+                        isShowingLogEditor = true
+                    }
                 } else {
-                    ForEach(Array(rankings.enumerated()), id: \.element.id) { index, item in
-                        VFCard {
-                            VStack(alignment: .leading, spacing: VFSpacing.md) {
-                                HStack {
-                                    Text(item.title)
-                                        .font(VFTypography.section)
-                                        .foregroundStyle(VFColor.primaryText)
-                                    Spacer()
-                                    Text("\(index + 1)위")
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(theme.primary)
-                                }
-
-                                HStack(spacing: VFSpacing.sm) {
-                                    statPill(title: "방문", value: item.subtitle, detail: "직관 기준")
-                                    statPill(title: "성적", value: item.trailing, detail: "승패 기준")
-                                }
-
-                                Text("기록 목록은 추후 제공")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(VFColor.secondaryText)
-                                    .padding(.horizontal, VFSpacing.sm)
-                                    .frame(minHeight: 30)
-                                    .background(VFColor.offWhite)
-                                    .clipShape(Capsule())
-                            }
-                        }
+                    ForEach(Array(sortedStats.enumerated()), id: \.element.id) { index, item in
+                        DetailedStatCard(rank: index + 1, item: item, rankTint: theme.primary, countTitle: "방문")
                     }
                 }
             }
@@ -526,17 +502,88 @@ struct StadiumStatsView: View {
         }
         .navigationTitle("구장별 통계")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingLogEditor) {
+            NavigationStack {
+                LogEditorView()
+            }
+        }
         .vfScreenBackground()
     }
 
-    private func statPill(title: String, value: String, detail: String) -> some View {
+    private var statsSortPicker: some View {
+        Picker("구장 통계 정렬", selection: $sort) {
+            ForEach(WinRateRankingSort.allCases) { sort in
+                Text(sort.title).tag(sort)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var sortedStats: [StatGroupViewState] {
+        StatGroupSorter.sorted(stats, by: sort)
+    }
+}
+
+private struct DetailedStatCard: View {
+    let rank: Int
+    let item: StatGroupViewState
+    let rankTint: Color
+    let countTitle: String
+
+    var body: some View {
+        VFCard {
+            VStack(alignment: .leading, spacing: VFSpacing.md) {
+                HStack(alignment: .top, spacing: VFSpacing.sm) {
+                    Text("\(rank)")
+                        .font(.system(.caption, design: .rounded).weight(.heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(rankTint)
+                        .clipShape(Circle())
+                    VStack(alignment: .leading, spacing: VFSpacing.xxs) {
+                        Text(item.name)
+                            .font(VFTypography.cardTitle)
+                            .foregroundStyle(VFColor.primaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(item.latestDateText)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(VFColor.secondaryText)
+                    }
+                    Spacer()
+                    if item.isSmallSample {
+                        Text("표본 적음")
+                            .font(.caption2.weight(.heavy))
+                            .foregroundStyle(VFColor.victoryOrange)
+                            .padding(.horizontal, VFSpacing.xs)
+                            .frame(minHeight: 24)
+                            .background(VFColor.victoryOrange.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                }
+
+                HStack(spacing: VFSpacing.sm) {
+                    statPill(title: countTitle, value: "\(item.totalGames)경기", detail: "직관 기준", tint: VFColor.scoreboardNavy)
+                    statPill(title: "승률", value: item.winRateText, detail: "승패 기준", tint: VFColor.winGreen)
+                }
+
+                HStack(spacing: VFSpacing.xs) {
+                    resultMiniPill("승", item.wins, VFColor.winGreen)
+                    resultMiniPill("패", item.losses, VFColor.lossRed)
+                    resultMiniPill("무", item.draws, VFColor.drawGray)
+                    resultMiniPill("취소", item.canceled, VFColor.canceledGray)
+                }
+            }
+        }
+    }
+
+    private func statPill(title: String, value: String, detail: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(VFColor.secondaryText)
             Text(value)
                 .font(.system(.headline, design: .rounded).weight(.bold))
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(tint)
                 .minimumScaleFactor(0.75)
             Text(detail)
                 .font(.caption)
@@ -544,54 +591,44 @@ struct StadiumStatsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(VFSpacing.md)
-        .background(VFColor.offWhite)
+        .background(tint.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+    }
+
+    private func resultMiniPill(_ title: String, _ count: Int, _ color: Color) -> some View {
+        Text("\(title) \(count)")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(color)
+            .padding(.horizontal, VFSpacing.sm)
+            .frame(minHeight: 28)
+            .background(color.opacity(0.10))
+            .clipShape(Capsule())
     }
 }
 
 struct OpponentStatsView: View {
     @Environment(\.appTheme) private var theme
-    let rankings: [RankingViewState]
+    let stats: [StatGroupViewState]
+    @State private var sort: WinRateRankingSort = .winRate
+    @State private var isShowingLogEditor = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                Text("상대팀별 통계")
-                    .font(VFTypography.title)
-                    .foregroundStyle(VFColor.primaryText)
+                statsSortPicker
 
-                if rankings.isEmpty {
+                if stats.isEmpty {
                     EmptyStateView(
                         title: "아직 상대팀별 통계가 없어요.",
                         message: "직관 기록을 추가하면 상대팀별 성적이 계산돼요.",
-                        buttonTitle: "추후 제공",
+                        buttonTitle: "첫 직관 기록하기",
                         systemImage: "person.2"
-                    )
-                    .disabled(true)
+                    ) {
+                        isShowingLogEditor = true
+                    }
                 } else {
-                    ForEach(Array(rankings.enumerated()), id: \.element.id) { index, item in
-                        VFCard {
-                            HStack(spacing: VFSpacing.md) {
-                                Text("\(index + 1)")
-                                    .font(.system(.subheadline, design: .rounded).weight(.bold))
-                                    .foregroundStyle(theme.textOnPrimary)
-                                    .frame(width: 34, height: 34)
-                                    .background(theme.primary)
-                                    .clipShape(Circle())
-                                VStack(alignment: .leading, spacing: VFSpacing.xs) {
-                                    Text(item.title)
-                                        .font(VFTypography.cardTitle)
-                                        .foregroundStyle(VFColor.primaryText)
-                                    Text(item.subtitle)
-                                        .font(.subheadline)
-                                        .foregroundStyle(VFColor.secondaryText)
-                                }
-                                Spacer()
-                                Text(item.trailing)
-                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                    .foregroundStyle(theme.primary)
-                            }
-                        }
+                    ForEach(Array(sortedStats.enumerated()), id: \.element.id) { index, item in
+                        DetailedStatCard(rank: index + 1, item: item, rankTint: theme.primary, countTitle: "상대")
                     }
                 }
             }
@@ -600,7 +637,46 @@ struct OpponentStatsView: View {
         }
         .navigationTitle("상대팀별 통계")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingLogEditor) {
+            NavigationStack {
+                LogEditorView()
+            }
+        }
         .vfScreenBackground()
+    }
+
+    private var statsSortPicker: some View {
+        Picker("상대팀 통계 정렬", selection: $sort) {
+            ForEach(WinRateRankingSort.allCases) { sort in
+                Text(sort.title).tag(sort)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var sortedStats: [StatGroupViewState] {
+        StatGroupSorter.sorted(stats, by: sort)
+    }
+}
+
+private enum StatGroupSorter {
+    static func sorted(_ stats: [StatGroupViewState], by sort: WinRateRankingSort) -> [StatGroupViewState] {
+        switch sort {
+        case .winRate:
+            stats.sorted {
+                if ($0.winRate ?? -1) != ($1.winRate ?? -1) { return ($0.winRate ?? -1) > ($1.winRate ?? -1) }
+                if $0.totalGames != $1.totalGames { return $0.totalGames > $1.totalGames }
+                return ($0.latestDate ?? .distantPast) > ($1.latestDate ?? .distantPast)
+            }
+        case .total:
+            stats.sorted {
+                if $0.totalGames != $1.totalGames { return $0.totalGames > $1.totalGames }
+                if ($0.winRate ?? -1) != ($1.winRate ?? -1) { return ($0.winRate ?? -1) > ($1.winRate ?? -1) }
+                return ($0.latestDate ?? .distantPast) > ($1.latestDate ?? .distantPast)
+            }
+        case .recent:
+            stats.sorted { ($0.latestDate ?? .distantPast) > ($1.latestDate ?? .distantPast) }
+        }
     }
 }
 
@@ -659,7 +735,7 @@ struct SeasonStatsView: View {
                             Text("시즌 리포트")
                                 .font(VFTypography.cardTitle)
                             Spacer()
-                            Text("추후 제공")
+                            Text("직관 기록 기반")
                                 .font(.caption.weight(.bold))
                                 .foregroundStyle(VFColor.secondaryText)
                                 .padding(.horizontal, VFSpacing.sm)

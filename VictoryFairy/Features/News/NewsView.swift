@@ -14,7 +14,6 @@ struct NewsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "오늘의 야구 소식", subtitle: sourceDisclosure)
                 filterChips
 
                 switch state {
@@ -155,7 +154,7 @@ private struct NewsCard: View {
     let onOpen: (URL) -> Void
 
     var body: some View {
-        VFCard {
+        VFCard(padding: VFSpacing.md) {
             VStack(alignment: .leading, spacing: VFSpacing.sm) {
                 HStack(spacing: VFSpacing.xs) {
                     Text(item.sourceName ?? "야구 소식")
@@ -191,7 +190,7 @@ private struct NewsCard: View {
                 } label: {
                     Label(linkTitle, systemImage: "safari")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
-                        .frame(maxWidth: .infinity, minHeight: 42)
+                        .frame(maxWidth: .infinity, minHeight: 40)
                         .foregroundStyle(VFColor.primaryText)
                         .background(VFColor.backgroundWarm)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))

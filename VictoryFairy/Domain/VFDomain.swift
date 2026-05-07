@@ -280,6 +280,24 @@ struct RankingViewState: Identifiable, Hashable {
     let trailing: String
 }
 
+struct StatGroupViewState: Identifiable, Hashable {
+    let id = UUID()
+    let name: String
+    let totalGames: Int
+    let wins: Int
+    let losses: Int
+    let draws: Int
+    let canceled: Int
+    let winRate: Int?
+    let latestDate: Date?
+    let latestDateText: String
+
+    var decidedGames: Int { wins + losses }
+    var winRateText: String { winRate.map { "\($0)%" } ?? "-" }
+    var recordText: String { "\(wins)승 \(losses)패 \(draws)무 \(canceled)취소" }
+    var isSmallSample: Bool { decidedGames < 3 }
+}
+
 struct StatisticsViewState {
     let season: Int
     let totalGames: Int
@@ -291,6 +309,8 @@ struct StatisticsViewState {
     let recentResults: [GameResult]
     let stadiumRankings: [RankingViewState]
     let opponentRankings: [RankingViewState]
+    let stadiumStats: [StatGroupViewState]
+    let opponentStats: [StatGroupViewState]
     let kboStandings: [KBOStandingViewState]
     let kboSourceText: String?
     let kboDisclosureText: String?
@@ -319,6 +339,14 @@ struct StatisticsViewState {
         opponentRankings: [
             .init(title: "KIA", subtitle: "4회 상대", trailing: "승률 75%"),
             .init(title: "두산", subtitle: "3회 상대", trailing: "승률 33%")
+        ],
+        stadiumStats: [
+            .init(name: "잠실야구장", totalGames: 8, wins: 5, losses: 2, draws: 1, canceled: 0, winRate: 71, latestDate: .now, latestDateText: "최근 방문 \(DateFormatter.vfDisplayDate.string(from: .now))"),
+            .init(name: "대전 한화생명 볼파크", totalGames: 2, wins: 1, losses: 1, draws: 0, canceled: 0, winRate: 50, latestDate: .now, latestDateText: "최근 방문 \(DateFormatter.vfDisplayDate.string(from: .now))")
+        ],
+        opponentStats: [
+            .init(name: "KIA", totalGames: 4, wins: 3, losses: 1, draws: 0, canceled: 0, winRate: 75, latestDate: .now, latestDateText: "최근 경기 \(DateFormatter.vfDisplayDate.string(from: .now))"),
+            .init(name: "두산", totalGames: 3, wins: 1, losses: 2, draws: 0, canceled: 0, winRate: 33, latestDate: .now, latestDateText: "최근 경기 \(DateFormatter.vfDisplayDate.string(from: .now))")
         ],
         kboStandings: [
             .init(rank: 1, teamName: "KIA 타이거즈", wins: 0, losses: 0, draws: 0, winRateText: "-", gamesBehindText: "-"),

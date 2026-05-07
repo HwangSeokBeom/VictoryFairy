@@ -12,12 +12,6 @@ struct MatchOutlookView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(
-                    title: "경기 전망",
-                    subtitle: "오늘 경기 전망과 응원 포인트를 확인해 보세요."
-                )
-
-                disclaimerCard
                 selectorCard
                 resultSection
             }
@@ -111,6 +105,23 @@ struct MatchOutlookView: View {
     private var selectorCard: some View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
+                HStack(alignment: .top, spacing: VFSpacing.sm) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(VFColor.victoryOrange)
+                        .frame(width: 34, height: 34)
+                        .background(VFColor.victoryOrange.opacity(0.12))
+                        .clipShape(Circle())
+                    VStack(alignment: .leading, spacing: VFSpacing.xxs) {
+                        Text("재미로 보는 경기 전망")
+                            .font(VFTypography.cardTitle)
+                            .foregroundStyle(VFColor.primaryText)
+                        Text("선택한 팀과 내 직관 기록 기준으로 관전 포인트를 정리해요.")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(VFColor.secondaryText)
+                    }
+                    Spacer()
+                }
+
                 HStack {
                     Text(favoriteTeam.shortName)
                         .font(.system(.title3, design: .rounded).weight(.heavy))
@@ -431,8 +442,54 @@ struct MatchOutlookView: View {
             debugLog("loaded points=\(outlook.points.count)")
         } catch {
             debugLog("failed code=\(serverCode(error) ?? "network")")
-            state = .error(error.localizedDescription)
+            withAnimation(.snappy(duration: 0.22)) {
+                state = .loaded(localOutlook(), updatedAt: Date(), isStale: false)
+            }
         }
+    }
+
+    private func localOutlook() -> MatchOutlookResponse {
+        let opponentLogs = appData.feedLogs.filter { opponentName(for: $0) == opponentTeam.shortName || opponentName(for: $0) == opponentTeam.name }
+        let relatedLogs = opponentLogs.isEmpty ? appData.feedLogs : opponentLogs
+        let wins = relatedLogs.filter { $0.result == .win }.count
+        let losses = relatedLogs.filter { $0.result == .loss }.count
+        let decided = wins + losses
+        let winRateText = decided == 0 ? nil : "\(Int((Double(wins) / Double(decided) * 100).rounded()))%"
+        let stadiumHit = StatisticsService()
+            .summary(logs: appData.feedLogs, season: Calendar.current.component(.year, from: selectedDate))
+            .stadiumStats
+            .first { $0.name == favoriteTeam.homeStadiumName }
+
+        var points: [MatchOutlookPoint] = [
+            .init(title: "매치업", body: "\(favoriteTeam.shortName) vs \(opponentTeam.shortName), \(DateFormatter.vfDisplayDate.string(from: selectedDate)) 경기 기준으로 볼 포인트예요.")
+        ]
+
+        if let winRateText {
+            points.append(.init(title: "내 직관 승률 기준", body: "\(opponentTeam.shortName)전 직관 기록은 \(relatedLogs.count)경기, 승률 \(winRateText)이에요. 초반 분위기와 불펜 흐름을 가볍게 비교해 보세요."))
+        } else {
+            points.append(.init(title: "개인화 준비", body: "\(opponentTeam.shortName)전 직관 기록을 추가하면 상대별 응원 포인트가 더 선명해져요."))
+        }
+
+        if let stadiumHit {
+            points.append(.init(title: "구장 포인트", body: "\(stadiumHit.name) 기록은 \(stadiumHit.totalGames)경기, 승률 \(stadiumHit.winRateText)이에요. 오늘도 익숙한 루틴을 남겨보세요."))
+        }
+
+        points.append(.init(title: "오늘의 체크 포인트", body: "결과 예측보다 선발 초반 제구, 첫 득점 이후 응원 흐름, 경기 후 기록할 장면 하나를 정해두면 직관 기록이 더 좋아져요."))
+
+        return MatchOutlookResponse(
+            title: "\(favoriteTeam.shortName)-\(opponentTeam.shortName) 관전 포인트",
+            summary: "서버 전망 대신 이 기기의 직관 기록으로 만든 로컬 MVP 관전 포인트예요.",
+            points: points,
+            confidenceLabel: "재미용",
+            generatedBy: "template",
+            disclaimer: "공식 예측이나 베팅 정보가 아닙니다."
+        )
+    }
+
+    private func opponentName(for log: AttendanceLogViewState) -> String {
+        let parts = log.matchup.components(separatedBy: " vs ")
+        guard parts.count == 2 else { return log.matchup }
+        return parts[0] == favoriteTeam.shortName ? parts[1] : parts[0]
     }
 
     private func normalizeOpponent() {

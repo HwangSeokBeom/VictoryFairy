@@ -25,16 +25,10 @@ struct WinRateAnalysisView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(
-                    title: "승률 분석",
-                    subtitle: "나의 직관 기록을 바탕으로 다양한 승률 분석 정보를 받아보세요."
-                )
-
+                overallCard
                 if totalGames < 3 {
                     sampleWarning
                 }
-
-                overallCard
                 insightGrid
                 opponentRankingCard
                 stadiumRankingCard

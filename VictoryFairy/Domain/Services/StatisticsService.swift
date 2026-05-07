@@ -28,8 +28,10 @@ struct StatisticsService {
                 MetricViewState(title: "평균 실점", value: averageAllowed, detail: streakText)
             ],
             recentResults: Array(logs.sorted { $0.date > $1.date }.prefix(5)).map(\.result),
-            stadiumRankings: ranking(logs: logs, key: \.stadium, unit: "회 방문"),
-            opponentRankings: ranking(logs: logs, key: \.matchup, unit: "회 상대"),
+            stadiumRankings: ranking(logs: logs, key: { $0.stadium }, unit: "회 방문"),
+            opponentRankings: ranking(logs: logs, key: { opponentName(for: $0) }, unit: "회 상대"),
+            stadiumStats: groupedStats(logs: logs, key: { $0.stadium }, latestPrefix: "최근 방문"),
+            opponentStats: groupedStats(logs: logs, key: { opponentName(for: $0) }, latestPrefix: "최근 경기"),
             kboStandings: [],
             kboSourceText: nil,
             kboDisclosureText: nil,
@@ -57,8 +59,8 @@ struct StatisticsService {
         return first.result == .win ? "\(count)연승" : "\(count)연패"
     }
 
-    private func ranking(logs: [AttendanceLogViewState], key: KeyPath<AttendanceLogViewState, String>, unit: String) -> [RankingViewState] {
-        Dictionary(grouping: logs, by: { $0[keyPath: key] })
+    private func ranking(logs: [AttendanceLogViewState], key: (AttendanceLogViewState) -> String, unit: String) -> [RankingViewState] {
+        Dictionary(grouping: logs, by: key)
             .map { name, grouped in
                 let wins = grouped.filter { $0.result == .win }.count
                 let losses = grouped.filter { $0.result == .loss }.count
@@ -67,6 +69,48 @@ struct StatisticsService {
                 return RankingViewState(title: name, subtitle: "\(grouped.count)\(unit)", trailing: "승률 \(winRateText)")
             }
             .sorted { $0.subtitle > $1.subtitle }
+    }
+
+    private func groupedStats(
+        logs: [AttendanceLogViewState],
+        key: (AttendanceLogViewState) -> String,
+        latestPrefix: String
+    ) -> [StatGroupViewState] {
+        Dictionary(grouping: logs, by: key)
+            .map { name, grouped in
+                let wins = grouped.filter { $0.result == .win }.count
+                let losses = grouped.filter { $0.result == .loss }.count
+                let draws = grouped.filter { $0.result == .draw }.count
+                let canceled = grouped.filter { $0.result == .canceled }.count
+                let decided = wins + losses
+                let latestDate = grouped.map(\.date).max()
+                return StatGroupViewState(
+                    name: name,
+                    totalGames: grouped.count,
+                    wins: wins,
+                    losses: losses,
+                    draws: draws,
+                    canceled: canceled,
+                    winRate: decided == 0 ? nil : Int((Double(wins) / Double(decided) * 100).rounded()),
+                    latestDate: latestDate,
+                    latestDateText: latestDate.map { "\(latestPrefix) \(DateFormatter.vfDisplayDate.string(from: $0))" } ?? "\(latestPrefix) 없음"
+                )
+            }
+            .sorted {
+                if ($0.winRate ?? -1) != ($1.winRate ?? -1) { return ($0.winRate ?? -1) > ($1.winRate ?? -1) }
+                if $0.totalGames != $1.totalGames { return $0.totalGames > $1.totalGames }
+                return ($0.latestDate ?? .distantPast) > ($1.latestDate ?? .distantPast)
+            }
+    }
+
+    private func opponentName(for log: AttendanceLogViewState) -> String {
+        let parts = log.matchup.components(separatedBy: " vs ")
+        guard parts.count == 2 else { return log.matchup }
+        let favoriteShortNames = Set(KBOSeed.teams.map(\.shortName))
+        if favoriteShortNames.contains(parts[0]), favoriteShortNames.contains(parts[1]) {
+            return parts[1]
+        }
+        return parts[1]
     }
 }
 

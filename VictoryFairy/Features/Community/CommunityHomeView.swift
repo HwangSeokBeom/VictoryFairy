@@ -22,16 +22,22 @@ struct CommunityHomeView: View {
     @State private var safariRoute: SafariRoute?
     @State private var communityAlertMessage: String?
     @State private var toastMessage: String?
+    @State private var isUsingLocalCommunity = false
+    @State private var isRulesExpanded = false
 
     private let maxLength = 300
+    private let localCommunityStore = LocalCommunityStore()
+    private let blockedWords = ["씨발", "시발", "병신", "개새끼", "꺼져", "죽어"]
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "응원톡", subtitle: "팬들과 응원 메시지를 나누고 건강한 응원 문화를 함께 지켜요.")
-
                 if let bannerState {
                     DataStateBanner(state: bannerState)
+                }
+
+                if isUsingLocalCommunity {
+                    localModeBanner
                 }
 
                 rulesCard
@@ -133,7 +139,7 @@ struct CommunityHomeView: View {
             if let toastMessage {
                 CommunityToast(message: toastMessage)
                     .padding(.horizontal, VFSpacing.lg)
-                    .padding(.bottom, VFTabBarMetrics.tabContentBottomPadding - 24)
+                    .padding(.bottom, VFSpacing.lg)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -157,50 +163,79 @@ struct CommunityHomeView: View {
     private var rulesCard: some View {
         VFCard(background: VFColor.backgroundWarm) {
             VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                HStack(spacing: VFSpacing.sm) {
-                    Image(systemName: "shield.checkered")
-                        .foregroundStyle(VFColor.victoryOrange)
-                    Text("커뮤니티 이용 안내")
-                        .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
-                }
-                Text("욕설/비방, 혐오 표현, 개인정보 노출, 도박/베팅 홍보, 저작권 침해 영상, 선수/구단 사칭은 허용되지 않아요.")
-                    .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("신고는 운영 검토를 위한 기능이고, 차단은 내 화면에서 특정 사용자의 응원톡을 숨기는 기능이에요.")
-                    .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: VFSpacing.sm) {
-                    Button {
-                        safariRoute = SafariRoute(url: communityPolicyURL)
-                    } label: {
-                        Label("커뮤니티 정책 보기", systemImage: "safari")
-                            .font(.caption.weight(.bold))
+                Button {
+                    withAnimation(.snappy(duration: 0.18)) {
+                        isRulesExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: VFSpacing.sm) {
+                        Image(systemName: "shield.checkered")
                             .foregroundStyle(VFColor.victoryOrange)
-                            .padding(.horizontal, VFSpacing.sm)
-                            .frame(minHeight: 30)
-                            .background(VFColor.victoryOrange.opacity(0.1))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        isShowingBlockedUsers = true
-                    } label: {
-                        Label("차단 관리", systemImage: "person.crop.circle.badge.xmark")
-                            .font(.caption.weight(.bold))
+                        Text("커뮤니티 이용 안내")
+                            .font(.subheadline.weight(.bold))
                             .foregroundStyle(VFColor.primaryText)
-                            .padding(.horizontal, VFSpacing.sm)
-                            .frame(minHeight: 30)
-                            .background(VFColor.card.opacity(0.72))
-                            .clipShape(Capsule())
+                        Spacer()
+                        Image(systemName: isRulesExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(VFColor.secondaryText)
                     }
-                    .buttonStyle(.plain)
+                }
+                .buttonStyle(.plain)
+
+                if isRulesExpanded {
+                    Text("욕설/비방, 혐오 표현, 개인정보 노출, 도박/베팅 홍보, 저작권 침해 영상, 선수/구단 사칭은 허용되지 않아요.")
+                        .font(.caption)
+                        .foregroundStyle(VFColor.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("신고는 운영 검토를 위한 기능이고, 차단은 내 화면에서 특정 사용자의 응원톡을 숨기는 기능이에요.")
+                        .font(.caption)
+                        .foregroundStyle(VFColor.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: VFSpacing.sm) {
+                        Button {
+                            safariRoute = SafariRoute(url: communityPolicyURL)
+                        } label: {
+                            Label("커뮤니티 정책 보기", systemImage: "safari")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(VFColor.victoryOrange)
+                                .padding(.horizontal, VFSpacing.sm)
+                                .frame(minHeight: 30)
+                                .background(VFColor.victoryOrange.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            isShowingBlockedUsers = true
+                        } label: {
+                            Label("차단 관리", systemImage: "person.crop.circle.badge.xmark")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(VFColor.primaryText)
+                                .padding(.horizontal, VFSpacing.sm)
+                                .frame(minHeight: 30)
+                                .background(VFColor.card.opacity(0.72))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
+    }
+
+    private var localModeBanner: some View {
+        HStack(alignment: .top, spacing: VFSpacing.sm) {
+            Image(systemName: "iphone")
+                .foregroundStyle(VFColor.victoryOrange)
+            Text("서버 응원톡 대신 이 기기에 저장되는 로컬 응원톡으로 동작 중이에요.")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(VFColor.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(VFSpacing.sm)
+        .background(VFColor.victoryOrange.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
     private var communityPolicyURL: URL {
@@ -312,7 +347,7 @@ struct CommunityHomeView: View {
 
     private func disabledCard(message: String) -> some View {
         statusCard(
-            title: "응원톡은 준비 중이에요.",
+            title: "응원톡을 열 수 없어요.",
             message: message,
             systemImage: "bubble.left.and.bubble.right",
             tint: VFColor.drawGray
@@ -385,18 +420,14 @@ struct CommunityHomeView: View {
                 (post.status ?? "visible") == "visible" && !blockedAuthorIDs.contains(post.authorID ?? "")
             }
             if response.enabled == false {
-                state = .disabled(response.message ?? "건강한 응원 문화를 위한 신고/관리 기능을 준비하고 있어요.")
+                loadLocalPosts(message: response.message)
             } else {
+                isUsingLocalCommunity = false
                 state = .enabled(response.message)
             }
             debugLog("loadSuccess enabled=\(response.enabled ?? true) count=\(posts.count)")
         } catch {
-            posts = []
-            if isCommunityDisabled(error) {
-                state = .disabled(error.localizedDescription)
-            } else {
-                state = .error(error.localizedDescription)
-            }
+            loadLocalPosts(message: error.localizedDescription)
             debugLog("loadFailed code=\(serverCode(error) ?? "network")")
         }
     }
@@ -405,6 +436,14 @@ struct CommunityHomeView: View {
     private func submitPost() async {
         let content = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { return }
+        guard prohibitedWord(in: content) == nil else {
+            communityAlertMessage = "부적절한 표현이 포함되어 있어요. 응원 메시지를 다시 확인해 주세요."
+            return
+        }
+        if isUsingLocalCommunity {
+            createLocalPost(content: content)
+            return
+        }
         if appData.userProfile == nil {
             await appData.loadUserProfileIfNeeded(force: true)
         }
@@ -443,7 +482,8 @@ struct CommunityHomeView: View {
                 isShowingProfileCreation = true
                 debugLog("profileRequired")
             } else {
-                state = .error(error.localizedDescription)
+                createLocalPost(content: content)
+                showToast("서버 연결이 불안정해 이 기기에 저장했어요.")
             }
         }
     }
@@ -451,6 +491,12 @@ struct CommunityHomeView: View {
     @MainActor
     private func report(_ post: CommunityPostDTO, reason: CommunityReportReason) async {
         postPendingReport = nil
+        if isUsingLocalCommunity {
+            localCommunityStore.reportPost(id: post.id)
+            reportedPostIDs.insert(post.id)
+            showToast("이 기기에서 신고 표시했어요.")
+            return
+        }
         if appData.userProfile == nil {
             await appData.loadUserProfileIfNeeded(force: true)
         }
@@ -482,6 +528,17 @@ struct CommunityHomeView: View {
     @MainActor
     private func block(_ post: CommunityPostDTO) async {
         postPendingBlock = nil
+        if isUsingLocalCommunity {
+            guard let authorID = post.authorID, !authorID.isEmpty else {
+                communityAlertMessage = "차단할 사용자를 확인할 수 없어요."
+                return
+            }
+            localCommunityStore.blockAuthor(id: authorID)
+            blockedAuthorIDs.insert(authorID)
+            posts.removeAll { $0.authorID == authorID }
+            showToast("해당 사용자의 응원톡을 이 기기에서 숨겼어요.")
+            return
+        }
         if appData.userProfile == nil {
             await appData.loadUserProfileIfNeeded(force: true)
         }
@@ -554,6 +611,37 @@ struct CommunityHomeView: View {
 
     private func isCommunityDisabled(_ error: Error) -> Bool {
         serverCode(error) == "COMMUNITY_DISABLED"
+    }
+
+    @MainActor
+    private func loadLocalPosts(message: String?) {
+        isUsingLocalCommunity = true
+        blockedAuthorIDs = localCommunityStore.blockedAuthorIDs()
+        reportedPostIDs = localCommunityStore.reportedPostIDs()
+        posts = localCommunityStore.loadPosts()
+        state = .enabled(message ?? "로컬 응원톡")
+    }
+
+    @MainActor
+    private func createLocalPost(content: String) {
+        isPosting = true
+        defer { isPosting = false }
+        let created = localCommunityStore.createPost(
+            content: content,
+            teamID: KBOSeed.normalizedTeamID(selectedTeamID),
+            displayName: appData.userProfile?.nickname ?? preferences.userDisplayName,
+            emoji: appData.userProfile?.profileEmoji
+        )
+        inputText = ""
+        posts.insert(created, at: 0)
+        isUsingLocalCommunity = true
+        state = .enabled("로컬 응원톡")
+        showToast("응원톡을 이 기기에 저장했어요.")
+    }
+
+    private func prohibitedWord(in content: String) -> String? {
+        let normalized = content.replacingOccurrences(of: " ", with: "").lowercased()
+        return blockedWords.first { normalized.contains($0) }
     }
 
     private func serverCode(_ error: Error) -> String? {

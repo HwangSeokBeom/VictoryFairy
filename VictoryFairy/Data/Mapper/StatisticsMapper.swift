@@ -38,6 +38,8 @@ enum StatisticsMapper {
                     trailing: "승률 \(percentText($0.winRate))"
                 )
             },
+            stadiumStats: stadiums.map { statGroup(name: $0.name, totalGames: $0.totalGames, wins: $0.wins, losses: $0.losses, draws: $0.draws, canceled: $0.canceled, winRate: $0.winRate, latestDateTextPrefix: "최근 방문") },
+            opponentStats: opponents.map { statGroup(name: $0.name, totalGames: $0.totalGames, wins: $0.wins, losses: $0.losses, draws: $0.draws, canceled: $0.canceled, winRate: $0.winRate, latestDateTextPrefix: "최근 경기") },
             kboStandings: [],
             kboSourceText: nil,
             kboDisclosureText: nil,
@@ -59,6 +61,8 @@ enum StatisticsMapper {
             recentResults: state.recentResults,
             stadiumRankings: state.stadiumRankings,
             opponentRankings: state.opponentRankings,
+            stadiumStats: state.stadiumStats,
+            opponentStats: state.opponentStats,
             kboStandings: standings.items.map {
                 KBOStandingViewState(
                     rank: $0.rank,
@@ -85,6 +89,30 @@ enum StatisticsMapper {
         guard let value else { return "-" }
         let percent = Int(((value <= 1 ? value * 100 : value)).rounded())
         return "\(percent)%"
+    }
+
+    private static func statGroup(
+        name: String,
+        totalGames: Int,
+        wins: Int,
+        losses: Int,
+        draws: Int,
+        canceled: Int,
+        winRate: Double?,
+        latestDateTextPrefix: String
+    ) -> StatGroupViewState {
+        let normalizedWinRate = winRate.map { Int((($0 <= 1 ? $0 * 100 : $0)).rounded()) }
+        return StatGroupViewState(
+            name: name,
+            totalGames: totalGames,
+            wins: wins,
+            losses: losses,
+            draws: draws,
+            canceled: canceled,
+            winRate: normalizedWinRate,
+            latestDate: nil,
+            latestDateText: latestDateTextPrefix
+        )
     }
 
     private static func sourceText(for standings: KBOStandingsDTO) -> String? {
