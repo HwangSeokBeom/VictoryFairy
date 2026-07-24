@@ -1562,13 +1562,9 @@ struct PhotoAttachmentEditorSection: View {
                         HStack(spacing: VFSpacing.sm) {
                             ForEach(photoLocalRefs, id: \.self) { ref in
                                 ZStack(alignment: .topTrailing) {
-                                    if let image = service.image(for: ref, target: .editorThumbnail) {
-                                        Image(uiImage: image)
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 92, height: 92)
-                                            .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                                    }
+                                    AttachmentPhotoView(ref: ref, target: .editorThumbnail)
+                                        .frame(width: 92, height: 92)
+                                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                                     Button {
                                         onRemove(ref)
                                     } label: {
@@ -1611,13 +1607,9 @@ struct PhotoAnalysisSelectionSheet: View {
                             toggle(ref)
                         } label: {
                             ZStack(alignment: .topTrailing) {
-                                if let image = service.image(for: ref, target: .editorThumbnail) {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(height: 92)
-                                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                                }
+                                AttachmentPhotoView(ref: ref, target: .editorThumbnail)
+                                    .frame(height: 92)
+                                    .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                                 Image(systemName: selectedRefs.contains(ref) ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
                                     .foregroundStyle(selectedRefs.contains(ref) ? VFColor.winGreen : .white)

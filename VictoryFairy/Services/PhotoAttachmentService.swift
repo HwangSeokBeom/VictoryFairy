@@ -68,12 +68,42 @@ struct PhotoAttachmentService {
         return ref
     }
 
-    /// 표시용 이미지. 파일이 5400px여도 목표 픽셀로만 디코딩하므로 원본 크기와 무관하게 메모리가 일정하다.
+    /// 표시용 이미지(동기). 파일이 5400px여도 목표 픽셀로만 디코딩한다.
+    /// ImageRenderer처럼 즉시 결과가 필요한 곳에서만 쓰고, 나머지는 `imageAsync`를 쓴다.
     func image(for ref: String, target: PhotoDisplayTarget) -> UIImage? {
         image(for: ref, maxPixel: target.maxPixel)
     }
 
     func image(for ref: String, maxPixel: CGFloat) -> UIImage? {
+        let key = Self.cacheKey(ref: ref, maxPixel: maxPixel)
+        if let cached = Self.cache.object(forKey: key) {
+            return cached
+        }
+        guard let image = decodeImage(for: ref, maxPixel: maxPixel) else { return nil }
+        Self.store(image, forKey: key)
+        return image
+    }
+
+    /// 캐시에 있으면 즉시 반환한다(비동기 로딩 전에 깜빡임을 막는 용도).
+    func cachedImage(for ref: String, maxPixel: CGFloat) -> UIImage? {
+        Self.cache.object(forKey: Self.cacheKey(ref: ref, maxPixel: maxPixel))
+    }
+
+    /// 표시용 이미지(비동기). 디코딩을 메인 스레드 밖에서 수행한다.
+    func imageAsync(for ref: String, maxPixel: CGFloat) async -> UIImage? {
+        if let cached = cachedImage(for: ref, maxPixel: maxPixel) {
+            return cached
+        }
+        let service = self
+        let decoded = await Task.detached(priority: .userInitiated) {
+            service.decodeImage(for: ref, maxPixel: maxPixel)
+        }.value
+        guard let decoded else { return nil }
+        Self.store(decoded, forKey: Self.cacheKey(ref: ref, maxPixel: maxPixel))
+        return decoded
+    }
+
+    private func decodeImage(for ref: String, maxPixel: CGFloat) -> UIImage? {
         guard let url = try? url(for: ref),
               let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let cgImage = Self.downsampledCGImage(from: source, maxPixel: maxPixel) else {
@@ -81,6 +111,22 @@ struct PhotoAttachmentService {
         }
         return UIImage(cgImage: cgImage, scale: 1, orientation: .up)
     }
+
+    // 키에 목표 픽셀을 포함해야 캘린더용 162px 썸네일이 피드(720px)에 재사용되지 않는다.
+    private static func cacheKey(ref: String, maxPixel: CGFloat) -> NSString {
+        "\(ref)@\(Int(maxPixel))" as NSString
+    }
+
+    private static func store(_ image: UIImage, forKey key: NSString) {
+        let cost = Int(image.size.width * image.size.height * 4)
+        cache.setObject(image, forKey: key, cost: cost)
+    }
+
+    private static let cache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.totalCostLimit = 8 * 1024 * 1024
+        return cache
+    }()
 
     func image(for ref: String) -> UIImage? {
         guard let url = try? url(for: ref) else { return nil }
@@ -158,3 +204,4 @@ private extension UIImage {
         }
     }
 }
+

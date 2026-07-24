@@ -471,14 +471,10 @@ struct PhotoAttachmentStrip: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: VFSpacing.sm) {
                 ForEach(photoLocalRefs, id: \.self) { ref in
-                    if let image = service.image(for: ref, target: target) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: photoLocalRefs.count == 1 ? 240 : 128, height: maxHeight)
-                            .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                            .accessibilityLabel("첨부 사진")
-                    }
+                    AttachmentPhotoView(ref: ref, target: target)
+                        .frame(width: photoLocalRefs.count == 1 ? 240 : 128, height: maxHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+                        .accessibilityLabel("첨부 사진")
                 }
             }
         }

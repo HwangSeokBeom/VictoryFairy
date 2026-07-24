@@ -913,11 +913,9 @@ private struct CalendarDayCell: View {
 
     @ViewBuilder
     private var photoContent: some View {
-        if let image = thumbnailImage {
+        if let thumbnailRef {
             ZStack(alignment: .topTrailing) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
+                AttachmentPhotoView(ref: thumbnailRef, target: .calendarCell)
                     .frame(maxWidth: .infinity, minHeight: 54, maxHeight: 54)
                     .clipped()
                 LinearGradient(colors: [.black.opacity(0.58), .clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom)
@@ -1016,11 +1014,8 @@ private struct CalendarDayCell: View {
             .description ?? "팀"
     }
 
-    private var thumbnailImage: UIImage? {
-        logs.lazy
-            .flatMap(\.photoLocalRefs)
-            .compactMap { photoService.image(for: $0, target: .calendarCell) }
-            .first
+    private var thumbnailRef: String? {
+        logs.lazy.flatMap(\.photoLocalRefs).first
     }
 
     private func teamResultText(for log: AttendanceLogViewState) -> String {
