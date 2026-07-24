@@ -76,17 +76,17 @@ struct PhotoAttachmentService {
 
     func image(for ref: String, maxPixel: CGFloat) -> UIImage? {
         let key = Self.cacheKey(ref: ref, maxPixel: maxPixel)
-        if let cached = Self.cache.object(forKey: key) {
+        if let cached = Self.cache(forMaxPixel: maxPixel).object(forKey: key) {
             return cached
         }
         guard let image = decodeImage(for: ref, maxPixel: maxPixel) else { return nil }
-        Self.store(image, forKey: key)
+        Self.store(image, forKey: key, maxPixel: maxPixel)
         return image
     }
 
     /// 캐시에 있으면 즉시 반환한다(비동기 로딩 전에 깜빡임을 막는 용도).
     func cachedImage(for ref: String, maxPixel: CGFloat) -> UIImage? {
-        Self.cache.object(forKey: Self.cacheKey(ref: ref, maxPixel: maxPixel))
+        Self.cache(forMaxPixel: maxPixel).object(forKey: Self.cacheKey(ref: ref, maxPixel: maxPixel))
     }
 
     /// 표시용 이미지(비동기). 디코딩을 메인 스레드 밖에서 수행한다.
@@ -99,7 +99,7 @@ struct PhotoAttachmentService {
             service.decodeImage(for: ref, maxPixel: maxPixel)
         }.value
         guard let decoded else { return nil }
-        Self.store(decoded, forKey: Self.cacheKey(ref: ref, maxPixel: maxPixel))
+        Self.store(decoded, forKey: Self.cacheKey(ref: ref, maxPixel: maxPixel), maxPixel: maxPixel)
         return decoded
     }
 
@@ -117,14 +117,31 @@ struct PhotoAttachmentService {
         "\(ref)@\(Int(maxPixel))" as NSString
     }
 
-    private static func store(_ image: UIImage, forKey key: NSString) {
+    private static func store(_ image: UIImage, forKey key: NSString, maxPixel: CGFloat) {
         let cost = Int(image.size.width * image.size.height * 4)
-        cache.setObject(image, forKey: key, cost: cost)
+        cache(forMaxPixel: maxPixel).setObject(image, forKey: key, cost: cost)
     }
 
-    private static let cache: NSCache<NSString, UIImage> = {
+    // 썸네일 등급과 대형 이미지를 한 한도에 섞으면 피드 720px 1장(약 2MB)이
+    // 캘린더 162px 썸네일(약 105KB) 20장을 밀어낸다. 등급별로 분리한다.
+    private static let thumbnailPixelCeiling: CGFloat = 320
+
+    private static func cache(forMaxPixel maxPixel: CGFloat) -> NSCache<NSString, UIImage> {
+        maxPixel <= thumbnailPixelCeiling ? thumbnailCache : largeCache
+    }
+
+    private static let thumbnailCache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
+        // 162px 썸네일 약 105KB. 한 달치 28장이 2.9MB이므로 8MB면 축출 없이 모두 보유한다.
         cache.totalCostLimit = 8 * 1024 * 1024
+        return cache
+    }()
+
+    private static let largeCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        // 720px 피드 이미지 약 2MB. 32MB면 약 15장으로, 측정상 이보다 키워도
+        // cold 디코딩이 더 줄지 않았고 peak만 올라간다.
+        cache.totalCostLimit = 32 * 1024 * 1024
         return cache
     }()
 
@@ -204,4 +221,3 @@ private extension UIImage {
         }
     }
 }
-
