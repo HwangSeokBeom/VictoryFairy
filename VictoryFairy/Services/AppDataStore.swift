@@ -704,8 +704,20 @@ final class AppDataStore: ObservableObject {
             let remoteOptions = response.items.map {
                 SeasonOption(season: $0.season, label: $0.label, hasRecords: $0.hasRecords ?? false)
             }
-            availableSeasons = normalizedSeasonOptions(remoteOptions + [SeasonOption(season: selectedSeason, hasRecords: true)])
-            if let currentSeason = response.currentSeason, !availableSeasons.contains(where: { $0.season == selectedSeason }) {
+            // 유효 시즌 = 서버 목록 ∪ 로컬 기록이 있는 시즌.
+            // 서버가 과거 시즌을 목록에서 내려도 기기에 기록이 남아 있으면 계속 볼 수 있어야 한다.
+            let localSeasons = (try? await localAttendanceLogRepository?.fetchAvailableSeasons()) ?? []
+            // normalizedSeasonOptions는 나중 항목의 라벨을 채택하므로 서버 옵션을 뒤에 둔다.
+            // 로컬에만 있는 시즌은 SeasonOption 기본 라벨("<연도> 시즌")로 남는다.
+            let validSeasons = normalizedSeasonOptions(
+                localSeasons.map { SeasonOption(season: $0, hasRecords: true) } + remoteOptions
+            )
+            availableSeasons = validSeasons.isEmpty ? await localSeasonOptions() : validSeasons
+            // 서버에도 로컬에도 없는 시즌일 때만 서버가 알려준 현재 시즌으로 스냅한다.
+            // 유효 시즌 집합이 비면(서버 목록 없음 + 로컬 기록 없음) 판단 근거가 없으므로 기존 값을 유지한다.
+            if let currentSeason = response.currentSeason,
+               !validSeasons.isEmpty,
+               !validSeasons.contains(where: { $0.season == selectedSeason }) {
                 selectedSeason = currentSeason
                 preferences.selectedSeason = currentSeason
                 selectedCalendarMonth = Self.monthStart(year: currentSeason, matching: selectedCalendarMonth)
