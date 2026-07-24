@@ -297,7 +297,7 @@ struct DiaryShareCardCanvas: View {
     }
 
     private var firstImage: UIImage? {
-        log.photoLocalRefs.first.flatMap { photoService.image(for: $0) }
+        log.photoLocalRefs.first.flatMap { photoService.image(for: $0, target: .shareCard) }
     }
 
     private var cardMemo: String {

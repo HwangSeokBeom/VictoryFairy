@@ -1019,7 +1019,7 @@ private struct CalendarDayCell: View {
     private var thumbnailImage: UIImage? {
         logs.lazy
             .flatMap(\.photoLocalRefs)
-            .compactMap { photoService.image(for: $0) }
+            .compactMap { photoService.image(for: $0, target: .calendarCell) }
             .first
     }
 

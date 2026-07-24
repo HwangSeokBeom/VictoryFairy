@@ -249,7 +249,7 @@ struct AttendancePostDetailView: View {
                 detailHeader
 
                 if !log.photoLocalRefs.isEmpty {
-                    PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 210)
+                    PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 210, target: .detailStrip)
                 }
 
                 infoCard
@@ -464,13 +464,14 @@ struct FlowLayout: Layout {
 struct PhotoAttachmentStrip: View {
     let photoLocalRefs: [String]
     var maxHeight: CGFloat = 160
+    var target: PhotoDisplayTarget = .feedStrip
     private let service = PhotoAttachmentService()
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: VFSpacing.sm) {
                 ForEach(photoLocalRefs, id: \.self) { ref in
-                    if let image = service.image(for: ref) {
+                    if let image = service.image(for: ref, target: target) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()

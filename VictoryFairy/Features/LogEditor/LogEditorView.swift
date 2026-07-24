@@ -1562,7 +1562,7 @@ struct PhotoAttachmentEditorSection: View {
                         HStack(spacing: VFSpacing.sm) {
                             ForEach(photoLocalRefs, id: \.self) { ref in
                                 ZStack(alignment: .topTrailing) {
-                                    if let image = service.image(for: ref) {
+                                    if let image = service.image(for: ref, target: .editorThumbnail) {
                                         Image(uiImage: image)
                                             .resizable()
                                             .scaledToFill()
@@ -1611,7 +1611,7 @@ struct PhotoAnalysisSelectionSheet: View {
                             toggle(ref)
                         } label: {
                             ZStack(alignment: .topTrailing) {
-                                if let image = service.image(for: ref) {
+                                if let image = service.image(for: ref, target: .editorThumbnail) {
                                     Image(uiImage: image)
                                         .resizable()
                                         .scaledToFill()
