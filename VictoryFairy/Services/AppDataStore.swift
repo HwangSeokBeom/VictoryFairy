@@ -139,11 +139,15 @@ final class AppDataStore: ObservableObject {
     }
 
     func refreshContent() async {
-        // 캘린더는 피드/통계와 독립적이라 동시에 진행한다.
-        // 통계는 feedLogs를 읽으므로 피드 뒤에 순차로 둔다.
+        // 캘린더와 리그 순위는 피드/통계와 독립적이라 네트워크를 동시에 진행한다.
+        // 통계는 feedLogs를 읽으므로 피드 뒤에 순차로 두고,
+        // 리그 순위는 statistics를 갱신하므로 통계 계산이 끝난 뒤에 반영한다.
+        let standingsSeason = activeSeason
         async let calendar: Void = refreshCalendar()
+        async let standings: KBOStandingsDTO? = loadKBOStandings(season: standingsSeason)
         await refreshFeed()
         await refreshStatistics()
+        applyKBOStandings(await standings, season: standingsSeason)
         await calendar
     }
 
@@ -789,22 +793,25 @@ final class AppDataStore: ObservableObject {
             statistics = StatisticsMapper.viewState(logs: mergedLogs, season: season)
             serverStatus = .connected
         }
-        await refreshKBOStandings()
         statisticsState = statistics.isEmpty ? .empty : .loaded
     }
 
-    private func refreshKBOStandings() async {
-        let season = activeSeason
+    // 리그 순위 조회: feedLogs/statistics에 의존하지 않는 순수 네트워크 요청이라 병렬로 진행한다.
+    private func loadKBOStandings(season: Int) async -> KBOStandingsDTO? {
         do {
-            let standings = try await kboStandingsRepository.fetchStandings(season: season)
-            guard season == activeSeason else { return }
-            statistics = StatisticsMapper.applyingKBOStandings(standings, to: statistics)
-            serverStatus = .connected
-            logAPIFallback(endpoint: "GET /api/v1/kbo/standings?season=\(season)", fallback: "none", error: nil)
+            return try await kboStandingsRepository.fetchStandings(season: season)
         } catch {
-            guard season == activeSeason else { return }
             logAPIFallback(endpoint: "GET /api/v1/kbo/standings?season=\(season)", fallback: "placeholder", error: error)
+            return nil
         }
+    }
+
+    // 리그 순위 반영: statistics를 read-modify-write하므로 통계 계산이 끝난 뒤에만 호출한다.
+    private func applyKBOStandings(_ standings: KBOStandingsDTO?, season: Int) {
+        guard season == activeSeason, let standings else { return }
+        statistics = StatisticsMapper.applyingKBOStandings(standings, to: statistics)
+        serverStatus = .connected
+        logAPIFallback(endpoint: "GET /api/v1/kbo/standings?season=\(season)", fallback: "none", error: nil)
     }
 
     private func applySavedLog(_ log: AttendanceLogViewState) {
