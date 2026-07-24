@@ -153,6 +153,9 @@ BEFORE(원본 직렬) — 9 파동: preferences(0) → profile(16) → legal(32)
 
 ## 작업 2 — 이미지 메모리 측정 (코드 수정 없음)
 
+> 이 절의 10/20일 수치는 **추정**이었고, 아래 "작업 3 — 이미지 메모리(재현 성공)"의 실측으로 대체된다.
+> 실측 결과 실제 피크는 여기 추정치(~247MB)보다 훨씬 크다(20장 기준 2355MB).
+
 ### 디코딩 경로 [정적]
 
 첨부 사진은 `PhotoAttachmentService.savePhoto(maxPixel: 1800)`으로 최대 1800px 저장. 표시는 `image(for:)` = `UIImage(contentsOfFile:)`가 **원본 전체를 디코딩**.
@@ -195,3 +198,161 @@ BEFORE(원본 직렬) — 9 파동: preferences(0) → profile(16) → legal(32)
 - Instruments **Allocations**는 시뮬레이터에서 실행 가능 확인(앱 정상 launch). 사진 없는 앱 베이스라인 트레이스는 별도 첨부.
 
 권고: task 3에서 디버그 시드(로컬 로그 N건 + 사진)를 넣으면 in-app 20장 피크를 직접 캡처해 분류를 확정할 수 있음. 그전까지는 위 추정 + 정적 근거로 "잠재적 메모리 결함" 유지.
+
+---
+
+## 작업 1 (2차) — preferences / seasons 병렬화 (커밋 be641ae)
+
+### 착수 전 selectedSeason 읽기·쓰기 지점 전수 [정적]
+
+쓰기 (`self.selectedSeason`):
+
+| 위치 | 맥락 | 콜드 스타트 |
+|---|---|---|
+| init | `preferences.selectedSeason`(로컬 시드) | 예(네트워크 이전) |
+| selectSeason | 사용자 시즌 선택 | 아니오 |
+| selectCalendarMonth | 연도 변경 | 아니오 |
+| syncPreferencesFromServer | 원격 설정의 selectedSeason | 예 |
+| refreshSeasons | 죽은 클램프 | 예(실행 안 됨) |
+
+쓰기 (`preferences.selectedSeason`): selectSeason, selectCalendarMonth, refreshSeasons(클램프), `applyRemote`.
+
+읽기: `activeSeason`(refreshFeed/refreshStatistics/loadKBOStandings/refreshContent), `selectedSeasonLabel`(UI), `syncPreferencesToServer`, **`refreshSeasons`가 availableSeasons 구성에 사용** ← 경합 지점, `localSeasonOptions`.
+
+### 조치
+
+`loadRemotePreferences` / `loadRemoteSeasons`는 응답만 반환하고 상태를 쓰지 않는다. 모든 쓰기는 두 응답이 도착한 뒤 `applySeasonResolution` 한 곳에서만 일어난다. 쓰기 순서(preferences → seasons)는 기존 직렬 구현과 동일. 죽은 클램프는 그대로 복사(이번 커밋에서 미변경).
+
+### 검증 [실측(Debug/시뮬)]
+
+| 경로 | 요청 수 | 스팬 (3회) |
+|---|---|---|
+| 기존 사용자(40건) | 8 | 0.356 / 0.362 / 0.381s |
+| 신규 사용자(0건) | 11 (statistics 3 유지) | 0.478 / 0.476 / 0.479s |
+
+무응답 파동: **4 → 3** (t=0에 preferences·seasons·profile·legal·teams 동시 도착 / t=16 feed·calendar·standings / t=32 statistics×3). 프로덕션 투영 32s → **24s**.
+
+시즌 UI: 시즌 칩이 직전 빌드와 **픽셀 차이 0/40800** — selectedSeason·availableSeasons 해석 결과 동일. 시즌 선택 시트 자체는 좌표 자동화로 열지 못해 미검증(탭바 탭은 동작, 상단 칩은 히트테스트 실패). selectSeason 경로는 이번 diff에서 미변경.
+
+### 스팬 종합
+
+| 단계 | 스팬 | 무응답 최악(프로덕션 투영) |
+|---|---|---|
+| 원본(직렬) | 1.418s | 72s (9파동) |
+| 작업1 | 0.717s | 32s (4파동) |
+| 작업1.5a | 0.476s | 32s |
+| 작업1 2차(seasons) | 0.366s | 24s (3파동) |
+
+---
+
+## 작업 2 — 죽은 클램프 조사 (수정 승인 전)
+
+### 재현 [실측(Debug/시뮬)]
+
+조건: 로컬 `selectedSeason = 2024`, 서버 시즌 목록 `[2026, 2025]`, `currentSeason = 2026`, 서버는 시즌별로 기록을 구분해 응답.
+
+| 관찰 | 결과 |
+|---|---|
+| 나간 요청 | `feed?season=2024`, `calendar?year=2024`, `statistics/*?season=2024`, `kbo/standings?season=2024` |
+| 서버 응답 | 전부 빈 결과(2024는 유효 시즌이 아님) |
+| 화면 | 홈이 "아직 기록한 직관이 없어요" 빈 상태 |
+| 클램프 | 실행 안 됨 — selectedSeason이 2026으로 스냅되지 않음 |
+
+즉 서버가 무효라고 한 시즌이 살아남고, **기록이 있는 사용자가 기록이 없는 것처럼 보인다.** 덤으로 통계 3요청도 매번 낭비된다(mergedLogs가 비므로 스킵이 걸리지 않음).
+
+### 어디서 터지는가 [도출 + 정적]
+
+`UserPreferencesStore.init`은 저장값이 없으면 `selectedSeason = 현재 연도`를 쓴다.
+
+| 시나리오 | 터지는가 | 이유 |
+|---|---|---|
+| 시즌 오프(11~3월) | **예 — 신규 설치/데이터 초기화 한정** | 예: 2027년 1월 신규 설치 → selectedSeason=2027. 서버는 아직 2027을 목록에 넣지 않음 → 무효 시즌 고착. 기존 사용자는 저장된 2026이 유효해 무사 |
+| 오랜만에 앱 실행 | **예 — 가장 직접적** | 2024에 쓰던 사용자가 2026에 복귀. 서버가 오래된 시즌을 목록에서 정리했으면 그대로 무효 시즌 고착 (위 재현과 동일) |
+| 서버 시즌 목록 변경 | **예** | 서버가 특정 시즌을 목록에서 빼면 그 시즌에 있던 사용자가 동일 증상 |
+
+세 경우 모두 같은 메커니즘(선택 시즌이 서버 목록에 없음)이며, 연 1회 전원에게 위험한 것은 **연도 전환기 신규 설치**, 개별 사용자에게 가장 흔한 것은 **오랜만에 실행 + 서버 목록 정리**다.
+
+### 원인 [정적]
+
+```
+availableSeasons = normalizedSeasonOptions(remoteOptions + [SeasonOption(season: selectedSeason, hasRecords: true)])
+if let currentSeason = response.currentSeason, !availableSeasons.contains(where: { $0.season == selectedSeason }) { ... }
+```
+바로 앞 줄에서 selectedSeason을 목록에 **자기삽입**하고, `normalizedSeasonOptions`는 season 기준 dedup만 하므로 `contains`는 항상 true → `!contains`는 항상 false → 클램프 미실행.
+
+부수 발견: 같은 자기삽입 때문에 `normalizedSeasonOptions`의 병합 규칙(`option.label.isEmpty ? existing.label : option.label`)에서 나중 항목(기본 라벨 `"\(season) 시즌"`)이 **서버 라벨을 덮어쓴다.** 서버가 "2026 정규시즌"을 줘도 칩에는 "2026 시즌"이 표시된다(baseline 대조로 기존 동작임을 확인).
+
+### 수정안과 깨질 수 있는 동작 (승인 전 미착수)
+
+수정안 A — 클램프 판정을 서버 목록으로만 하고, 자기삽입은 클램프 이후에:
+```
+if let currentSeason = response.currentSeason,
+   !remoteOptions.isEmpty,
+   !remoteOptions.contains(where: { $0.season == selectedSeason }) {
+    selectedSeason = currentSeason; preferences.selectedSeason = currentSeason
+    selectedCalendarMonth = Self.monthStart(year: currentSeason, matching: selectedCalendarMonth)
+}
+availableSeasons = normalizedSeasonOptions(remoteOptions + [SeasonOption(season: selectedSeason, hasRecords: true)])
+```
+
+| 깨질 수 있는 동작 | 설명 | 완화 |
+|---|---|---|
+| 오프라인/로컬 기록 시즌 강제 이동 | 서버 목록엔 없지만 로컬에 기록이 있는 시즌을 쓰던 사용자가 강제로 스냅됨 | 로컬 보유 시즌도 유효 집합에 포함(수정안 B) |
+| 새 시즌 선점 사용자 되돌림 | 새 시즌이 시작됐는데 서버 목록 반영이 늦으면 이전 시즌으로 되돌아감 | `currentSeason`이 있을 때만 스냅(이미 조건에 포함) |
+| 서버가 빈 목록을 200으로 반환 | 전 사용자가 일괄 스냅될 위험 | `!remoteOptions.isEmpty` 가드(위에 포함) |
+| 라벨 표시 변경 | 자기삽입 순서를 바꾸면 서버 라벨이 살아나 칩 문구가 바뀜 | 의도된 개선이나 UI 문구 변화이므로 사전 합의 필요 |
+
+수정안 B(더 안전) — 유효 집합 = 서버 목록 ∪ 로컬 기록 보유 시즌. 오프라인 사용자를 지키면서 무효 시즌만 정리.
+
+---
+
+## 작업 3 — 이미지 메모리 (재현 성공, 메모리 결함 확정)
+
+### 재현 환경 [실측(Debug/시뮬)]
+
+`#if DEBUG` 임시 시드로 1800×1800 JPEG N장을 `App Support/VictoryFairyPhotos/`에 만들고 이를 참조하는 로컬 SwiftData 로그 N건을 2026-04월에 하루씩 분산 생성. 캘린더 뷰 모드는 `@AppStorage("calendarViewMode")`를 `record`(사진 보기)로 직접 설정. **시드 코드는 측정 후 전량 제거**(`git diff` 비어 있음, 빌드 통과).
+
+주의: 캘린더 "기본" 모드는 점만 그려 사진을 디코딩하지 않는다. 사진 디코딩은 **"사진" 보기 모드에서만** 발생한다.
+
+### 메모리 피크 [실측(Debug/시뮬), vmmap Physical footprint]
+
+| 사진 일수 | 홈 footprint (peak) | 캘린더 사진모드 (peak) | 사진 렌더 증가(peak) |
+|---|---|---|---|
+| 10일 | 144.5 MB (187.7 MB) | 1126.4 MB (**1228.8 MB**) | **+1041 MB** |
+| 20일 | 144.5 MB (187.2 MB) | 2252.8 MB (**2355.2 MB**) | **+2168 MB** |
+
+장당 약 **104~108 MB**로 거의 선형. 원본 비트맵(12.4MB/장)의 약 8.4배인데, 1800px 이미지를 54pt 셀에 `scaledToFill().clipped()`로 그리면서 CA가 별도 렌더 버퍼/IOSurface를 잡고, 캐시가 없어 body 평가마다 다시 준비되기 때문으로 보인다.
+
+**200MB 기준을 10장에서 이미 6배, 20장에서 11배 초과 → "성능 개선"이 아니라 메모리 결함으로 확정.** 실기기에서는 jetsam 강제 종료 구간이다.
+
+### 메인 스레드 비율 [실측(Debug/시뮬), macOS sample 콜스택 프로파일]
+
+`UIImage(contentsOfFile:)` 자체는 지연 디코딩 핸들이라 프로파일에 거의 안 잡히고, 실제 비용은 **메인 스레드 CoreAnimation 커밋 단계**에서 나타난다: `CA::Transaction::commit` → `CA::Layer::prepare_contents` → `_SwiftUIProxyImage CA_prepareRenderValue` → `CA::Render::prepare_image` → `IIOImageProviderInfo::CopyIOSurface`.
+
+| 항목 | 비율 |
+|---|---|
+| 메인 스레드 유휴(runloop 대기) | 90.5% |
+| 메인 스레드 실제 작업 | 9.5% |
+| 이미지 준비(디코딩→IOSurface) / 전체 메인 스레드 | **2.0%** |
+| 이미지 준비 / 메인 스레드 실제 작업 시간 | **21.2%** |
+| 참고: CA::Transaction::commit / 실제 작업 | 78.4% |
+
+`CopyIOSurface` 188샘플 중 **155샘플이 pthread mutex 대기** — 메인 스레드가 이미지 서피스 복사에서 블로킹된다(히치 원인). 지시대로 절대 시간은 보고하지 않는다.
+
+### 수정안 (측정 보고 후 승인 필요, 미착수)
+
+| 조치 | 내용 | 기대 효과 |
+|---|---|---|
+| 다운샘플링 | `PhotoAttachmentService.image(for:)`를 `CGImageSourceCreateThumbnailAtIndex`(`kCGImageSourceThumbnailMaxPixelSize` = 표시 크기 × scale, `kCGImageSourceCreateThumbnailFromImageAlways`)로 교체 | 캘린더 54pt 셀 기준 1800px → 162px, 비트맵 약 **1/123** |
+| NSCache | `NSCache<NSString, UIImage>`에 ref+표시크기 키로 캐시, `countLimit`/`totalCostLimit` 설정 | body 재평가마다 재디코딩 제거 |
+| 디코딩 오프메인 | 썸네일 생성을 백그라운드에서 수행하고 완료 시 반영 | 메인 스레드 commit 블로킹 제거 |
+| 호출부 | `CalendarViews.swift`(thumbnailImage), `FeedViews.swift`(PhotoAttachmentStrip) 2곳 | 표시 크기를 인자로 전달 |
+
+---
+
+## 백로그 (성능 항목에서 내림)
+
+| 항목 | 사유 |
+|---|---|
+| 요청 timeout 값 조정 / 전역 데드라인 | 앱이 스피너로 막히지 않고 즉시 사용 가능한 UI를 보여주는 것이 확인되어 우선순위에서 제외 |
+| `let id = UUID()` 제거 + HomeViewModel 위치 이동 + serverStatus guard | 작업 1~3 이후로 순연 |
