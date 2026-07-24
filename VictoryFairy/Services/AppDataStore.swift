@@ -127,18 +127,24 @@ final class AppDataStore: ObservableObject {
 
     func refreshAll() async {
         serverStatus = .checking
+        // 시즌 확정 체인(preferences -> seasons)은 순서를 유지하되,
+        // 시즌과 무관한 프로필/약관/팀 요청은 동시에 진행해 대기를 겹친다.
+        async let profile: Void = loadUserProfileIfNeeded()
+        async let legal: Void = loadLegalLinksIfNeeded()
+        async let teams: Void = refreshTeams()
         await syncPreferencesFromServer()
-        await loadUserProfileIfNeeded()
-        await loadLegalLinksIfNeeded()
         await refreshSeasons()
-        await refreshTeams()
+        _ = await (profile, legal, teams)
         await refreshContent()
     }
 
     func refreshContent() async {
+        // 캘린더는 피드/통계와 독립적이라 동시에 진행한다.
+        // 통계는 feedLogs를 읽으므로 피드 뒤에 순차로 둔다.
+        async let calendar: Void = refreshCalendar()
         await refreshFeed()
-        await refreshCalendar()
         await refreshStatistics()
+        await calendar
     }
 
     func selectFeedResultFilter(_ filter: FeedResultFilter) async {
@@ -762,19 +768,26 @@ final class AppDataStore: ObservableObject {
         statisticsRefreshSeasonInFlight = season
         defer { statisticsRefreshSeasonInFlight = nil }
         statisticsState = .loading
-        do {
-            let remoteStatistics = try await statisticsRepository.fetchStatistics(season: season)
-            guard season == activeSeason else { return }
-            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: season)) ?? []
-            let mergedLogs = merge(remoteLogs: feedLogs, localLogs: localLogs)
-            statistics = mergedLogs.isEmpty ? remoteStatistics : StatisticsMapper.viewState(logs: mergedLogs, season: season)
+        let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: season)) ?? []
+        guard season == activeSeason else { return }
+        let mergedLogs = merge(remoteLogs: feedLogs, localLogs: localLogs)
+        if mergedLogs.isEmpty {
+            // 기록이 없을 때만 서버 통계(summary/stadiums/opponents 3요청)를 받는다.
+            do {
+                let remoteStatistics = try await statisticsRepository.fetchStatistics(season: season)
+                guard season == activeSeason else { return }
+                statistics = remoteStatistics
+                serverStatus = .connected
+            } catch {
+                guard season == activeSeason else { return }
+                statistics = StatisticsMapper.viewState(logs: localLogs, season: season)
+                serverStatus = .localMode(error.localizedDescription)
+                logAPIFallback(endpoint: "GET /api/v1/statistics/*", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
+            }
+        } else {
+            // 기록이 있으면 서버 통계 결과를 어차피 버리므로 요청하지 않고 로컬에서 계산한다.
+            statistics = StatisticsMapper.viewState(logs: mergedLogs, season: season)
             serverStatus = .connected
-        } catch {
-            guard season == activeSeason else { return }
-            let localLogs = (try? await localAttendanceLogRepository?.fetchAttendanceLogs(season: season)) ?? []
-            statistics = StatisticsMapper.viewState(logs: localLogs, season: season)
-            serverStatus = .localMode(error.localizedDescription)
-            logAPIFallback(endpoint: "GET /api/v1/statistics/*", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
         }
         await refreshKBOStandings()
         statisticsState = statistics.isEmpty ? .empty : .loaded
