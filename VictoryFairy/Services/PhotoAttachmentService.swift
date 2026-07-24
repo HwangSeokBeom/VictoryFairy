@@ -80,7 +80,11 @@ private extension UIImage {
         guard longestSide > maxPixel else { return self }
         let scale = maxPixel / longestSide
         let targetSize = CGSize(width: size.width * scale, height: size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        // 기본 포맷은 화면 배율(3x)로 렌더하므로 maxPixel의 3배 픽셀이 만들어진다.
+        // 저장물은 화면 배율과 무관해야 하므로 scale을 1로 고정한다.
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
         return renderer.image { _ in
             draw(in: CGRect(origin: .zero, size: targetSize))
         }
