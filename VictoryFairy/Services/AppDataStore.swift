@@ -127,13 +127,16 @@ final class AppDataStore: ObservableObject {
 
     func refreshAll() async {
         serverStatus = .checking
-        // 시즌 확정 체인(preferences -> seasons)은 순서를 유지하되,
-        // 시즌과 무관한 프로필/약관/팀 요청은 동시에 진행해 대기를 겹친다.
+        // 선행 요청을 모두 동시에 받는다. preferences와 seasons는 서로의 응답을
+        // 소비하지 않으므로 병렬로 받고, selectedSeason 계열 쓰기는 두 응답이
+        // 모두 도착한 뒤 applySeasonResolution에서 1회만 수행한다.
         async let profile: Void = loadUserProfileIfNeeded()
         async let legal: Void = loadLegalLinksIfNeeded()
         async let teams: Void = refreshTeams()
-        await syncPreferencesFromServer()
-        await refreshSeasons()
+        async let remotePreferences = loadRemotePreferences()
+        async let remoteSeasons = loadRemoteSeasons()
+        let (preferencesResult, seasonsResult) = await (remotePreferences, remoteSeasons)
+        await applySeasonResolution(preferences: preferencesResult, seasons: seasonsResult)
         _ = await (profile, legal, teams)
         await refreshContent()
     }
@@ -658,33 +661,46 @@ final class AppDataStore: ObservableObject {
         }
     }
 
-    private func syncPreferencesFromServer() async {
+    // 원격 설정 조회: 응답만 돌려주고 상태는 쓰지 않는다(쓰기는 applySeasonResolution 1곳).
+    private func loadRemotePreferences() async -> Result<PreferencesDTO, Error> {
         do {
-            let remote = try await preferencesRepository.fetchPreferences()
+            return .success(try await preferencesRepository.fetchPreferences())
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    // 시즌 목록 조회: 응답만 돌려주고 상태는 쓰지 않는다(쓰기는 applySeasonResolution 1곳).
+    private func loadRemoteSeasons() async -> Result<SeasonsDTO, Error> {
+        do {
+            return .success(try await seasonRepository.fetchSeasons())
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    // selectedSeason / selectedCalendarMonth / availableSeasons 쓰기를 여기 한 곳에 모은다.
+    // 두 응답이 모두 도착한 뒤에만 실행되므로 병렬 조회로 인한 경합이 없다.
+    // 쓰기 순서는 기존 직렬 구현과 동일하게 preferences 반영 후 seasons 반영이다.
+    private func applySeasonResolution(
+        preferences preferencesResult: Result<PreferencesDTO, Error>,
+        seasons seasonsResult: Result<SeasonsDTO, Error>
+    ) async {
+        switch preferencesResult {
+        case .success(let remote):
             remoteSelectedSeasonSupported = remote.selectedSeason != nil
             preferences.applyRemote(remote)
-            if let selectedSeason = remote.selectedSeason {
-                self.selectedSeason = selectedSeason
-                self.selectedCalendarMonth = Self.monthStart(year: selectedSeason, matching: selectedCalendarMonth)
+            if let remoteSeason = remote.selectedSeason {
+                selectedSeason = remoteSeason
+                selectedCalendarMonth = Self.monthStart(year: remoteSeason, matching: selectedCalendarMonth)
             }
             serverStatus = .connected
-        } catch {
+        case .failure(let error):
             serverStatus = .localMode(error.localizedDescription)
         }
-    }
 
-    private func syncPreferencesToServer() async {
-        do {
-            _ = try await preferencesRepository.updatePreferences(preferences.updateRequest(selectedSeason: remoteSelectedSeasonSupported ? selectedSeason : nil))
-            serverStatus = .connected
-        } catch {
-            serverStatus = .localMode(error.localizedDescription)
-        }
-    }
-
-    private func refreshSeasons() async {
-        do {
-            let response = try await seasonRepository.fetchSeasons()
+        switch seasonsResult {
+        case .success(let response):
             let remoteOptions = response.items.map {
                 SeasonOption(season: $0.season, label: $0.label, hasRecords: $0.hasRecords ?? false)
             }
@@ -695,9 +711,18 @@ final class AppDataStore: ObservableObject {
                 selectedCalendarMonth = Self.monthStart(year: currentSeason, matching: selectedCalendarMonth)
             }
             serverStatus = .connected
-        } catch {
+        case .failure(let error):
             availableSeasons = await localSeasonOptions()
             logAPIFallback(endpoint: "GET /api/v1/seasons", fallback: "local", error: error)
+        }
+    }
+
+    private func syncPreferencesToServer() async {
+        do {
+            _ = try await preferencesRepository.updatePreferences(preferences.updateRequest(selectedSeason: remoteSelectedSeasonSupported ? selectedSeason : nil))
+            serverStatus = .connected
+        } catch {
+            serverStatus = .localMode(error.localizedDescription)
         }
     }
 
