@@ -299,7 +299,7 @@
 		01A8D7D02E7A4A8F8EBC0011 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				API_BASE_URL = "http://victoryfairy.duckdns.org";
+				API_BASE_URL = "https://victoryfairy.duckdns.org";
 				APP_DISPLAY_NAME = "승리요정";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;

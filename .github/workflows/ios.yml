@@ -1,0 +1,43 @@
+name: iOS
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Release configuration guard
+        run: scripts/verify_release_readiness.sh
+      - name: Debug simulator build
+        run: |
+          set -euo pipefail
+          destination="$(xcodebuild -project VictoryFairy.xcodeproj -scheme VictoryFairy-Dev -showdestinations | sed -n 's/.*platform:iOS Simulator,.*id: \([^,}]*\).*/id=\1/p' | head -n 1)"
+          test -n "$destination"
+          xcodebuild \
+            -project VictoryFairy.xcodeproj \
+            -scheme VictoryFairy-Dev \
+            -configuration Debug \
+            -destination "$destination" \
+            -derivedDataPath "$RUNNER_TEMP/victoryfairy-derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Release simulator build
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project VictoryFairy.xcodeproj \
+            -scheme VictoryFairy-Production \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/victoryfairy-release-derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            build

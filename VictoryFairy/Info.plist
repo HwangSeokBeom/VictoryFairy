@@ -26,19 +26,6 @@
 	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.sports</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>victoryfairy.duckdns.org</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<false/>
-			</dict>
-		</dict>
-	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>티켓 사진을 촬영해 직관 기록 입력을 도와드려요.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
