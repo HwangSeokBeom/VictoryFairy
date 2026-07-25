@@ -267,21 +267,25 @@ struct HomeDashboardViewState {
 }
 
 struct MetricViewState: Identifiable, Hashable {
-    let id = UUID()
+    // 안정 ID: 지표 제목. 한 배열 안에서 제목은 모두 다르다(고정 리터럴 4~5개).
+    var id: String { title }
     let title: String
     let value: String
     let detail: String
 }
 
 struct RankingViewState: Identifiable, Hashable {
-    let id = UUID()
+    // 안정 ID: 구장/상대팀 이름. 로컬은 Dictionary(grouping:) 키라 유일하고,
+    // 서버 경로도 상대팀/구장별 집계라 한 응답 안에서 제목이 겹치지 않는다.
+    var id: String { title }
     let title: String
     let subtitle: String
     let trailing: String
 }
 
 struct StatGroupViewState: Identifiable, Hashable {
-    let id = UUID()
+    // 안정 ID: 구장/상대팀 이름(RankingViewState와 같은 근거).
+    var id: String { name }
     let name: String
     let totalGames: Int
     let wins: Int
@@ -455,7 +459,9 @@ private extension String {
 }
 
 struct KBOStandingViewState: Identifiable, Hashable {
-    let id = UUID()
+    // 안정 ID: 팀 이름. 순위표는 팀당 한 행이고 팀 이름 10개가 모두 다르다.
+    // (rank는 동순위 타이가 있을 수 있어 키로 쓰지 않는다.)
+    var id: String { teamName }
     let rank: Int
     let teamName: String
     let wins: Int

@@ -44,7 +44,8 @@ struct MainTabView: View {
         switch selectedTab {
         case .home:
             NavigationStack {
-                HomeView(viewModel: HomeViewModel(dashboard: .sample(logs: appData.feedLogs)))
+                // 대시보드는 AppDataStore가 feedLogs 변경 시 1회 집계해 보관한다.
+                HomeView(viewModel: HomeViewModel(dashboard: appData.homeDashboard))
             }
         case .feed:
             NavigationStack {

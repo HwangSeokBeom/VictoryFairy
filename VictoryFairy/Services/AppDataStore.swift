@@ -39,7 +39,12 @@ enum ServerConnectionStatus: Equatable {
 @MainActor
 final class AppDataStore: ObservableObject {
     @Published private(set) var teams: [KBOTeam]
-    @Published private(set) var feedLogs: [AttendanceLogViewState]
+    // 홈 대시보드는 feedLogs가 바뀔 때만 다시 집계한다. 이전에는 MainTabView.body가
+    // 평가될 때마다 HomeViewModel(dashboard: .sample(logs:))로 40건 정렬·그룹핑을 다시 돌렸다.
+    @Published private(set) var feedLogs: [AttendanceLogViewState] {
+        didSet { homeDashboard = .sample(logs: feedLogs) }
+    }
+    @Published private(set) var homeDashboard: HomeDashboardViewState = .empty
     @Published private(set) var calendarLogs: [AttendanceLogViewState]
     @Published private(set) var statistics: StatisticsViewState
     @Published private(set) var serverStatus: ServerConnectionStatus = .checking
@@ -116,6 +121,13 @@ final class AppDataStore: ObservableObject {
         selectedCalendarMonth = Self.monthStart(year: preferences.selectedSeason, matching: selectedCalendarMonth)
     }
 
+    // 서버 상태는 요청이 성공/실패할 때마다 대입되는데, 값이 바뀌지 않아도
+    // @Published가 발행돼 구독자를 깨웠다. 값이 실제로 바뀔 때만 대입한다.
+    private func setServerStatus(_ newValue: ServerConnectionStatus) {
+        guard newValue != serverStatus else { return }
+        serverStatus = newValue
+    }
+
     func loadInitialDataIfNeeded() async {
         guard !didLoadInitialData else { return }
         guard !isInitialLoadInFlight else { return }
@@ -126,7 +138,7 @@ final class AppDataStore: ObservableObject {
     }
 
     func refreshAll() async {
-        serverStatus = .checking
+        setServerStatus(.checking)
         // 선행 요청을 모두 동시에 받는다. preferences와 seasons는 서로의 응답을
         // 소비하지 않으므로 병렬로 받고, selectedSeason 계열 쓰기는 두 응답이
         // 모두 도착한 뒤 applySeasonResolution에서 1회만 수행한다.
@@ -281,13 +293,13 @@ final class AppDataStore: ObservableObject {
         do {
             _ = try await attendanceLogRepository.createAttendanceLog(request)
             try? await localAttendanceLogRepository?.markSyncState(id: localLog.id.uuidString, state: "synced")
-            serverStatus = .connected
+            setServerStatus(.connected)
             lastSaveMessage = "기기에 먼저 저장하고 서버에도 동기화했어요."
             logAPIFallback(endpoint: "POST /api/v1/attendance-logs", fallback: "none", error: nil)
             await refreshContent()
             return true
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             lastSaveMessage = "기기에 저장했어요. 서버 연결 시 다시 동기화할 수 있어요."
             logAPIFallback(endpoint: "POST /api/v1/attendance-logs", fallback: "localOnly", error: error)
             await refreshStatistics()
@@ -341,13 +353,13 @@ final class AppDataStore: ObservableObject {
         do {
             _ = try await attendanceLogRepository.updateAttendanceLog(id: id.uuidString, request: request)
             try? await localAttendanceLogRepository?.markSyncState(id: localLog.id.uuidString, state: "synced")
-            serverStatus = .connected
+            setServerStatus(.connected)
             lastSaveMessage = "수정 내용을 기기와 서버에 반영했어요."
             logAPIFallback(endpoint: "PUT /api/v1/attendance-logs/:id", fallback: "none", error: nil)
             await refreshContent()
             return true
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             lastSaveMessage = "수정 내용을 기기에 저장했어요. 서버 연결 시 다시 동기화할 수 있어요."
             logAPIFallback(endpoint: "PUT /api/v1/attendance-logs/:id", fallback: "localOnly", error: error)
             await refreshStatistics()
@@ -365,10 +377,10 @@ final class AppDataStore: ObservableObject {
 
         do {
             try await attendanceLogRepository.deleteAttendanceLog(id: log.id.uuidString)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "DELETE /api/v1/attendance-logs/:id", fallback: "none", error: nil)
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "DELETE /api/v1/attendance-logs/:id", fallback: "localOnly", error: error)
         }
         await refreshStatistics()
@@ -377,11 +389,11 @@ final class AppDataStore: ObservableObject {
     func createDiaryDraft(request: DiaryDraftRequest) async throws -> DiaryDraftDTO {
         do {
             let draft = try await diaryDraftRepository.createDiaryDraft(request)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/ai/diary-draft", fallback: "none", error: nil)
             return draft
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/ai/diary-draft", fallback: "templateAvailable", error: error)
             throw error
         }
@@ -390,11 +402,11 @@ final class AppDataStore: ObservableObject {
     func createTemplateDraft(request: TemplateDraftRequest) async throws -> TemplateDraftResponse {
         do {
             let draft = try await diaryDraftRepository.createTemplateDraft(request)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/diary/template-draft", fallback: "none", error: nil)
             return draft
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/diary/template-draft", fallback: "local-template", error: error)
             throw error
         }
@@ -407,11 +419,11 @@ final class AppDataStore: ObservableObject {
             logKBO("request games date=\(apiDate) teamID=\(normalizedTeamID)")
             let response = try await kboGameRepository.fetchGames(date: apiDate, teamID: normalizedTeamID)
             logKBO("response items=\(response.items.count) source=\(response.source)")
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "GET /api/v1/kbo/games", fallback: "none", error: nil)
             return response
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "GET /api/v1/kbo/games", fallback: "manual-input", error: error)
             throw error
         }
@@ -429,11 +441,11 @@ final class AppDataStore: ObservableObject {
         }
         do {
             let analysis = try await photoAnalysisRepository.analyzePhotos(files, locale: "ko-KR")
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/photos/analyze", fallback: "none", error: nil)
             return analysis
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/photos/analyze", fallback: "disabled-or-local", error: error)
             throw error
         }
@@ -443,11 +455,11 @@ final class AppDataStore: ObservableObject {
         let teamID = validNewsTeamID(from: teamID)
         do {
             let response = try await newsRepository.fetchNews(teamID: teamID, limit: limit)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "GET /api/v1/news", fallback: "none", error: nil)
             return response
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "GET /api/v1/news", fallback: "empty-state", error: error)
             throw error
         }
@@ -486,11 +498,11 @@ final class AppDataStore: ObservableObject {
     func fetchMatchOutlook(request: MatchOutlookRequest) async throws -> MatchOutlookResponse {
         do {
             let response = try await matchOutlookRepository.fetchOutlook(request)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/match-outlook", fallback: "none", error: nil)
             return response
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/match-outlook", fallback: "none", error: error)
             throw error
         }
@@ -502,12 +514,12 @@ final class AppDataStore: ObservableObject {
         do {
             let profile = try await userProfileRepository.fetchProfile()
             applyUserProfile(profile)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "GET /api/v1/me/profile", fallback: "none", error: nil)
         } catch {
             if isMissingProfile(error) {
                 userProfile = nil
-                serverStatus = .connected
+                setServerStatus(.connected)
             } else {
                 logAPIFallback(endpoint: "GET /api/v1/me/profile", fallback: "profileNotRequired", error: error)
             }
@@ -531,10 +543,10 @@ final class AppDataStore: ObservableObject {
             }
             applyUserProfile(profile)
             didLoadUserProfile = true
-            serverStatus = .connected
+            setServerStatus(.connected)
             return profile
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: userProfile == nil ? "POST /api/v1/me/profile" : "PUT /api/v1/me/profile", fallback: "none", error: error)
             throw error
         }
@@ -546,10 +558,10 @@ final class AppDataStore: ObservableObject {
             let profile = try await userProfileRepository.fetchProfile()
             applyUserProfile(profile)
             didLoadUserProfile = true
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/me/profile/image", fallback: "none", error: nil)
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/me/profile/image", fallback: "none", error: error)
             throw error
         }
@@ -561,10 +573,10 @@ final class AppDataStore: ObservableObject {
             let profile = try await userProfileRepository.fetchProfile()
             applyUserProfile(profile)
             didLoadUserProfile = true
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "DELETE /api/v1/me/profile/image", fallback: "none", error: nil)
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "DELETE /api/v1/me/profile/image", fallback: "none", error: error)
             throw error
         }
@@ -589,11 +601,11 @@ final class AppDataStore: ObservableObject {
     func fetchCommunityPosts() async throws -> CommunityPostsResponse {
         do {
             let response = try await communityRepository.fetchPosts()
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "GET /api/v1/community/posts", fallback: "none", error: nil)
             return response
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "GET /api/v1/community/posts", fallback: "none", error: error)
             throw error
         }
@@ -602,11 +614,11 @@ final class AppDataStore: ObservableObject {
     func createCommunityPost(_ request: CreateCommunityPostRequest) async throws -> CommunityPostDTO {
         do {
             let response = try await communityRepository.createPost(request)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/community/posts", fallback: "none", error: nil)
             return response
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/community/posts", fallback: "none", error: error)
             throw error
         }
@@ -615,10 +627,10 @@ final class AppDataStore: ObservableObject {
     func reportCommunityPost(id: String, reason: String) async throws {
         do {
             try await communityRepository.reportPost(id: id, reason: reason)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/community/posts/{id}/report", fallback: "none", error: nil)
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/community/posts/{id}/report", fallback: "none", error: error)
             throw error
         }
@@ -627,10 +639,10 @@ final class AppDataStore: ObservableObject {
     func blockCommunityAuthor(authorID: String) async throws {
         do {
             try await communityRepository.blockAuthor(authorID: authorID)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "POST /api/v1/community/users/{authorID}/block", fallback: "none", error: nil)
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "POST /api/v1/community/users/{authorID}/block", fallback: "none", error: error)
             throw error
         }
@@ -639,10 +651,10 @@ final class AppDataStore: ObservableObject {
     func unblockCommunityAuthor(authorID: String) async throws {
         do {
             try await communityRepository.unblockAuthor(authorID: authorID)
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "DELETE /api/v1/community/users/{authorID}/block", fallback: "none", error: nil)
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "DELETE /api/v1/community/users/{authorID}/block", fallback: "none", error: error)
             throw error
         }
@@ -651,11 +663,11 @@ final class AppDataStore: ObservableObject {
     func fetchBlockedUsers() async throws -> BlockedUsersResponse {
         do {
             let response = try await communityRepository.fetchBlockedUsers()
-            serverStatus = .connected
+            setServerStatus(.connected)
             logAPIFallback(endpoint: "GET /api/v1/community/blocked-users", fallback: "none", error: nil)
             return response
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "GET /api/v1/community/blocked-users", fallback: "none", error: error)
             throw error
         }
@@ -694,9 +706,9 @@ final class AppDataStore: ObservableObject {
                 selectedSeason = remoteSeason
                 selectedCalendarMonth = Self.monthStart(year: remoteSeason, matching: selectedCalendarMonth)
             }
-            serverStatus = .connected
+            setServerStatus(.connected)
         case .failure(let error):
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
         }
 
         switch seasonsResult {
@@ -722,7 +734,7 @@ final class AppDataStore: ObservableObject {
                 preferences.selectedSeason = currentSeason
                 selectedCalendarMonth = Self.monthStart(year: currentSeason, matching: selectedCalendarMonth)
             }
-            serverStatus = .connected
+            setServerStatus(.connected)
         case .failure(let error):
             availableSeasons = await localSeasonOptions()
             logAPIFallback(endpoint: "GET /api/v1/seasons", fallback: "local", error: error)
@@ -732,9 +744,9 @@ final class AppDataStore: ObservableObject {
     private func syncPreferencesToServer() async {
         do {
             _ = try await preferencesRepository.updatePreferences(preferences.updateRequest(selectedSeason: remoteSelectedSeasonSupported ? selectedSeason : nil))
-            serverStatus = .connected
+            setServerStatus(.connected)
         } catch {
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
         }
     }
 
@@ -742,10 +754,10 @@ final class AppDataStore: ObservableObject {
         do {
             let remoteTeams = try await teamRepository.fetchTeams()
             teams = remoteTeams.isEmpty ? KBOSeed.teams : remoteTeams
-            serverStatus = .connected
+            setServerStatus(.connected)
         } catch {
             teams = KBOSeed.teams
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
         }
     }
 
@@ -764,7 +776,7 @@ final class AppDataStore: ObservableObject {
             let logs = merge(remoteLogs: remoteLogs, localLogs: localLogs)
             feedLogs = logs
             feedState = logs.isEmpty ? .empty : .loaded
-            serverStatus = .connected
+            setServerStatus(.connected)
         } catch {
             guard requestKey == "\(activeSeason)|\(selectedFeedResultFilter.result?.serverValue ?? "all")" else { return }
             let localLogs = (try? await localAttendanceLogRepository?.fetchFeed(season: season, result: result)) ?? []
@@ -774,7 +786,7 @@ final class AppDataStore: ObservableObject {
                 localIsEmpty: localLogs.isEmpty,
                 localMessage: "서버 피드를 불러오지 못해 기기 저장 기록을 보여줘요."
             )
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: feedEndpointDescription(season: season, result: result), fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
         }
     }
@@ -789,7 +801,7 @@ final class AppDataStore: ObservableObject {
             let logs = merge(remoteLogs: remoteLogs, localLogs: localLogs)
             calendarLogs = logs
             calendarState = logs.isEmpty ? .empty : .loaded
-            serverStatus = .connected
+            setServerStatus(.connected)
         } catch {
             let localLogs = (try? await localAttendanceLogRepository?.fetchCalendar(year: calendarYear, month: calendarMonth)) ?? []
             calendarLogs = localLogs
@@ -798,7 +810,7 @@ final class AppDataStore: ObservableObject {
                 localIsEmpty: localLogs.isEmpty,
                 localMessage: "서버 캘린더를 불러오지 못해 기기 저장 기록을 보여줘요."
             )
-            serverStatus = .localMode(error.localizedDescription)
+            setServerStatus(.localMode(error.localizedDescription))
             logAPIFallback(endpoint: "GET /api/v1/calendar", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
         }
     }
@@ -818,17 +830,17 @@ final class AppDataStore: ObservableObject {
                 let remoteStatistics = try await statisticsRepository.fetchStatistics(season: season)
                 guard season == activeSeason else { return }
                 statistics = remoteStatistics
-                serverStatus = .connected
+                setServerStatus(.connected)
             } catch {
                 guard season == activeSeason else { return }
                 statistics = StatisticsMapper.viewState(logs: localLogs, season: season)
-                serverStatus = .localMode(error.localizedDescription)
+                setServerStatus(.localMode(error.localizedDescription))
                 logAPIFallback(endpoint: "GET /api/v1/statistics/*", fallback: localLogs.isEmpty ? "empty-local" : "local", error: error)
             }
         } else {
             // 기록이 있으면 서버 통계 결과를 어차피 버리므로 요청하지 않고 로컬에서 계산한다.
             statistics = StatisticsMapper.viewState(logs: mergedLogs, season: season)
-            serverStatus = .connected
+            setServerStatus(.connected)
         }
         statisticsState = statistics.isEmpty ? .empty : .loaded
     }
@@ -847,7 +859,7 @@ final class AppDataStore: ObservableObject {
     private func applyKBOStandings(_ standings: KBOStandingsDTO?, season: Int) {
         guard season == activeSeason, let standings else { return }
         statistics = StatisticsMapper.applyingKBOStandings(standings, to: statistics)
-        serverStatus = .connected
+        setServerStatus(.connected)
         logAPIFallback(endpoint: "GET /api/v1/kbo/standings?season=\(season)", fallback: "none", error: nil)
     }
 

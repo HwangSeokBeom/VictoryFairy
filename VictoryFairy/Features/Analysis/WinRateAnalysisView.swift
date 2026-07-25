@@ -314,7 +314,8 @@ struct WinRateAnalysisView: View {
 }
 
 private struct AnalysisRankingRowModel: Identifiable, Hashable {
-    let id = UUID()
+    // 안정 ID: 구장/상대팀 이름. 로컬 Dictionary(grouping:) 키 또는 랭킹 배열에서 파생.
+    var id: String { title }
     let title: String
     let total: Int
     let wins: Int

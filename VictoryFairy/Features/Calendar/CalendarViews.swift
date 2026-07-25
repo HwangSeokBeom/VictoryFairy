@@ -1059,7 +1059,9 @@ private struct CalendarResultDot: View {
 }
 
 private struct CalendarSelectedDay: Identifiable {
-    let id = UUID()
+    // 안정 ID: 날짜. 필터 변경 후 같은 날짜를 다시 세팅하면(refreshSelectedDay)
+    // 시트가 다시 뜨지 않고 그 자리에서 로그만 갱신된다.
+    var id: Date { date }
     let date: Date
     let logs: [AttendanceLogViewState]
 

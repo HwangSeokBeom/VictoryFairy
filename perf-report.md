@@ -1021,24 +1021,401 @@ func migrateIfNeeded(ref: String) async {
 
 ---
 
-## 메모리 트랙 최종 요약
+## 작업 [1] — 최종 배포 설정으로 재측정 (HEAD `58d3340`, 코드 수정 없음)
 
-| 지표 | 시작 | 최종 |
+### 정정
+
+이전 요약의 **55.5MB는 ③④ 이전(`d770d55`) 값**이다. ③(NSCache)·④(오프메인)와 등급 분리(`21a2db7`)가 들어간 뒤로 다시 잰 적이 없었다. 최종 배포 설정(썸네일 8MB + 대형 32MB)으로 같은 시나리오를 다시 쟀다.
+
+### 측정 방법 [실측(Debug/시뮬)]
+
+레거시 5400×5400 사진 20장 + 이를 참조하는 로컬 로그 20건. 콜드 실행 → 홈 14초 → 캘린더 탭(사진 보기 모드) → 12초 → `vmmap --summary`. 실행마다 새 프로세스이므로 NSCache는 매번 비어 있다. 계측(`VF_LOG_DECODE`)과 시드는 임시 패치이며 측정 후 전량 제거했다(`git status` 비어 있음).
+
+캘린더 뷰 모드는 상단 칩 탭이 합성 클릭으로 안정적으로 눌리지 않아 `@AppStorage("calendarViewMode")`를 `record`로 직접 써서 고정했다. 시뮬레이터 창이 여러 개 열려 있으면 AppleScript의 `first window`가 다른 기기 창을 잡아 탭이 엉뚱한 곳에 떨어진다 — 창을 이름으로 지정해야 한다.
+
+### 결과 — 5회 반복 [실측(Debug/시뮬)]
+
+| 회차 | 홈 peak | 캘린더 peak | 정착 footprint | 162px 디코딩 | 메인 스레드 |
+|---|---|---|---|---|---|
+| 1 | 43.6 MB | 69.8 MB | 45.7 MB | 20회 | 0회 |
+| 2 | 44.0 MB | 58.7 MB | 41.1 MB | 20회 | 0회 |
+| 3 | 42.6 MB | 60.9 MB | 46.9 MB | 20회 | 0회 |
+| 4 | 43.4 MB | 68.7 MB | 45.7 MB | 20회 | 0회 |
+| 5 | 44.3 MB | 61.7 MB | 47.0 MB | 20회 | 0회 |
+| **요약** | 42.6~44.3 | **58.7 ~ 69.8 (평균 64.0)** | 41.1~47.0 | 20회 | **0회** |
+
+한 프로세스에서 캘린더를 3회 재진입한 경우:
+
+| 회차 | 누적 162px 디코딩 | peak |
 |---|---|---|
-| 캘린더 사진모드 peak (기존 5400px 20장) | **2355 MB** | **55.5 MB** |
-| 캘린더 진입 시 메인 스레드 디코딩 | **491 ms** | **0 ms** |
-| 캘린더 3회 진입 총 디코딩 | 120회 | 20회 |
-| 12MP 첨부 저장 peak | 209.0 MB | 63.4 MB |
-| 저장 해상도 | 5400 × 5400 (의도의 3배) | 1800 × 1800 |
-| 사진 1장 디스크 (실사진 12MP) | 4269 KB | 456 KB |
+| 1 | 20회 | 66.9 MB |
+| 2 | 20회 (추가 0) | 66.9 MB |
+| 3 | 20회 (추가 0) | 66.9 MB |
+
+캐시 적중은 그대로 유지된다. 20장 외에 홈 화면 스트립의 720px 디코딩 1회가 더 있어 프로세스 전체 디코딩은 21회다.
+
+**요약의 55.5MB를 58.7~69.8MB(평균 64.0MB)로 교체한다.** ②(`d770d55`) 시점보다 평균 8.5MB 높은데, ③④가 백그라운드 디코딩 작업 버퍼를 동시에 여러 개 살려 두기 때문이다. 250MB 목표 대비로는 여전히 4분의 1 이하다.
+
+---
+
+## 작업 [2] — peak 변동폭과 이전 라운드 +13.8MB 재검증
+
+### 같은 시나리오, 캐시 설정만 바꿔 반복 [실측(Debug/시뮬)]
+
+`f4ff3fe` 라운드의 단일 캐시 구성을 임시로 되살려(`VF_SHARED_MB`) 같은 조건에서 반복했다.
+
+| 캐시 구성 | 반복 | 최소 | 최대 | 평균 | 이전 라운드 단일 실행값 |
+|---|---|---|---|---|---|
+| 분리 8 + 32 MB (배포) | 5회 | 58.7 MB | 69.8 MB | 64.0 MB | — |
+| 공유 8 MB | 3회 | 60.3 MB | 69.8 MB | 66.4 MB | 58.9 MB |
+| 공유 32 MB | 3회 | 58.7 MB | 68.0 MB | 64.2 MB | 69.3 MB |
+
+세 설정의 분포가 겹친다. **이전 라운드의 +13.8MB(58.9 → 69.3)는 캐시 한도의 효과가 아니라 단일 실행 편차였다.**
+
+### 왜 캐시 한도가 이 시나리오의 peak를 바꿀 수 없는가 [도출]
+
+이 시나리오에서 캐시에 들어가는 내용물은 162px 썸네일 20장(장당 약 105KB) + 720px 1장(약 2MB) ≈ **4.1MB**다. 8MB에서도 축출이 일어나지 않으므로 8 / 32MB / 등급 분리는 **보유 내용물이 완전히 같다.** 한도가 달라도 메모리가 달라질 경로가 없다. 이전 라운드의 "32MB에서는 필요 이상으로 보유했다"는 설명은 성립하지 않는다 — 그때도 캐시 내용은 4MB뿐이었다.
+
+### peak가 어디서 생기는지 [실측(Debug/시뮬), 탭 이후 26회 연속 샘플링]
+
+| 시점 | footprint | peak |
+|---|---|---|
+| 캘린더 탭 직전 | 37.0 MB | 44.0 MB |
+| 탭 직후 첫 샘플(약 1초) | 49.1 MB | 70.0 MB |
+| 이후 25회 샘플(약 25초) | 46.3 MB | 70.0 MB (변화 없음) |
+
+peak를 만드는 26MB 초과분은 **탭 직후 1초 이내에 끝나는 일시적 스파이크**다. 정착 footprint(46MB)는 실행마다 ±3MB로 안정적인데, 이 1초짜리 스파이크만 실행마다 58.7~69.8MB로 흔들린다.
+
+디코딩 동시 실행 수(로그 타임스탬프로 산출)는 실행마다 10~13개였고 peak와 상관이 없었다(동시 13개인 실행이 69.8이 아니라 60.9). 162px 버퍼는 장당 105KB라 20장을 모두 합쳐도 2.1MB이므로, 애초에 스파이크의 크기를 설명하지 못한다. **스파이크의 11MB 변동이 정확히 어디서 오는지는 규명하지 못했다** — 전환 애니메이션이 잡는 렌더 서피스 수가 유력하나 확인하지 못했다.
+
+### 기록 규칙
+
+- **단일 실행 peak은 재현되지 않을 수 있다.** 이 시나리오에서 동일 조건 반복의 폭은 약 11MB였다.
+- 2355MB → 60MB대 같은 큰 수치는 영향이 없다.
+- 이후 **수 MB 단위 판단은 3회 이상 반복 측정**하고 최소/최대/평균을 함께 남긴다. 이번 라운드부터 적용했다.
+
+---
+
+## 작업 [3] — 마이그레이션 B 동시성 (착수 안 함, 측정과 설계만)
+
+### 측정 방법 [실측(Debug/시뮬)]
+
+레거시 5400px 사진 **40장**. 피드 탭 진입 후 빠른 flick 16회로 40장을 연속 인스턴스화한다(느린 드래그가 아니라 관성 스크롤). 마이그레이션은 임시 계측 빌드에만 넣었고 **저장소에는 반영하지 않았다**(`git status` 비어 있음). 매 실행 전 40장을 5400px 원본으로 복원한다.
+
+`naive`는 지시대로 표시 경로에 그대로 얹은 구조다 — 표시 완료 직후 제한 없이 `Task.detached`로 던진다.
+
+### 40장 동시 트리거 시 peak [실측(Debug/시뮬), 각 3회]
+
+| 구성 | peak 3회 | 평균 | 기준 대비 | 동시 실행 최대 |
+|---|---|---|---|---|
+| 마이그레이션 없음(기준) | 54.9 / 57.5 / 54.8 | **55.7 MB** | — | — |
+| **naive on-access (제한 없음)** | 183.1 / 164.9 / 160.3 | **169.4 MB** | **+113.7 MB** | 3~4 |
+| 큐 동시 실행 2 | 158.7 / 159.3 / 156.4 | **158.1 MB** | +102.4 MB | 2 |
+| 큐 동시 실행 1 | 105.3 / 108.1 / 110.0 | **107.8 MB** | +52.1 MB | 1 |
+
+**지적이 맞다. 표시 경로에 그대로 얹으면 peak가 55.7MB에서 169.4MB로 3배가 된다.**
+
+주의할 점 하나: 40장이 동시에 *트리거*되지만 실제 동시 *실행*은 3~4개였다. Swift 동시성 풀이 코어 수로 제한하기 때문이다. 즉 169MB는 40개가 아니라 **3~4개가 겹친 결과**이며, 코어가 더 많은 기기에서는 더 나빠진다.
+
+### 비용이 어디에 있는지 [실측(Debug/시뮬), 동시 실행 1 고정, 각 1회]
+
+| 단계 | peak |
+|---|---|
+| 1800px 디코딩만 | 114.6 MB |
+| 디코딩 + JPEG 인코딩 | 119.9 MB |
+| 디코딩 + 인코딩 + 원자적 쓰기(전체) | 105.3 ~ 110.0 MB |
+| 전체, 목표를 1350px로 | **76.3 MB** |
+
+**비용은 전부 디코딩이다.** 인코딩과 쓰기는 측정 한계 안에서 0이다. 5400px에서 1800px는 JPEG DCT 배율(n/8)에 딱 떨어지지 않아 ImageIO가 중간 크기(3/8 = 2025px)로 디코딩한 뒤 리샘플한다. 1350px는 5400의 정확히 1/4(2/8)이라 중간 버퍼가 없고, 그래서 peak가 32MB 낮다.
+
+### 표시를 막는가 [실측(Debug/시뮬)]
+
+| 구성 | 표시용 720px 디코딩 중앙값 | 최댓값 | 40장 표시 완료까지 |
+|---|---|---|---|
+| 마이그레이션 없음 | 19.5 / 19.5 / 20.6 ms | 34.5 ms | 23.8~26.2초 |
+| naive | 19.8 / 19.8 / 19.4 ms | 38.9 ms | 24.1~25.6초 |
+| 큐 동시 실행 1 | 19.5 / 19.2 / 19.3 ms | 37.6 ms | 24.8~26.2초 |
+
+**표시 지연은 어느 구성에서도 늘지 않았다.** 마이그레이션을 표시 완료 뒤에 `.utility` 우선순위로 던지면 표시 경로와 경쟁하지 않는다. 문제는 지연이 아니라 메모리다.
+
+마이그레이션 자체 비용은 장당 중앙값 50.1ms, 40장 합계 CPU 2.05초다. 스크롤이 26초에 걸쳐 일어나므로 **동시 실행 1이어도 큐가 밀리지 않는다** — 처리량 손해 없이 peak만 62MB 줄인다. 동시 실행 2를 쓸 이유가 없다.
+
+### 결과 검증 [실측(Debug/시뮬)]
+
+| 항목 | 결과 |
+|---|---|
+| 변환된 파일 | 40/40 (모두 1800px 이하) |
+| 디스크 | 22 MB → **3.7 MB** (1350px 목표면 2.4 MB) |
+| 잔여 `.tmp` | **0개** |
+| 표시 화질 | 피드·캘린더 렌더 정상 |
+
+### 제안하는 구조 (승인 전 미착수)
+
+**1) 동시 실행 1의 직렬 큐**
+
+```
+actor PhotoMigrationQueue {
+    static let shared = PhotoMigrationQueue()
+    private var pending: [String] = []
+    private var queued: Set<String> = []     // 같은 ref 중복 적재 방지
+    private var running = 0
+    private var suspended = false
+    private let limit = 1                     // 측정 근거: 1 = 107.8MB, 2 = 158.1MB
+
+    func enqueue(_ ref: String) {
+        guard queued.insert(ref).inserted else { return }
+        pending.append(ref)
+        pump()
+    }
+
+    func setSuspended(_ value: Bool) {        // 백그라운드 진입/복귀
+        suspended = value
+        if !value { pump() }
+    }
+
+    private func pump() {
+        while !suspended, running < limit, !pending.isEmpty {
+            let ref = pending.removeFirst()
+            running += 1
+            Task.detached(priority: .utility) {
+                PhotoMigrator.migrate(ref: ref)
+                await PhotoMigrationQueue.shared.finish()
+            }
+        }
+    }
+
+    private func finish() { running -= 1; pump() }
+}
+```
+
+**2) 표시 먼저, 변환은 뒤에**
+
+```
+.task(id: ref) {
+    await load(for: ref)                       // 162px 또는 720px 표시 완료
+    await PhotoMigrationQueue.shared.enqueue(ref)   // 그 다음에만 적재
+}
+```
+
+핵심은 세 가지다. 표시 경로(`load`)는 마이그레이션을 **기다리지 않는다**. 적재는 표시가 끝난 뒤에만 한다. 큐 작업은 `.utility`라 표시 디코딩(`.userInitiated`)에 밀린다. 위 표에서 표시 지연이 늘지 않은 것이 이 구조의 실측 근거다.
+
+**3) 백그라운드 진입 / 종료 시 중단과 재개**
+
+| 사건 | 처리 |
+|---|---|
+| `scenePhase == .background` | `setSuspended(true)`. 실행 중인 1장은 끝까지 두고(50ms), 대기열은 그대로 유지 |
+| `scenePhase == .active` | `setSuspended(false)` → `pump()`가 대기열부터 재개 |
+| 앱 종료 | 대기열은 메모리에만 있으므로 사라진다. 복구 불필요 — 다음 실행에서 그 사진을 다시 표시하면 다시 적재된다 |
+| 강제 종료 / 크래시 | 아래 4)의 원자적 교체가 원본을 지킨다 |
+
+대기열을 디스크에 남기지 않는 것이 의도다. on-access는 "본 사진만 변환"이므로 진행 상태를 저장할 필요가 없고, 저장하면 오히려 재개 로직이 복잡해진다.
+
+**4) 실패 시 원본 유지 보장**
+
+```
+guard max(width, height) > 1800 else { return }          // 1) 멱등: 이미 작으면 아무 것도 안 함
+guard let cg = CGImageSourceCreateThumbnailAtIndex(...)   // 2) 실패하면 return, 원본 그대로
+      let jpeg = ...jpegData(compressionQuality: 0.82) else { return }
+let tmp = url.appendingPathExtension("tmp")
+guard (try? jpeg.write(to: tmp, options: [.atomic])) != nil else { return }   // 3) 임시 파일에 먼저
+_ = try? FileManager.default.replaceItemAt(url, withItemAt: tmp)             // 4) 원자적 교체
+```
+
+| 중단 시점 | 원본 상태 | 복구 |
+|---|---|---|
+| 크기 검사 / 디코딩 / 인코딩 실패 | 손대지 않음 | 없음. 다음 접근 시 재시도 |
+| `.tmp` 쓰기 중 중단 | 손대지 않음 | 앱 시작 시 `VictoryFairyPhotos/*.tmp` 일괄 삭제 |
+| `replaceItemAt` 중 중단 | 원자적이라 중간 상태 없음 | 없음 |
+| 교체 완료 후 | 1800px 정상 | 없음. 크기 검사가 재변환을 막아 세대 손실은 1회로 고정 |
+
+원본을 지우는 경로는 존재하지 않는다. 교체만 일어난다. 이번 측정에서 40/40 변환에 잔여 `.tmp` 0개였다.
+
+### A / B 결정에 필요한 수치 정리
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 얻는 것 — 디스크 | 40건×1장 기준 149 MB 회수 | 실사진 12MP 기준, `c4530f5` |
+| 얻는 것 — 디코딩 | 표시 디코딩 6.1배 단축(백그라운드) | `c6714f7` |
+| 치르는 것 — peak | 55.7 → 107.8 MB (동시 실행 1) | 이번 라운드 |
+| 치르는 것 — CPU | 40장 합계 2.05초, 장당 50ms | 이번 라운드 |
+| 치르는 것 — 화질 | PSNR 42.2 dB, 육안 구분 불가 | `58d3340` |
+| 위험 | 사용자 사진 덮어쓰기(원자적 교체로 방어) | 설계 |
+
+**보고자 의견:** 동시 실행 1이면 peak 107.8MB로 250MB 목표 안이고 표시도 막지 않는다. 다만 기준(55.7MB) 대비 2배이며, 이 비용은 사진을 볼 때마다 잠깐씩 발생한다. 목표를 1350px로 낮추면 76.3MB까지 내려가지만 저장 규격을 바꾸는 결정이라 임의로 정하지 않았다. **A / B 판단은 지시대로 넘긴다.**
+
+---
+
+## 보류 항목 착수 전 조사 (`let id = UUID()` 6개 타입 / `HomeViewModel` / `serverStatus`)
+
+### 1) 대상 6개 타입과 안정 ID 후보 [정적]
+
+| 타입 | 위치 | 후보 | 유일성 근거 | 판정 |
+|---|---|---|---|---|
+| `MetricViewState` | `VFDomain.swift:270` | `title` | 생성 지점 4곳 모두 리터럴 배열(4~5개, 제목 전부 다름) | **안전** |
+| `RankingViewState` | `VFDomain.swift:277` | `title` | 로컬 경로는 `Dictionary(grouping:)` 키 = 제목 | 로컬 안전 / 서버 아래 참조 |
+| `StatGroupViewState` | `VFDomain.swift:284` | `name` | 같음 | 로컬 안전 / 서버 아래 참조 |
+| `KBOStandingViewState` | `VFDomain.swift:458` | `teamID` | `KBOStandingDTO.id == teamID`, 팀 10개 전부 다름 | **안전** (`rank`는 불가) |
+| `CalendarSelectedDay` | `CalendarViews.swift:1062` | `date` | `@State` 단일 옵셔널(시트 item), `ForEach` 아님 | **안전** |
+| `AnalysisRankingRowModel` | `WinRateAnalysisView.swift:317` | `title` | `Dictionary(grouping:)` 또는 위 랭킹 배열에서 파생 | 위와 동일 |
+
+### 2) 실제 데이터 중복 검사 [실측 + 정적]
+
+앱에 실려 있는 참조 데이터(`KBOSeed.teams`, 10팀)를 전수 검사했다.
+
+| 필드 | 서로 다른 값 | 중복 |
+|---|---|---|
+| `id` | 10 | 없음 |
+| `name` | 10 | 없음 |
+| `shortName` | 10 | 없음 |
+| `homeStadiumName` | 9 | **잠실야구장 2건 (LG · 두산)** |
+
+구장 이름에 중복이 하나 있지만 문제되지 않는다. 구장 랭킹 배열은 구장 이름 자체를 키로 그룹핑하므로 잠실야구장 행은 하나뿐이다. 상대팀 배열과 구장 배열은 `ForEach`가 서로 분리되어 있어(`WinRateAnalysisView.swift:115`, `:132`) 두 배열이 합쳐지는 지점도 없다.
+
+로컬 경로는 데이터와 무관하게 안전하다. `Dictionary(grouping:)`의 키는 정의상 유일하므로 배열 안에서 제목이 겹칠 수 없다. 이번 라운드의 시드 40건은 전부 같은 구장·같은 상대라 그룹이 1개로 접히는 것까지 확인했다.
+
+### 3) 서버 경로에서 남는 위험 [정적]
+
+| DTO | `id` 채우는 순서 | 위험 |
+|---|---|---|
+| `StadiumStatsDTO` | `id` → 없으면 `name` | 없음. `name`보다 나빠지지 않는다 |
+| `OpponentStatsDTO` | `id` → `opponentTeamID` → **없으면 `UUID()`** | 서버가 둘 다 빠뜨리면 매 디코딩마다 새 UUID — **DTO `id`를 안정 키로 쓰면 안 된다** |
+| `KBOStandingDTO` | `id == teamID`(옵셔널 아님) | 없음 |
+
+서버가 같은 구장/상대를 두 행으로 내려보내면 제목이 겹칠 수 있고, 이는 로컬에서 막을 수 없다. 실서버는 오프라인이라 확인하지 못했다(`실기기/실서버 미측정`).
+
+**제안:** 상대팀은 DTO `id`가 아니라 `name`을 쓰고, 매핑 시점에서 한 번 중복을 접거나(같은 이름 합산) 그대로 두되 `ForEach(Array(...enumerated()), id: \.offset)` 형태로 렌더 쪽에서 방어한다. 어느 쪽을 택할지는 착수 시 결정할 사항이다.
+
+### 4) `HomeViewModel` 생성 위치 [정적]
+
+`AppRootView.swift:47`에서 `MainTabView.body` 안에 있다.
+
+```
+case .home:
+    NavigationStack {
+        HomeView(viewModel: HomeViewModel(dashboard: .sample(logs: appData.feedLogs)))
+    }
+```
+
+`appData`가 `@EnvironmentObject`이므로 `AppDataStore`의 `@Published` 하나만 바뀌어도 `MainTabView.body`가 다시 평가되고, 그때마다 `DashboardViewState.sample(logs:)`가 로그 전체를 다시 집계해 `MetricViewState` 4개를 **새 UUID로** 만든다. 같은 형태의 생성이 피드(`:51`)·통계(`:59`)에도 있다.
+
+### 5) `serverStatus` 중복 대입 [정적]
+
+`AppDataStore.swift`에서 `serverStatus = .connected` 대입이 **30곳**이다. API 호출이 성공할 때마다 무조건 대입하므로 값이 이미 `.connected`여도 `@Published`가 발행된다. `ServerConnectionStatus`는 이미 `Equatable`(`AppDataStore.swift:22`)이라 guard는 한 줄로 끝난다.
+
+### 착수 전 확인이 필요한 것
+
+지시대로 여기서 멈춘다. 착수 시 검증 지표는 `MetricCard` 재생성 횟수 / `MainTabView.body` 평가 횟수 / `@Published` 변경 24회 전·후이며, 위 3)의 상대팀 키 선택만 결정해 주면 나머지는 정적으로 안전하다.
+
+---
+
+## 사진 분석 격자 + 히트테스트 (대기)
+
+지시대로 손대지 않았다. 다만 이번 라운드에서 부수적으로 확인한 사실 하나를 남긴다: 상단 칩(기본/팀결과/사진)이 합성 클릭에 반응하지 않은 경우가 있었는데, 원인 중 하나는 **시뮬레이터 창이 여러 개 열려 있을 때 자동화가 다른 기기 창을 잡는 것**이었다. 창을 이름으로 지정한 뒤 탭 바 탭은 안정적으로 동작했다. 상단 칩 자체가 실제 손가락 입력에도 문제가 있는지는 확인 대상이 아니므로 판단하지 않는다.
+
+---
+
+## 메모리 트랙 최종 요약 (측정 시점 명시)
+
+각 수치가 어느 커밋의 트리에서 측정된 값인지 함께 적는다. 시점이 섞이면 회귀를 추적할 수 없다.
+
+| 지표 | 시작 | 시작 측정 시점 | 최종 | 최종 측정 시점 |
+|---|---|---|---|---|
+| 캘린더 사진모드 peak (레거시 5400px 20장) | **2355 MB** | `0086617` 트리 (② 이전), 기록 `c4530f5` | **58.7 ~ 69.8 MB** (5회, 평균 64.0) | **`58d3340` (HEAD, 이번 라운드)** |
+| 캘린더 진입 시 메인 스레드 디코딩 | **491 ms** (40회) | `d770d55` 트리, 기록 `7e8ebc8` | **0 ms** (0회) | **`58d3340` (HEAD, 이번 라운드)** |
+| 캘린더 3회 진입 총 디코딩 | 120회 | `d770d55` 트리, 기록 `7e8ebc8` | 20회 | **`58d3340` (HEAD, 이번 라운드)** |
+| 12MP 첨부 저장 peak | 209.0 MB | `0086617` 이전 트리, 기록 `c4530f5` | 63.4 MB | `d770d55` 트리, 기록 `c4530f5` (재측정 안 함) |
+| 저장 해상도 | 5400 × 5400 (의도의 3배) | `0086617` 이전 트리 | 1800 × 1800 | `0086617` 트리, 기록 `5d14ddd` |
+| 사진 1장 디스크 (실사진 12MP) | 4269 KB | `0086617` 이전 트리, 기록 `c4530f5` | 456 KB | `d770d55` 트리, 기록 `c4530f5` |
+
+캘린더 peak의 최종값이 ②(`d770d55`) 시점의 55.5MB보다 평균 8.5MB 높은 것은 회귀가 아니라 ③④의 구조적 대가다(백그라운드 디코딩 작업 버퍼가 동시에 여러 개 산다). 대신 메인 스레드 멈춤 491ms와 재진입 재디코딩 100회가 사라졌다.
 
 | 커밋 | 내용 |
 |---|---|
 | `0086617` | 저장 렌더 scale 1 고정 (maxPixel이 실제 픽셀이 되도록) |
 | `d770d55` | 표시 지점 다운샘플 + 저장 경로 ImageIO 전환 |
 | `f4ff3fe` | 오프메인 디코딩 + NSCache |
-| `21a2db7` | 캐시 등급별 분리 |
+| `21a2db7` | 캐시 등급별 분리 (썸네일 8MB + 대형 32MB) |
 
-측정 리포트 커밋: `5d14ddd`, `c4530f5`, `7e8ebc8`.
+측정 리포트 커밋: `5d14ddd`, `c4530f5`, `7e8ebc8`, `c6714f7`, `58d3340`.
 
-메모리 트랙을 여기서 종료한다. 다음 보류 항목(착수 안 함): `let id = UUID()` 제거 6개 타입 + `HomeViewModel` 생성 위치 이동, `serverStatus` 중복 대입 guard, timeout / 전역 데드라인(백로그 유지).
+메모리 트랙은 종료 상태를 유지한다. 대기 중인 항목: 마이그레이션 B(A/B 결정 대기), `let id = UUID()` 제거 6개 타입 + `HomeViewModel` 생성 위치 이동 + `serverStatus` guard(착수 전 조사 완료, 승인 대기), 사진 분석 격자·히트테스트(사용자 확인 대기), timeout / 전역 데드라인(백로그 유지).
+
+---
+
+## 작업 [5] — 재렌더 위생 (커밋 대상, [5-a] 조사 → [5-b/c/d] 착수)
+
+### [5-a] 상대팀 키 — 착수 전 확인
+
+**실서버 응답은 확보하지 못했다.** `API_BASE_URL`은 Dev가 `localhost:8081`, Production이 `victoryfairy.duckdns.org`인데 둘 다 오프라인이라 `/api/v1/statistics/opponents`의 실제 바디를 받아 name 중복을 직접 셀 수 없었다. 대신 계약과 코드 경로로 확인했다.
+
+| 확인 | 결과 |
+|---|---|
+| 엔드포인트 의미 | 기획서상 "상대팀별 성적" — 상대팀 단위 집계라 팀당 1행 |
+| `OpponentStatsDTO` 필드 | id, name, totalGames, wins, losses, draws, canceled, winRate — **홈/원정·구장 같은 분리 축이 없다.** 한 팀을 두 행으로 쪼갤 필드가 구조적으로 없음 |
+| 로컬 집계 경로 | `Dictionary(grouping: logs, by: opponentName)` — 키가 곧 name이라 배열 안에서 유일 |
+| 팀 이름 실데이터 | `KBOSeed.teams` 10팀 이름 전부 다름 |
+
+**결론: 정상 응답에서 name 중복은 발생할 수 없다. 복합 키 불필요, name을 그대로 ForEach 키로 쓴다.** 홈/원정 분리 같은 구분 축은 DTO에 존재하지 않으므로 구분자도 없다.
+
+한 가지 남는 엣지는 기록해 둔다: 서버가 `id`/`teamName`을 모두 비운 미지의 상대 2건을 보내면 DTO가 name을 `"상대팀"`으로 채워 중복이 생긴다(구장은 `"구장 미정"`). 고정 10팀 KBO에서 일어날 계약은 아니지만 구조적으로 불가능하진 않다. 이 경우에도 크래시가 아니라 SwiftUI ForEach의 행 재사용 경고 수준이며, 필요해지면 매퍼에서 name 합산으로 접으면 된다. 지금은 지시대로 name 키로 진행한다.
+
+**UUID를 쓴 이유:** 코드·커밋에 의도적 근거가 없다. 6개 타입의 `let id = UUID()`는 모두 초기 커밋(`590fbc5`, `f61976c`, `9bd3de5`)에서 왔고 설명 주석·메시지가 없다. "Identifiable을 빨리 만족시키는 SwiftUI 기본 관용구"이지 서버 중복 방어 의도가 아니다. **착수를 막을 이유 없음.**
+
+### [5-b] 6개 타입 안정 ID (커밋 대상)
+
+| 타입 | 파일 | 이전 | 이후 |
+|---|---|---|---|
+| `MetricViewState` | VFDomain.swift | `let id = UUID()` | `var id: String { title }` |
+| `RankingViewState` | VFDomain.swift | `let id = UUID()` | `var id: String { title }` |
+| `StatGroupViewState` | VFDomain.swift | `let id = UUID()` | `var id: String { name }` |
+| `KBOStandingViewState` | VFDomain.swift | `let id = UUID()` | `var id: String { teamName }` |
+| `CalendarSelectedDay` | CalendarViews.swift | `let id = UUID()` | `var id: Date { date }` |
+| `AnalysisRankingRowModel` | WinRateAnalysisView.swift | `let id = UUID()` | `var id: String { title }` |
+
+`KBOStandingViewState`는 순위(rank)가 동순위 타이로 겹칠 수 있어 `teamName`을 골랐다(팀 이름 10개는 항상 다름). `CalendarSelectedDay`는 `.sheet(item:)`에 쓰이는데, 날짜 기반 ID로 바꾸면 필터 변경 후 같은 날짜를 다시 세팅하는 `refreshSelectedDay()`에서 시트가 다시 뜨지 않고 그 자리에서 로그만 갱신된다(UUID일 때는 매번 새 ID라 재표시=깜빡임이었다). 개선이다.
+
+`Set`/직접 `==` 사용처는 전수 조사에서 0곳이었다. `id`를 stored UUID에서 computed로 바꿔도 `Equatable`/`Hashable` 합성이 나머지 저장 프로퍼티로 유지되고, 렌더는 `ForEach(id: \.element.id)` 경로뿐이라 영향이 국소적이다.
+
+### [5-c] HomeViewModel 생성 위치 이동 (커밋 대상)
+
+`HomeViewModel(dashboard: .sample(logs: appData.feedLogs))`가 `MainTabView.body` 안에 있어, `@EnvironmentObject`의 어떤 `@Published`가 바뀌어도 body가 재평가될 때마다 로그 40건을 다시 정렬·그룹핑했다. `AppDataStore.feedLogs`에 `didSet`을 달아 **feedLogs가 바뀔 때만** 대시보드를 1회 집계해 `@Published homeDashboard`로 보관하고, body는 그 값을 참조만 한다.
+
+### [5-d] serverStatus guard (같은 커밋)
+
+`serverStatus = X` 대입 54곳을 `setServerStatus(X)`로 바꾸고, 그 안에서 `guard newValue != serverStatus else { return }`로 중복 대입을 막았다. `ServerConnectionStatus`는 이미 `Equatable`이다. 매 요청 성공/실패마다 무조건 대입하며 값이 같아도 `@Published`가 발행되던 것을 없앤다.
+
+### 검증 [실측(Debug/시뮬), `#if DEBUG` 프로브, 각 3회] — 콜드 스타트 후 탭 3바퀴
+
+계측: `MainTabView.body`·`MetricCard.body`·`HomeDashboard.sample` 카운터와 `AppDataStore.objectWillChange` 구독. **프로브는 측정 후 전량 제거**(`grep VFProbe` 0건, `git status`에 계측 흔적 없음, Debug/Release 둘 다 빌드 통과).
+
+| 지표 | 이전(HEAD+프로브) | 이후(전체 적용) | 담당 |
+|---|---|---|---|
+| `MetricCard.body` (콜드) | 8 / 12 / 8 | **4 / 4 / 4** | [5-b] 안정 ID가 재생성 제거 |
+| `HomeDashboard.sample` 호출 (콜드) | 7 | **1** | [5-c] 집계를 feedLogs 변경 시 1회로 |
+| `HomeDashboard.sample` 호출 (탭 3바퀴 후) | 10 | **1** | [5-c] 탭 복귀·재렌더에도 재집계 없음 |
+| `AppDataStore.objectWillChange` (콜드) | 18 | **15** | [5-d] guard가 중복 발행 제거 |
+| `MainTabView.body` (콜드) | 6~9 | 6~7 | 변화 없음(의도) |
+
+핵심을 분해하면 두 가지다. **[5-b]** 안정 ID만으로 `MetricCard.body`가 9→4로 떨어진다(제목이 같으면 SwiftUI가 같은 셀로 보고 재생성하지 않음). **[5-c]** 는 `MetricCard` 수를 더 줄이진 않지만 40건 정렬·그룹핑 실행을 7→1(탭을 돌려도 1)로 없앤다 — 셀이 재생성되지 않아도 매 body마다 돌던 CPU 작업이다.
+
+정직하게 적을 점: `MetricCard.body`의 **탭 복귀 증가분(바퀴당 약 4)은 전후가 같다.** 탭 전환은 `selectedContent` switch가 Home 뷰 트리를 통째로 헐고 복귀 시 다시 만들기 때문이며, 안정 ID로는 막지 못한다(이번 작업 범위 밖). 이번 변경이 없애는 것은 (1) Home에 머문 채 `@Published`가 바뀔 때의 재렌더와 (2) 매 body의 40건 재집계다. 회귀는 없다.
+
+`@Published` 수치가 지시서의 참조값(콜드 24회)과 다른 것은 측정창 차이다. 이번 프로브는 `objectWillChange` 구독을 init 끝에 걸어 **init 내부의 초기 대입(약 7건)을 세지 않는다** — 그래서 절대값이 낮다. 전후를 같은 방법으로 재서 얻은 델타(18→15)가 판단 근거다. `feedLogs.didSet`이 `homeDashboard` 발행을 1건 더하지만, guard가 serverStatus 중복 약 4건을 없애 순감이다.
+
+### 렌더 정상 확인 [실측(Debug/시뮬), 스크린샷]
+
+레거시 40장 시드 상태에서 클린 빌드로 홈·통계(내 직관)를 렌더: 홈 지표 카드 4개(총 직관/시즌 승률/최근 흐름/최다 구장), 통계 KPI 4개, 승률 분석 진입점이 모두 정상. ID를 name/title로 바꾼 뒤에도 ForEach가 깨지지 않았다.
+
+### 파일 범위 주의
+
+지시서는 "VFDomain.swift / MainTabView.swift / AppDataStore.swift만 건드린다"였으나 실제로 **5개 파일**을 건드렸다. `MainTabView`는 별도 파일이 아니라 `AppRootView.swift`에 있고, `CalendarSelectedDay`(CalendarViews.swift)·`AnalysisRankingRowModel`(WinRateAnalysisView.swift)은 [5-b]가 지정한 6개 타입에 포함되지만 VFDomain에 없다. 두 파일 모두 탭바 파일이 아니므로 **탭바 작업과의 병렬 가능성은 그대로 유지된다.**
+
+| 파일 | 변경 |
+|---|---|
+| `Domain/VFDomain.swift` | Metric/Ranking/StatGroup/KBOStanding 4개 타입 안정 ID |
+| `AppRootView.swift` | MainTabView.body가 `appData.homeDashboard` 참조 |
+| `Services/AppDataStore.swift` | homeDashboard 파생 + feedLogs.didSet + setServerStatus guard |
+| `Features/Calendar/CalendarViews.swift` | CalendarSelectedDay 안정 ID |
+| `Features/Analysis/WinRateAnalysisView.swift` | AnalysisRankingRowModel 안정 ID |
+
+남은 대기 항목: 마이그레이션 B(A/B 결정 대기), 사진 분석 격자·히트테스트(사용자 확인 대기), timeout / 전역 데드라인(백로그 유지).
