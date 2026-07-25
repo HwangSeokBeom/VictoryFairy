@@ -36,7 +36,11 @@ struct MainTabView: View {
                     .padding(.bottom, VFTabBarMetrics.customTabBarBottomInset)
                     .background(.clear)
             }
-        .animation(.snappy(duration: 0.22), value: selectedTab)
+            // 하단 safe area 예약(홈 인디케이터 영역)을 반납해 캡슐의 위치를
+            // customTabBarBottomInset이 직접 소유하게 만든다. 반납 대상은 하단 한 변,
+            // .container 영역뿐이라 상단/좌우와 키보드 회피는 그대로 남는다.
+            .ignoresSafeArea(.container, edges: .bottom)
+            .animation(.snappy(duration: 0.22), value: selectedTab)
     }
 
     @ViewBuilder

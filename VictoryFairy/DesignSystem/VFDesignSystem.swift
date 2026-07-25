@@ -34,9 +34,14 @@ enum VFSpacing {
 
 enum VFTabBarMetrics {
     static let customTabBarHeight: CGFloat = 66
-    static let customTabBarBottomInset: CGFloat = 0
+    /// 캡슐 하단과 화면 하단 사이 여백. iOS 26 네이티브 리퀴드 글라스 탭바가
+    /// 홈 인디케이터 유무와 무관하게 쓰는 값과 같게 맞춘다.
+    static let customTabBarBottomInset: CGFloat = 21
     static let extraBreathingRoom: CGFloat = 20
-    static let tabContentBottomPadding = customTabBarHeight + extraBreathingRoom
+    /// 캡슐이 화면 하단에서 customTabBarBottomInset만큼 떠 있으므로, 스크롤 콘텐츠는
+    /// 캡슐 높이 + 그 여백까지 비켜야 한다. 홈 인디케이터가 없는 기기에서 기존과 같은
+    /// extraBreathingRoom이 남고, 있는 기기에서는 그만큼 더 여유가 생긴다.
+    static let tabContentBottomPadding = customTabBarHeight + customTabBarBottomInset + extraBreathingRoom
 }
 
 enum VFRadius {
