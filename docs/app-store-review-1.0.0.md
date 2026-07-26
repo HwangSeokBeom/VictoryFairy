@@ -5,7 +5,7 @@
 - App name: 승리요정
 - Version: 1.0.0
 - Build number: 1
-- Production backend URL: http://victoryfairy.duckdns.org
+- Production backend URL: https://victoryfairy.duckdns.org
 - Development backend URL: http://localhost:8081
 - Development simulator fallback URL: http://127.0.0.1:8081
 - iOS client architecture: the app calls VictoryFairySpringServer only. It must not call Groq, Naver, KBO, or other upstream provider APIs directly from iOS.
@@ -73,9 +73,8 @@ Suggested App Store Connect answer:
 - If asked whether the app uses non-exempt encryption: answer "No" based on the current codebase because VictoryFairy does not implement proprietary or non-exempt encryption and uses only Apple-provided standard networking/security functionality.
 - If asked for export compliance documentation: "VictoryFairy does not implement custom encryption. The app uses Apple-provided standard networking APIs. It does not provide cryptographic functionality to end users."
 
-Note: the current production backend URL is HTTP. This export-compliance assessment is based on whether the app contains non-exempt encryption, not on whether the current production URL uses HTTPS. Before App Store submission, moving the production backend to HTTPS is recommended for transport security and App Review posture.
-
-Because the configured production backend currently uses HTTP, the iOS Info.plist contains a domain-scoped App Transport Security exception for `victoryfairy.duckdns.org`. ATS is not globally disabled.
+The production backend URL is HTTPS. The app relies on standard iOS transport
+security and does not declare an App Transport Security exception domain.
 
 ## Secret Scan Summary
 
@@ -85,7 +84,8 @@ Searches for `gsk_`, `NAVER_CLIENT`, `GROQ_API_KEY`, `X-Naver-Client`, Groq/Nave
 
 - Shared schemes exist: `VictoryFairy-Dev`, `VictoryFairy-Production`.
 - Debug build is Dev and uses `http://localhost:8081` with simulator fallback `http://127.0.0.1:8081`.
-- Release build is Production and uses `http://victoryfairy.duckdns.org`.
+- Release build is Production and requires an HTTPS non-loopback endpoint. The
+  current value is `https://victoryfairy.duckdns.org`.
 - The built Info.plist contains `API_BASE_URL` and `ITSAppUsesNonExemptEncryption = NO`.
 - Production display name is `승리요정`.
 - Dev display name is `승리요정 Dev`.

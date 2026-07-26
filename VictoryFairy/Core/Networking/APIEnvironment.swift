@@ -18,7 +18,7 @@ struct APIEnvironment: Equatable {
     static var current: APIEnvironment {
         #if VICTORYFAIRY_PRODUCTION
         return .production(
-            baseURL: configuredBaseURL(fallback: "http://victoryfairy.duckdns.org")
+            baseURL: configuredBaseURL(fallback: "https://victoryfairy.duckdns.org")
         )
         #else
         return .development(
@@ -46,12 +46,26 @@ struct APIEnvironment: Equatable {
     }
 
     static func production(baseURL: URL) -> APIEnvironment {
-        APIEnvironment(
+        let canonicalFallback = URL(string: "https://victoryfairy.duckdns.org")!
+        let secureBaseURL = isValidProductionBaseURL(baseURL) ? baseURL : canonicalFallback
+        return APIEnvironment(
             name: .production,
-            baseURL: baseURL,
+            baseURL: secureBaseURL,
             fallbackBaseURL: nil,
             timeout: 8
         )
+    }
+
+    static func isValidProductionBaseURL(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              !host.isEmpty else {
+            return false
+        }
+
+        return host != "localhost"
+            && host != "127.0.0.1"
+            && host != "::1"
     }
 
     func endpointURL(baseURL: URL, path: String, queryItems: [URLQueryItem]) -> URL {
