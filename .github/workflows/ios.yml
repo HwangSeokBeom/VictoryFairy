@@ -20,13 +20,11 @@ jobs:
       - name: Debug simulator build
         run: |
           set -euo pipefail
-          destination="$(xcodebuild -project VictoryFairy.xcodeproj -scheme VictoryFairy-Dev -showdestinations | sed -n 's/.*platform:iOS Simulator,.*id: \([^,}]*\).*/id=\1/p' | head -n 1)"
-          test -n "$destination"
           xcodebuild \
             -project VictoryFairy.xcodeproj \
             -scheme VictoryFairy-Dev \
             -configuration Debug \
-            -destination "$destination" \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/victoryfairy-derived-data" \
             CODE_SIGNING_ALLOWED=NO \
             build
