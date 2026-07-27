@@ -153,19 +153,19 @@ struct LogEditorView: View {
                 if let saveMessage {
                     Text(saveMessage)
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .padding(VFSpacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(VFColor.drawGray.opacity(0.08))
+                        .background(VFColor.gameDraw.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                 }
                 if let validationMessage {
                     Text(validationMessage)
                         .font(.caption)
-                        .foregroundStyle(VFColor.lossRed)
+                        .foregroundStyle(VFColor.gameLoss)
                         .padding(VFSpacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(VFColor.lossRed.opacity(0.08))
+                        .background(VFColor.gameLoss.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                 }
                 VFPrimaryButton(title: isSaving ? "저장 중" : "저장하기", systemImage: "checkmark") {
@@ -318,7 +318,7 @@ struct LogEditorView: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text("필수 정보")
                     .font(.system(.headline, design: .rounded).weight(.bold))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
 
                 DatePicker("경기 날짜", selection: $viewModel.date, displayedComponents: .date)
                     .tint(theme.primary)
@@ -349,7 +349,7 @@ struct LogEditorView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.sm) {
                     Text("경기 결과")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     HStack(spacing: VFSpacing.xs) {
                         ForEach(GameResult.allCases) { result in
                             Button {
@@ -372,7 +372,7 @@ struct LogEditorView: View {
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
                         Text("점수")
                             .font(VFTypography.cardTitle)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         HStack(spacing: VFSpacing.sm) {
                             scoreStepper(title: "응원팀", value: $viewModel.ourScore)
                             scoreStepper(title: "상대팀", value: $viewModel.opponentScore)
@@ -383,10 +383,10 @@ struct LogEditorView: View {
                 if shouldShowScoreWarning {
                     Text("점수와 결과가 서로 달라 보여요. 한 번만 확인해 주세요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.lossRed)
+                        .foregroundStyle(VFColor.gameLoss)
                         .padding(VFSpacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(VFColor.lossRed.opacity(0.08))
+                        .background(VFColor.gameLoss.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                 }
             }
@@ -404,28 +404,28 @@ struct LogEditorView: View {
                     .tint(theme.primary)
                 Text("경기 정보를 확인하는 중이에요.")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
             .padding(VFSpacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VFColor.backgroundWarm)
+            .background(VFColor.subtleSurface)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         case .loaded:
             if kboCandidates.count == 1, let candidate = kboCandidates.first {
                 VStack(alignment: .leading, spacing: VFSpacing.sm) {
                     Text("이 날짜의 경기 정보를 찾았어요")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     kboCandidateCard(candidate)
                 }
             } else {
                 VStack(alignment: .leading, spacing: VFSpacing.sm) {
                     Text("이 날짜에 여러 경기가 있어요")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("기록할 경기를 선택해 주세요")
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                     HStack(spacing: VFSpacing.sm) {
                         Button {
                             isShowingKBOCandidateSelection = true
@@ -449,12 +449,12 @@ struct LogEditorView: View {
                             Text("직접 입력할게요")
                                 .font(.system(.subheadline, design: .rounded).weight(.bold))
                                 .frame(maxWidth: .infinity, minHeight: 42)
-                                .foregroundStyle(VFColor.primaryText)
-                                .background(VFColor.card)
+                                .foregroundStyle(VFColor.bodyPrimary)
+                                .background(VFColor.elevatedSurface)
                                 .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                                        .stroke(VFColor.mutedLine, lineWidth: 1)
+                                        .stroke(VFColor.hairline, lineWidth: 1)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -482,29 +482,29 @@ struct LogEditorView: View {
         } label: {
             HStack(alignment: .top, spacing: VFSpacing.sm) {
                 Image(systemName: "ticket")
-                    .foregroundStyle(VFColor.victoryOrange)
+                    .foregroundStyle(VFColor.primaryAction)
                     .frame(width: 36, height: 36)
-                    .background(VFColor.victoryOrange.opacity(0.12))
+                    .background(VFColor.primaryAction.opacity(0.12))
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                     Text("티켓으로 작성하기")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("티켓 사진에서 날짜·팀·구장·좌석을 찾아볼게요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text("티켓 이미지는 서버로 전송되지 않아요.")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
             .padding(VFSpacing.md)
-            .background(VFColor.backgroundWarm)
+            .background(VFColor.subtleSurface)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -515,26 +515,26 @@ struct LogEditorView: View {
         VStack(alignment: .leading, spacing: VFSpacing.md) {
             HStack(alignment: .top, spacing: VFSpacing.sm) {
                 Image(systemName: "baseball.diamond.bases")
-                    .foregroundStyle(VFColor.victoryOrange)
+                    .foregroundStyle(VFColor.primaryAction)
                     .frame(width: 36, height: 36)
-                    .background(VFColor.victoryOrange.opacity(0.12))
+                    .background(VFColor.primaryAction.opacity(0.12))
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 6) {
                     Text(candidate.matchupText)
                         .font(.system(.headline, design: .rounded).weight(.heavy))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text(candidate.stadiumName)
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                     if let favoriteTeamID = currentFavoriteTeamID, !candidate.isScheduled {
                         Text("내 기록에는 \(candidate.recordScoreText(favoriteTeamID: favoriteTeamID))로 저장돼요")
                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                     }
                     if candidate.isScheduled {
                         Text("결과는 경기 후 직접 입력해 주세요.")
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                     SourceDisclosureView(
                         label: candidate.safeSourceLabel(fallbackSource: kboLookupSource, fallbackSourceLabel: kboLookupSourceLabel),
@@ -566,12 +566,12 @@ struct LogEditorView: View {
                     Text("직접 입력할게요")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
                         .frame(maxWidth: .infinity, minHeight: 42)
-                        .foregroundStyle(VFColor.primaryText)
-                        .background(VFColor.card)
+                        .foregroundStyle(VFColor.bodyPrimary)
+                        .background(VFColor.elevatedSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                                .stroke(VFColor.mutedLine, lineWidth: 1)
+                                .stroke(VFColor.hairline, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -580,19 +580,19 @@ struct LogEditorView: View {
             if candidate.officialRecordURL != nil {
                 Text("공식 기록 보기")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                 Button {
                     openOfficialRecord(candidate)
                 } label: {
                     Label("공식 기록 보기", systemImage: "safari")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
                         .frame(maxWidth: .infinity, minHeight: 42)
-                        .foregroundStyle(VFColor.primaryText)
-                        .background(VFColor.card)
+                        .foregroundStyle(VFColor.bodyPrimary)
+                        .background(VFColor.elevatedSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                                .stroke(VFColor.mutedLine, lineWidth: 1)
+                                .stroke(VFColor.hairline, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -602,7 +602,7 @@ struct LogEditorView: View {
         .padding(VFSpacing.md)
         .background(
             LinearGradient(
-                colors: [VFColor.backgroundWarm, VFColor.card],
+                colors: [VFColor.subtleSurface, VFColor.elevatedSurface],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -610,29 +610,29 @@ struct LogEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                .stroke(VFColor.victoryOrange.opacity(0.22), lineWidth: 1)
+                .stroke(VFColor.primaryAction.opacity(0.22), lineWidth: 1)
         )
     }
 
     private func kboLookupMessageCard(title: String, message: String, systemImage: String) -> some View {
         HStack(alignment: .top, spacing: VFSpacing.sm) {
             Image(systemName: systemImage)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .frame(width: 32, height: 32)
-                .background(VFColor.card)
+                .background(VFColor.elevatedSurface)
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                 Text(title)
                     .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
         }
         .padding(VFSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VFColor.backgroundWarm)
+        .background(VFColor.subtleSurface)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
@@ -672,17 +672,17 @@ struct LogEditorView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                     Text(title)
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                     Text(value)
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                 }
                 Spacer()
                 Image(systemName: "chevron.down")
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
             .padding(VFSpacing.sm)
-            .background(VFColor.offWhite)
+            .background(VFColor.subtleSurface)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         }
     }
@@ -691,7 +691,7 @@ struct LogEditorView: View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             Text("응원팀")
                 .font(VFTypography.cardTitle)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
                 ForEach(appData.teams) { team in
                     Button {
@@ -706,9 +706,9 @@ struct LogEditorView: View {
                     } label: {
                         Text(team.name)
                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundStyle(team.name == viewModel.favoriteTeam ? theme.textOnPrimary : VFColor.primaryText)
+                            .foregroundStyle(team.name == viewModel.favoriteTeam ? theme.textOnPrimary : VFColor.bodyPrimary)
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(team.name == viewModel.favoriteTeam ? theme.primary : VFColor.offWhite)
+                            .background(team.name == viewModel.favoriteTeam ? theme.primary : VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -1083,15 +1083,15 @@ struct LogEditorView: View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
             Stepper(value: value, in: 0...30) {
                 Text("\(value.wrappedValue)")
                     .font(.system(.title2, design: .rounded).weight(.bold))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
             }
         }
         .padding(VFSpacing.sm)
-        .background(VFColor.offWhite)
+        .background(VFColor.subtleSurface)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 }
@@ -1335,11 +1335,11 @@ private struct KBOGameCandidateSelectionSheet: View {
                 VStack(alignment: .leading, spacing: VFSpacing.lg) {
                     VStack(alignment: .leading, spacing: VFSpacing.xs) {
                         Text("이 날짜에 여러 경기가 있어요")
-                            .font(VFTypography.section)
-                            .foregroundStyle(VFColor.primaryText)
+                            .font(VFTypography.sectionTitle)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text("기록할 경기를 선택해 주세요")
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
 
                     ForEach(candidates) { candidate in
@@ -1354,13 +1354,13 @@ private struct KBOGameCandidateSelectionSheet: View {
                                         .foregroundStyle(theme.primary)
                                     Text(candidate.matchupText)
                                         .font(.system(.headline, design: .rounded).weight(.bold))
-                                        .foregroundStyle(VFColor.primaryText)
+                                        .foregroundStyle(VFColor.bodyPrimary)
                                     Text(candidate.stadiumName)
                                         .font(.subheadline)
-                                        .foregroundStyle(VFColor.secondaryText)
+                                        .foregroundStyle(VFColor.bodySecondary)
                                     Text(candidate.scoreboardText)
                                         .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(VFColor.primaryText)
+                                        .foregroundStyle(VFColor.bodyPrimary)
                                     if let favoriteTeamID, !candidate.isScheduled {
                                         Text("내 기록에는 \(candidate.recordScoreText(favoriteTeamID: favoriteTeamID))로 저장돼요")
                                             .font(.caption.weight(.semibold))
@@ -1369,7 +1369,7 @@ private struct KBOGameCandidateSelectionSheet: View {
                                     if candidate.isScheduled {
                                         Text("결과는 경기 후 직접 입력해 주세요.")
                                             .font(.caption)
-                                            .foregroundStyle(VFColor.secondaryText)
+                                            .foregroundStyle(VFColor.bodySecondary)
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1389,11 +1389,11 @@ private struct KBOGameCandidateSelectionSheet: View {
                         }
                         .padding(VFSpacing.md)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(VFColor.card)
+                        .background(VFColor.elevatedSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                                .stroke(VFColor.mutedLine, lineWidth: 1)
+                                .stroke(VFColor.hairline, lineWidth: 1)
                         )
                     }
 
@@ -1433,8 +1433,8 @@ struct DiarySectionView: View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text("선택 정보")
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.sectionTitle)
+                    .foregroundStyle(VFColor.bodyPrimary)
 
                 textField("좌석", text: $seat)
                 textField("한 줄 메모", text: $shortMemo)
@@ -1442,19 +1442,19 @@ struct DiarySectionView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text("직관 다이어리")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $diary)
                             .frame(minHeight: 130)
                             .scrollContentBackground(.hidden)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .padding(VFSpacing.xs)
-                            .background(VFColor.offWhite)
+                            .background(VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                         if diary.isEmpty {
                             Text("오늘 경기의 분위기, 기억나는 장면을 남겨보세요.")
                                 .font(.subheadline)
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                                 .padding(VFSpacing.md)
                                 .allowsHitTesting(false)
                         }
@@ -1479,7 +1479,7 @@ struct DiarySectionView: View {
 
                 Text("AI 초안 생성을 위해 경기 정보 일부만 서버로 전송돼요. 사진, 정확한 위치, 동행자 실명은 기본 전송하지 않아요.")
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -1489,13 +1489,13 @@ struct DiarySectionView: View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
-            TextField(title, text: text, prompt: Text(title).foregroundStyle(VFColor.secondaryText))
+                .foregroundStyle(VFColor.bodySecondary)
+            TextField(title, text: text, prompt: Text(title).foregroundStyle(VFColor.bodySecondary))
                 .textFieldStyle(.plain)
-                .foregroundStyle(VFColor.primaryText)
-                .tint(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.bodyPrimary)
+                .tint(VFColor.primaryAction)
                 .padding(VFSpacing.sm)
-                .background(VFColor.offWhite)
+                .background(VFColor.subtleSurface)
                 .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         }
     }
@@ -1504,7 +1504,7 @@ struct DiarySectionView: View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(VFTypography.cardTitle)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
             FlowLayout(spacing: VFSpacing.xs) {
                 ForEach(values, id: \.self) { value in
                     Button {
@@ -1534,24 +1534,24 @@ struct PhotoAttachmentEditorSection: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 HStack {
                     Text("사진")
-                        .font(VFTypography.section)
-                        .foregroundStyle(VFColor.primaryText)
+                        .font(VFTypography.sectionTitle)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Spacer()
                     Text("\(photoLocalRefs.count)/10")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
 
                 Text("사진은 우선 기기에만 저장돼요.")
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
 
                 PhotosPicker(selection: $selectedPhotoItems, maxSelectionCount: max(0, 10 - photoLocalRefs.count), matching: .images) {
                     Label(isProcessingPhotos ? "사진 처리 중" : "사진 추가", systemImage: "photo.on.rectangle.angled")
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 44)
-                        .foregroundStyle(VFColor.primaryText)
-                        .background(VFColor.offWhite)
+                        .foregroundStyle(VFColor.bodyPrimary)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                 }
                 .disabled(isProcessingPhotos || photoLocalRefs.count >= 10)
@@ -1570,7 +1570,7 @@ struct PhotoAttachmentEditorSection: View {
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .font(.title3)
-                                            .foregroundStyle(.white, VFColor.scoreboardNavy.opacity(0.85))
+                                            .foregroundStyle(.white, VFColor.deepAccent.opacity(0.85))
                                             .frame(width: 32, height: 32)
                                     }
                                     .buttonStyle(.plain)
@@ -1598,7 +1598,7 @@ struct PhotoAnalysisSelectionSheet: View {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
                 Text("사진 분석을 위해 선택한 사진이 서버로 전송돼요. 계속할까요?")
                     .font(VFTypography.body)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
@@ -1612,7 +1612,7 @@ struct PhotoAnalysisSelectionSheet: View {
                                     .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                                 Image(systemName: selectedRefs.contains(ref) ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
-                                    .foregroundStyle(selectedRefs.contains(ref) ? VFColor.winGreen : .white)
+                                    .foregroundStyle(selectedRefs.contains(ref) ? VFColor.gameWin : .white)
                                     .padding(VFSpacing.xs)
                             }
                         }
@@ -1622,7 +1622,7 @@ struct PhotoAnalysisSelectionSheet: View {
 
                 Text("한 번에 최대 3장까지 분석할 수 있어요.")
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
 
                 Spacer()
 
@@ -1665,24 +1665,24 @@ struct PhotoAnalysisResultSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: VFSpacing.lg) {
                     Text("사진 분석 결과")
-                        .font(VFTypography.section)
-                        .foregroundStyle(VFColor.primaryText)
+                        .font(VFTypography.sectionTitle)
+                        .foregroundStyle(VFColor.bodyPrimary)
 
                     VFCard {
                         VStack(alignment: .leading, spacing: VFSpacing.md) {
                             if let summary = analysis.summaryText, !summary.isEmpty {
                                 Text(summary)
                                     .font(VFTypography.body)
-                                    .foregroundStyle(VFColor.primaryText)
+                                    .foregroundStyle(VFColor.bodyPrimary)
                             }
                             if let hint = analysis.diaryHintText, !hint.isEmpty {
                                 Text(hint)
                                     .font(.subheadline)
-                                    .foregroundStyle(VFColor.secondaryText)
+                                    .foregroundStyle(VFColor.bodySecondary)
                             }
                             FlowLayout(spacing: VFSpacing.xs) {
                                 ForEach(analysis.suggestedMoodTags + analysis.suggestedHighlightTags, id: \.self) { tag in
-                                    VFChip(title: tag, tint: VFColor.scoreboardNavy)
+                                    VFChip(title: tag, tint: VFColor.deepAccent)
                                 }
                             }
                         }
@@ -1712,14 +1712,14 @@ struct SourceDisclosureView: View {
         VStack(alignment: .leading, spacing: VFSpacing.xxs) {
             Text(label)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
                 .padding(.horizontal, VFSpacing.sm)
                 .frame(minHeight: 24)
-                .background(VFColor.victoryOrange.opacity(0.1))
+                .background(VFColor.primaryAction.opacity(0.1))
                 .clipShape(Capsule())
             Text(KBOReviewSafeSource.disclosure(disclosure))
                 .font(.caption2)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -1733,10 +1733,10 @@ struct AIPreflightDisclosureSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
                 Text("AI 초안을 만들기 전에")
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.sectionTitle)
+                    .foregroundStyle(VFColor.bodyPrimary)
 
-                VFCard(background: VFColor.backgroundWarm) {
+                VFCard(background: VFColor.subtleSurface) {
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
                         disclosureRow("경기 정보와 선택한 분위기/하이라이트가 서버로 전송돼요.")
                         disclosureRow("사진 원본, 정확한 위치, 동행자 실명은 보내지 않아요.")
@@ -1763,10 +1763,10 @@ struct AIPreflightDisclosureSheet: View {
     private func disclosureRow(_ text: String) -> some View {
         HStack(alignment: .top, spacing: VFSpacing.sm) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -1784,8 +1784,8 @@ struct AIDiaryDraftSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: VFSpacing.lg) {
                     Text("후기 초안이 만들어졌어요")
-                        .font(VFTypography.section)
-                        .foregroundStyle(VFColor.primaryText)
+                        .font(VFTypography.sectionTitle)
+                        .foregroundStyle(VFColor.bodyPrimary)
 
                     VFCard {
                         VStack(alignment: .leading, spacing: VFSpacing.md) {
@@ -1799,14 +1799,14 @@ struct AIDiaryDraftSheet: View {
                             if !draft.hashtags.isEmpty {
                                 FlowLayout(spacing: VFSpacing.xs) {
                                     ForEach(draft.hashtags, id: \.self) { hashtag in
-                                        VFChip(title: hashtag, tint: VFColor.scoreboardNavy)
+                                        VFChip(title: hashtag, tint: VFColor.deepAccent)
                                     }
                                 }
                             }
                             if let safetyNotice = draft.safetyNotice {
                                 Text(safetyNotice)
                                     .font(.caption)
-                                    .foregroundStyle(VFColor.secondaryText)
+                                    .foregroundStyle(VFColor.bodySecondary)
                             }
                         }
                     }
@@ -1836,10 +1836,10 @@ struct AIDiaryDraftSheet: View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(VFTypography.cardTitle)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
             Text(text)
                 .font(VFTypography.body)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

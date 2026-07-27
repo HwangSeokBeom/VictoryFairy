@@ -23,7 +23,7 @@ struct AttachmentPhotoView: View {
                     .scaledToFill()
             } else {
                 Rectangle()
-                    .fill(VFColor.mutedLine.opacity(0.35))
+                    .fill(VFColor.hairline.opacity(0.35))
             }
         }
         .task(id: ref) {

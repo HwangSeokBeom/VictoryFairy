@@ -105,10 +105,10 @@ struct AttendancePostCard: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(log.dateText)
                             .font(.system(.caption, design: .rounded).weight(.semibold))
-                            .foregroundStyle(VFColor.tertiaryText)
+                            .foregroundStyle(VFColor.bodyTertiary)
                         Text(log.matchup)
                             .font(.system(size: 22, weight: .heavy, design: .rounded))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .lineLimit(2)
                             .minimumScaleFactor(0.82)
                     }
@@ -125,16 +125,16 @@ struct AttendancePostCard: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text(log.caption.isEmpty ? log.memo : log.caption)
                         .font(VFTypography.body)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let sourceLabel = log.subtleSourceLabel {
                         Text(sourceLabel)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .padding(.horizontal, VFSpacing.sm)
                             .frame(minHeight: 26)
-                            .background(VFColor.backgroundWarm)
+                            .background(VFColor.subtleSurface)
                             .clipShape(Capsule())
                     }
                 }
@@ -152,7 +152,7 @@ struct AttendancePostCard: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.white)
-                        .background(VFColor.scoreboardNavy)
+                        .background(VFColor.deepAccent)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
 
                         NavigationLink {
@@ -163,8 +163,8 @@ struct AttendancePostCard: View {
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(VFColor.primaryText)
-                        .background(VFColor.backgroundWarm)
+                        .foregroundStyle(VFColor.bodyPrimary)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                     }
                 }
@@ -190,7 +190,7 @@ struct AttendancePostCard: View {
                 if let team = selectedTeam {
                     Text(team.shortName)
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 24)
                         .background(.white.opacity(0.92))
@@ -207,7 +207,7 @@ struct AttendancePostCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [VFColor.scoreboardNavy, theme.secondary.opacity(0.88)],
+                colors: [VFColor.deepAccent, theme.secondary.opacity(0.88)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -285,8 +285,8 @@ struct AttendancePostDetailView: View {
                     Label("삭제하기", systemImage: "trash")
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 44)
-                        .foregroundStyle(VFColor.lossRed)
-                        .background(VFColor.lossRed.opacity(0.08))
+                        .foregroundStyle(VFColor.gameLoss)
+                        .background(VFColor.gameLoss.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -319,19 +319,19 @@ struct AttendancePostDetailView: View {
     private var detailHeader: some View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             Text(log.matchup)
-                .font(VFTypography.title)
-                .foregroundStyle(VFColor.primaryText)
+                .font(VFTypography.display)
+                .foregroundStyle(VFColor.bodyPrimary)
             HStack {
                 ResultBadge(result: log.result, scoreText: log.result == .canceled ? nil : log.scoreText)
                 Text(log.stadium)
                 Text(log.dateText)
             }
             .font(.subheadline)
-            .foregroundStyle(VFColor.secondaryText)
+            .foregroundStyle(VFColor.bodySecondary)
             if let sourceLabel = log.subtleSourceLabel {
                 Text(sourceLabel)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
         }
     }
@@ -344,7 +344,7 @@ struct AttendancePostDetailView: View {
                 infoRow("좌석", log.seat)
                 infoRow("동행", log.companion)
             }
-            .foregroundStyle(VFColor.primaryText)
+            .foregroundStyle(VFColor.bodyPrimary)
         }
     }
 
@@ -356,7 +356,7 @@ struct AttendancePostDetailView: View {
                 Text(log.memo)
                     .font(VFTypography.body)
             }
-            .foregroundStyle(VFColor.primaryText)
+            .foregroundStyle(VFColor.bodyPrimary)
         }
     }
 
@@ -367,10 +367,10 @@ struct AttendancePostDetailView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.sm) {
                     Text("공식 기록 보기")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("상세 기록은 KBO 공식 페이지에서 확인해 주세요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                     Button {
                         safariRoute = SafariRoute(url: url)
                         debugLogKBO("official link opened=true")
@@ -396,7 +396,7 @@ struct AttendancePostDetailView: View {
                     .font(VFTypography.cardTitle)
                 Text(log.diary)
                     .font(VFTypography.body)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
         }
     }
@@ -404,7 +404,7 @@ struct AttendancePostDetailView: View {
     private func infoRow(_ title: String, _ value: String) -> some View {
         HStack {
             Text(title)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
             Spacer()
             Text(value)
                 .fontWeight(.semibold)

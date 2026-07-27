@@ -15,14 +15,14 @@ struct ScreenHeaderView<Trailing: View>: View {
         HStack(alignment: .top, spacing: VFSpacing.md) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(VFTypography.title)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.display)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.88)
                 if let subtitle {
                     Text(subtitle)
                         .font(.system(.subheadline, design: .default).weight(.medium))
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -47,9 +47,9 @@ struct HeaderIconButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(.headline, design: .rounded).weight(.bold))
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
                 .frame(width: 44, height: 44)
-                .background(VFColor.cardTranslucent)
+                .background(VFColor.translucentSurface)
                 .background(.ultraThinMaterial)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 0.8))
@@ -78,17 +78,17 @@ struct SeasonPickerSheet: View {
                             VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                                 Text(option.label)
                                     .font(.system(.headline, design: .rounded).weight(.semibold))
-                                    .foregroundStyle(VFColor.primaryText)
+                                    .foregroundStyle(VFColor.bodyPrimary)
                                 if option.hasRecords {
                                     Text("기록 있음")
                                         .font(.caption)
-                                        .foregroundStyle(VFColor.secondaryText)
+                                        .foregroundStyle(VFColor.bodySecondary)
                                 }
                             }
                             Spacer()
                             if option.season == selectedSeason {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(VFColor.victoryOrange)
+                                    .foregroundStyle(VFColor.primaryAction)
                                     .accessibilityLabel("선택됨")
                             }
                         }
@@ -139,7 +139,7 @@ struct VictoryFairyIndexCard: View {
                         .foregroundStyle(.white.opacity(0.85))
                     Text(label)
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .foregroundStyle(VFColor.offWhite)
+                        .foregroundStyle(VFColor.subtleSurface)
                 }
                 Spacer()
                 if let aiAction {
@@ -188,7 +188,7 @@ struct VictoryFairyIndexCard: View {
         .background(
             ZStack(alignment: .bottomTrailing) {
                 LinearGradient(
-                    colors: [VFColor.scoreboardNavy, theme.secondary.opacity(0.88), VFColor.scoreboardNavy.opacity(0.92)],
+                    colors: [VFColor.deepAccent, theme.secondary.opacity(0.88), VFColor.deepAccent.opacity(0.92)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -204,7 +204,7 @@ struct VictoryFairyIndexCard: View {
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
-        .shadow(color: VFColor.scoreboardNavy.opacity(0.18), radius: 18, y: 10)
+        .shadow(color: VFColor.deepAccent.opacity(0.18), radius: 18, y: 10)
     }
 }
 
@@ -216,16 +216,16 @@ struct MetricCard: View {
             VStack(alignment: .leading, spacing: VFSpacing.xs) {
                 Text(metric.title)
                     .font(.system(.caption, design: .rounded).weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                 Text(metric.value)
                     .font(.system(.title3, design: .rounded).weight(.heavy))
                     .monospacedDigit()
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.78)
                 Text(metric.detail)
                     .font(.caption)
-                    .foregroundStyle(VFColor.tertiaryText)
+                    .foregroundStyle(VFColor.bodyTertiary)
             }
         }
     }
@@ -260,16 +260,16 @@ struct StatRankingRow: View {
                 .font(.system(.subheadline, design: .rounded).weight(.bold))
                 .foregroundStyle(rank == 1 ? theme.textOnPrimary : .white)
                 .frame(width: 32, height: 32)
-                .background(rank == 1 ? theme.primary : VFColor.scoreboardNavy)
+                .background(rank == 1 ? theme.primary : VFColor.deepAccent)
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                 Text(item.title)
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text(item.subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
 
             Spacer()
@@ -295,17 +295,17 @@ struct EmptyStateView: View {
             VStack(spacing: VFSpacing.md) {
                 Image(systemName: systemImage)
                     .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(VFColor.victoryOrange)
+                    .foregroundStyle(VFColor.primaryAction)
                     .frame(width: 58, height: 58)
-                    .background(VFColor.victoryOrange.opacity(0.12))
+                    .background(VFColor.primaryAction.opacity(0.12))
                     .clipShape(Circle())
                 Text(title)
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .multilineTextAlignment(.center)
                 Text(message)
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .multilineTextAlignment(.center)
                 VFPrimaryButton(title: buttonTitle, systemImage: "plus", action: action)
             }
@@ -324,14 +324,14 @@ struct TeamPickerCard: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text(title)
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
                     ForEach(KBOSeed.teams) { team in
                         Text(team.name)
                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundStyle(team.name == selectedTeam ? theme.textOnPrimary : VFColor.primaryText)
+                            .foregroundStyle(team.name == selectedTeam ? theme.textOnPrimary : VFColor.bodyPrimary)
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(team.name == selectedTeam ? theme.primary : VFColor.offWhite)
+                            .background(team.name == selectedTeam ? theme.primary : VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                     }
                 }
@@ -349,7 +349,7 @@ struct PageIndicator: View {
         HStack(spacing: VFSpacing.xs) {
             ForEach(0..<pageCount, id: \.self) { index in
                 Capsule()
-                    .fill(index == currentIndex ? theme.primary : VFColor.mutedLine)
+                    .fill(index == currentIndex ? theme.primary : VFColor.hairline)
                     .frame(width: index == currentIndex ? 22 : 8, height: 8)
                     .animation(.snappy(duration: 0.2), value: currentIndex)
             }
@@ -368,11 +368,11 @@ struct DataStateBanner: View {
         case .loading:
             statusView(title: "데이터를 불러오는 중이에요", systemImage: "arrow.clockwise", tint: theme.primary)
         case .localOnly(let message):
-            statusView(title: message, systemImage: "wifi.slash", tint: VFColor.drawGray)
+            statusView(title: message, systemImage: "wifi.slash", tint: VFColor.gameDraw)
         case .serverErrorUsingLocal(let message):
-            statusView(title: message, systemImage: "wifi.slash", tint: VFColor.drawGray)
+            statusView(title: message, systemImage: "wifi.slash", tint: VFColor.gameDraw)
         case .error(let message):
-            statusView(title: message, systemImage: "exclamationmark.triangle.fill", tint: VFColor.lossRed)
+            statusView(title: message, systemImage: "exclamationmark.triangle.fill", tint: VFColor.gameLoss)
         case .empty, .loaded:
             EmptyView()
         }
@@ -385,7 +385,7 @@ struct DataStateBanner: View {
                 .foregroundStyle(tint)
             Text(title)
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
             Spacer()
         }
         .padding(.horizontal, VFSpacing.md)

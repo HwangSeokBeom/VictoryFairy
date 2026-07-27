@@ -69,12 +69,12 @@ struct StatisticsView: View {
                         if viewModel.state.kboSource == .adminResult || viewModel.state.kboSource == .adminImport || viewModel.state.kboSource == .manualSeed {
                             Text("참고용으로만 확인해 주세요.")
                                 .font(.caption)
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                         }
                         if let disclosureText = viewModel.state.kboDisclosureText {
                             Text(disclosureText)
                                 .font(.caption)
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                         }
                         KBOStandingsTable(items: viewModel.state.kboStandings)
                     }
@@ -98,10 +98,10 @@ struct StatisticsView: View {
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
                         Text("내 직관 통계")
                             .font(.system(.headline, design: .rounded).weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text(viewModel.state.totalGames == 0 ? "표본 수집 중" : "\(viewModel.state.totalGames)경기 기록")
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                         resultLegend
                     }
                     Spacer()
@@ -117,26 +117,26 @@ struct StatisticsView: View {
             NavigationLink {
                 WinRateAnalysisView(statistics: viewModel.state, logs: appData.feedLogs)
             } label: {
-                VFCard(background: VFColor.backgroundWarm) {
+                VFCard(background: VFColor.subtleSurface) {
                     HStack(spacing: VFSpacing.md) {
                         Image(systemName: "chart.line.uptrend.xyaxis")
                             .font(.title3.weight(.bold))
-                            .foregroundStyle(VFColor.victoryOrange)
+                            .foregroundStyle(VFColor.primaryAction)
                             .frame(width: 44, height: 44)
-                            .background(VFColor.victoryOrange.opacity(0.12))
+                            .background(VFColor.primaryAction.opacity(0.12))
                             .clipShape(Circle())
                         VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                             Text("승률 분석")
                                 .font(VFTypography.cardTitle)
-                                .foregroundStyle(VFColor.primaryText)
+                                .foregroundStyle(VFColor.bodyPrimary)
                             Text("내 직관 데이터 기준으로 상대팀, 구장, 최근 흐름을 더 자세히 봐요.")
                                 .font(.subheadline)
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                                 .lineLimit(2)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                 }
             }
@@ -146,7 +146,7 @@ struct StatisticsView: View {
                 if viewModel.state.recentResults.isEmpty {
                     Text("직관 기록을 추가하면 최근 결과가 표시돼요.")
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 } else {
                     RecentResultStrip(results: viewModel.state.recentResults)
                 }
@@ -170,10 +170,10 @@ struct StatisticsView: View {
 
     private var resultLegend: some View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
-            legendRow("승", count: viewModel.state.wins, color: VFColor.winGreen)
-            legendRow("패", count: viewModel.state.losses, color: VFColor.lossRed)
-            legendRow("무", count: viewModel.state.draws, color: VFColor.drawGray)
-            legendRow("취소", count: viewModel.state.canceled, color: VFColor.canceledGray)
+            legendRow("승", count: viewModel.state.wins, color: VFColor.gameWin)
+            legendRow("패", count: viewModel.state.losses, color: VFColor.gameLoss)
+            legendRow("무", count: viewModel.state.draws, color: VFColor.gameDraw)
+            legendRow("취소", count: viewModel.state.canceled, color: VFColor.gameCanceled)
         }
     }
 
@@ -182,7 +182,7 @@ struct StatisticsView: View {
             Circle().fill(color).frame(width: 8, height: 8)
             Text("\(title) \(count)")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
         }
     }
 
@@ -191,7 +191,7 @@ struct StatisticsView: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text(title)
                     .font(.system(.headline, design: .rounded).weight(.bold))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 content()
             }
         }
@@ -203,16 +203,16 @@ struct StatisticsView: View {
                 HStack {
                     Text(title)
                         .font(.system(.headline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
 
                 if rankings.isEmpty {
                     Text("아직 집계할 기록이 없어요.")
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 } else {
                     ForEach(Array(rankings.enumerated()), id: \.element.id) { index, item in
                         StatRankingRow(rank: index + 1, item: item)
@@ -253,7 +253,7 @@ struct StatisticsSectionPicker: View {
                 } label: {
                     Text(section.title)
                         .font(.system(.subheadline, design: .rounded).weight(selection == section ? .bold : .semibold))
-                        .foregroundStyle(selection == section ? VFColor.victoryOrange : VFColor.secondaryText)
+                        .foregroundStyle(selection == section ? VFColor.primaryAction : VFColor.bodySecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
                         .frame(maxWidth: .infinity, minHeight: 38)
@@ -264,20 +264,20 @@ struct StatisticsSectionPicker: View {
                 .background {
                     if selection == section {
                         RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                            .fill(VFColor.victoryOrange.opacity(0.12))
-                            .shadow(color: VFColor.victoryOrange.opacity(0.12), radius: 8, y: 3)
+                            .fill(VFColor.primaryAction.opacity(0.12))
+                            .shadow(color: VFColor.primaryAction.opacity(0.12), radius: 8, y: 3)
                     }
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                        .stroke(selection == section ? VFColor.victoryOrange.opacity(0.28) : Color.clear, lineWidth: 1)
+                        .stroke(selection == section ? VFColor.primaryAction.opacity(0.28) : Color.clear, lineWidth: 1)
                 }
                 .accessibilityLabel(selection == section ? "\(section.title), 선택됨" : section.title)
                 .accessibilityAddTraits(selection == section ? .isSelected : [])
             }
         }
         .padding(VFSpacing.xs)
-        .background(VFColor.cardTranslucent)
+        .background(VFColor.translucentSurface)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
         .overlay(
@@ -296,27 +296,27 @@ struct EmptyKBOStatsPlaceholder: View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             HStack(spacing: VFSpacing.sm) {
                 Image(systemName: "chart.line.uptrend.xyaxis")
-                    .foregroundStyle(VFColor.scoreboardNavy)
+                    .foregroundStyle(VFColor.deepAccent)
                     .frame(width: 36, height: 36)
-                    .background(VFColor.scoreboardNavy.opacity(0.1))
+                    .background(VFColor.deepAccent.opacity(0.1))
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                     Text("KBO 현재 통계 준비 중")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("데이터가 준비되면 현재 순위가 표시돼요.")
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
             }
             Text("최근 갱신: 갱신일 정보 없음")
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .padding(.top, VFSpacing.xs)
             if let disclosureText {
                 Text(disclosureText)
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
         }
     }
@@ -334,7 +334,7 @@ struct SourceUpdatedInfoView: View {
         }
         .padding(VFSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VFColor.backgroundWarm)
+        .background(VFColor.subtleSurface)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         .padding(.bottom, VFSpacing.xs)
     }
@@ -342,7 +342,7 @@ struct SourceUpdatedInfoView: View {
     private var combinedLabel: some View {
         Text("\(sourceText ?? "참고용 경기 정보") · \(updatedText)")
             .font(.caption.weight(.semibold))
-            .foregroundStyle(VFColor.primaryText)
+            .foregroundStyle(VFColor.bodyPrimary)
             .lineLimit(2)
     }
 }
@@ -369,7 +369,7 @@ struct KBOStandingsTable: View {
             Text("승률").frame(width: 54, alignment: .trailing)
         }
         .font(.caption2.weight(.bold))
-        .foregroundStyle(VFColor.secondaryText)
+        .foregroundStyle(VFColor.bodySecondary)
         .padding(.bottom, VFSpacing.xs)
     }
 }
@@ -381,9 +381,9 @@ struct KBOStandingRow: View {
         HStack(spacing: VFSpacing.sm) {
             Text("\(item.rank)")
                 .font(.system(.subheadline, design: .rounded).weight(.heavy))
-                .foregroundStyle(item.rank <= 3 ? .white : VFColor.scoreboardNavy)
+                .foregroundStyle(item.rank <= 3 ? .white : VFColor.deepAccent)
                 .frame(width: 32, height: 32)
-                .background(item.rank <= 3 ? VFColor.scoreboardNavy : VFColor.backgroundWarm)
+                .background(item.rank <= 3 ? VFColor.deepAccent : VFColor.subtleSurface)
                 .clipShape(Circle())
             Text(item.teamName)
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
@@ -399,10 +399,10 @@ struct KBOStandingRow: View {
             }
             .font(.system(.caption, design: .rounded).monospacedDigit())
         }
-        .foregroundStyle(VFColor.primaryText)
+        .foregroundStyle(VFColor.bodyPrimary)
         .padding(.vertical, VFSpacing.sm)
         .padding(.horizontal, VFSpacing.sm)
-        .background(VFColor.background.opacity(0.72))
+        .background(VFColor.appBackground.opacity(0.72))
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 }
@@ -417,7 +417,7 @@ struct ResultDonutChart: View {
         ZStack {
             if total == 0 {
                 Circle()
-                    .stroke(VFColor.mutedLine, lineWidth: 18)
+                    .stroke(VFColor.hairline, lineWidth: 18)
             } else {
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                     DonutSegment(start: segment.start, end: segment.end)
@@ -428,10 +428,10 @@ struct ResultDonutChart: View {
             VStack(spacing: VFSpacing.xxs) {
                 Text(total == 0 ? "기록 없음" : "총 \(total)경기")
                     .font(.system(total == 0 ? .subheadline : .headline, design: .rounded).weight(.heavy))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text(total == 0 ? "표본 수집 중" : "직관")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
         }
         .padding(10)
@@ -441,7 +441,7 @@ struct ResultDonutChart: View {
 
     private var segments: [(start: Double, end: Double, color: Color)] {
         var cursor = -0.25
-        return [(wins, VFColor.winGreen), (losses, VFColor.lossRed), (draws, VFColor.drawGray), (canceled, VFColor.canceledGray)]
+        return [(wins, VFColor.gameWin), (losses, VFColor.gameLoss), (draws, VFColor.gameDraw), (canceled, VFColor.gameCanceled)]
             .compactMap { count, color in
                 guard count > 0 else { return nil }
                 let length = Double(count) / Double(total)
@@ -543,34 +543,34 @@ private struct DetailedStatCard: View {
                     VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                         Text(item.name)
                             .font(VFTypography.cardTitle)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(item.latestDateText)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                     Spacer()
                     if item.isSmallSample {
                         Text("표본 적음")
                             .font(.caption2.weight(.heavy))
-                            .foregroundStyle(VFColor.victoryOrange)
+                            .foregroundStyle(VFColor.primaryAction)
                             .padding(.horizontal, VFSpacing.xs)
                             .frame(minHeight: 24)
-                            .background(VFColor.victoryOrange.opacity(0.12))
+                            .background(VFColor.primaryAction.opacity(0.12))
                             .clipShape(Capsule())
                     }
                 }
 
                 HStack(spacing: VFSpacing.sm) {
-                    statPill(title: countTitle, value: "\(item.totalGames)경기", detail: "직관 기준", tint: VFColor.scoreboardNavy)
-                    statPill(title: "승률", value: item.winRateText, detail: "승패 기준", tint: VFColor.winGreen)
+                    statPill(title: countTitle, value: "\(item.totalGames)경기", detail: "직관 기준", tint: VFColor.deepAccent)
+                    statPill(title: "승률", value: item.winRateText, detail: "승패 기준", tint: VFColor.gameWin)
                 }
 
                 HStack(spacing: VFSpacing.xs) {
-                    resultMiniPill("승", item.wins, VFColor.winGreen)
-                    resultMiniPill("패", item.losses, VFColor.lossRed)
-                    resultMiniPill("무", item.draws, VFColor.drawGray)
-                    resultMiniPill("취소", item.canceled, VFColor.canceledGray)
+                    resultMiniPill("승", item.wins, VFColor.gameWin)
+                    resultMiniPill("패", item.losses, VFColor.gameLoss)
+                    resultMiniPill("무", item.draws, VFColor.gameDraw)
+                    resultMiniPill("취소", item.canceled, VFColor.gameCanceled)
                 }
             }
         }
@@ -580,14 +580,14 @@ private struct DetailedStatCard: View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
             Text(value)
                 .font(.system(.headline, design: .rounded).weight(.bold))
                 .foregroundStyle(tint)
                 .minimumScaleFactor(0.75)
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(VFSpacing.md)
@@ -687,16 +687,16 @@ struct SeasonStatsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
                 Text("시즌 기록")
-                    .font(VFTypography.title)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.display)
+                    .foregroundStyle(VFColor.bodyPrimary)
 
                 VictoryFairyIndexCard(index: "63", label: "2026 시즌", footnote: "12경기")
 
                 VFCard {
                     VStack(alignment: .leading, spacing: VFSpacing.md) {
                         Text("7승 4패 1무")
-                            .font(VFTypography.section)
-                            .foregroundStyle(VFColor.primaryText)
+                            .font(VFTypography.sectionTitle)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text("승률 63%")
                             .font(.system(.title3, design: .rounded).weight(.bold))
                             .foregroundStyle(theme.primary)
@@ -705,7 +705,7 @@ struct SeasonStatsView: View {
 
                         Text("월별 직관 횟수")
                             .font(VFTypography.cardTitle)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         HStack(alignment: .bottom, spacing: VFSpacing.sm) {
                             monthBar("3월", height: 52)
                             monthBar("4월", height: 92)
@@ -717,14 +717,14 @@ struct SeasonStatsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: VFSpacing.xs) {
                                 Text("최다 구장")
-                                    .foregroundStyle(VFColor.secondaryText)
+                                    .foregroundStyle(VFColor.bodySecondary)
                                 Text("잠실 8회")
                                     .fontWeight(.bold)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: VFSpacing.xs) {
                                 Text("최다 상대팀")
-                                    .foregroundStyle(VFColor.secondaryText)
+                                    .foregroundStyle(VFColor.bodySecondary)
                                 Text("KIA 4회")
                                     .fontWeight(.bold)
                             }
@@ -737,10 +737,10 @@ struct SeasonStatsView: View {
                             Spacer()
                             Text("직관 기록 기반")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                                 .padding(.horizontal, VFSpacing.sm)
                                 .frame(minHeight: 28)
-                                .background(VFColor.offWhite)
+                                .background(VFColor.subtleSurface)
                                 .clipShape(Capsule())
                         }
                     }
@@ -761,7 +761,7 @@ struct SeasonStatsView: View {
                 .frame(width: 48, height: height)
             Text(label)
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
         }
     }
 }

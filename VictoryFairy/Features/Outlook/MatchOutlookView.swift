@@ -86,19 +86,19 @@ struct MatchOutlookView: View {
     private var disclaimerCard: some View {
         HStack(alignment: .top, spacing: VFSpacing.sm) {
             Image(systemName: "heart.text.square.fill")
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
             VStack(alignment: .leading, spacing: VFSpacing.xs) {
                 Text("재미로 보는 경기 전망")
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text("AI가 최근 야구 소식과 내 직관 기록을 참고해 관전 포인트를 정리해요.")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
             Spacer()
         }
         .padding(VFSpacing.md)
-        .background(VFColor.victoryOrange.opacity(0.1))
+        .background(VFColor.primaryAction.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
@@ -107,17 +107,17 @@ struct MatchOutlookView: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 HStack(alignment: .top, spacing: VFSpacing.sm) {
                     Image(systemName: "sparkles")
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                         .frame(width: 34, height: 34)
-                        .background(VFColor.victoryOrange.opacity(0.12))
+                        .background(VFColor.primaryAction.opacity(0.12))
                         .clipShape(Circle())
                     VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                         Text("재미로 보는 경기 전망")
                             .font(VFTypography.cardTitle)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text("선택한 팀과 내 직관 기록 기준으로 관전 포인트를 정리해요.")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                     Spacer()
                 }
@@ -128,21 +128,21 @@ struct MatchOutlookView: View {
                         .foregroundStyle(theme.primary)
                     Text("vs")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                     Picker("상대팀", selection: opponentSelection) {
                         ForEach(opponentOptions) { team in
                             Text(team.shortName).tag(team.id)
                         }
                     }
                     .pickerStyle(.menu)
-                    .tint(VFColor.primaryText)
+                    .tint(VFColor.bodyPrimary)
                     Spacer()
                 }
 
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text("경기 날짜")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     DatePicker("", selection: $selectedDate, displayedComponents: .date)
                         .datePickerStyle(.compact)
                         .labelsHidden()
@@ -150,7 +150,7 @@ struct MatchOutlookView: View {
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(minHeight: 42)
-                        .background(VFColor.backgroundWarm)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
@@ -194,26 +194,26 @@ struct MatchOutlookView: View {
                 HStack {
                     Text(outlook.title)
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Spacer()
                 }
 
                 HStack(spacing: VFSpacing.xs) {
                     badge(generatedByLabel(for: outlook.generatedBy), tint: theme.primary)
                     if let confidenceLabel = outlook.confidenceLabel {
-                        badge(confidenceLabel, tint: VFColor.victoryOrange)
+                        badge(confidenceLabel, tint: VFColor.primaryAction)
                     }
                 }
 
                 Text(outlook.summary)
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if outlook.points.isEmpty {
                     Text("아직 표시할 관전 포인트가 충분하지 않아요.")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     ForEach(outlook.points, id: \.self) { point in
@@ -226,11 +226,11 @@ struct MatchOutlookView: View {
                                 if let title = point.title {
                                     Text(title)
                                         .font(.subheadline.weight(.bold))
-                                        .foregroundStyle(VFColor.primaryText)
+                                        .foregroundStyle(VFColor.bodyPrimary)
                                 }
                                 Text(point.body)
                                     .font(.subheadline)
-                                    .foregroundStyle(VFColor.primaryText)
+                                    .foregroundStyle(VFColor.bodyPrimary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -243,24 +243,24 @@ struct MatchOutlookView: View {
 
                 Text(outlook.disclaimer ?? "공식 예측이나 베팅 정보가 아닙니다.")
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .padding(.top, VFSpacing.xs)
 
                 Text("방금 업데이트됨")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.victoryOrange)
+                    .foregroundStyle(VFColor.primaryAction)
             }
         }
     }
 
     private var loadingCard: some View {
-        VFCard(background: VFColor.backgroundWarm) {
+        VFCard(background: VFColor.subtleSurface) {
             HStack(alignment: .center, spacing: VFSpacing.sm) {
                 ProgressView()
                     .tint(theme.primary)
                 Text("AI가 관전 포인트를 정리 중이에요.")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
             }
@@ -271,15 +271,15 @@ struct MatchOutlookView: View {
         HStack(alignment: .top, spacing: VFSpacing.xs) {
             Image(systemName: "arrow.triangle.2.circlepath")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
                 .padding(.top, 2)
             Text("선택한 조건이 바뀌었어요. 다시 확인해 주세요.")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(VFSpacing.sm)
-        .background(VFColor.victoryOrange.opacity(0.1))
+        .background(VFColor.primaryAction.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
     }
 
@@ -297,17 +297,17 @@ struct MatchOutlookView: View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             Text("참고한 야구 소식")
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
 
             ForEach(references) { reference in
                 HStack(alignment: .top, spacing: VFSpacing.sm) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(reference.sourceName)
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.victoryOrange)
+                            .foregroundStyle(VFColor.primaryAction)
                         Text(reference.title)
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: VFSpacing.sm)
@@ -322,13 +322,13 @@ struct MatchOutlookView: View {
                     }
                 }
                 .padding(VFSpacing.sm)
-                .background(VFColor.backgroundWarm)
+                .background(VFColor.subtleSurface)
                 .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
             }
 
             Text("뉴스는 외부 매체로 이동해 확인해 주세요.")
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
         }
     }
 
@@ -382,13 +382,13 @@ struct MatchOutlookView: View {
     }
 
     private func messageCard(message: String, systemImage: String, tint: Color) -> some View {
-        VFCard(background: VFColor.backgroundWarm) {
+        VFCard(background: VFColor.subtleSurface) {
             HStack(alignment: .top, spacing: VFSpacing.sm) {
                 Image(systemName: systemImage)
                     .foregroundStyle(tint)
                 Text(message)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
             }
@@ -396,14 +396,14 @@ struct MatchOutlookView: View {
     }
 
     private func errorCard(message: String) -> some View {
-        VFCard(background: VFColor.lossRed.opacity(0.08)) {
+        VFCard(background: VFColor.gameLoss.opacity(0.08)) {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 HStack(alignment: .top, spacing: VFSpacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(VFColor.lossRed)
+                        .foregroundStyle(VFColor.gameLoss)
                     Text(message)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                 }

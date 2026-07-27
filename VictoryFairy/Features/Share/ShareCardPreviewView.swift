@@ -52,7 +52,7 @@ struct ShareCardPreviewView: View {
                 if let message {
                     Text(message)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
@@ -231,7 +231,7 @@ struct DiaryShareCardCanvas: View {
     private var background: some View {
         ZStack(alignment: .bottomTrailing) {
             LinearGradient(
-                colors: [VFColor.scoreboardNavy, theme.secondary.opacity(0.92), VFColor.victoryOrange.opacity(0.86)],
+                colors: [VFColor.deepAccent, theme.secondary.opacity(0.92), VFColor.primaryAction.opacity(0.86)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -283,10 +283,10 @@ struct DiaryShareCardCanvas: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
             Text(value)
                 .font(.system(size: 25, weight: .heavy, design: .rounded))
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.62)
         }

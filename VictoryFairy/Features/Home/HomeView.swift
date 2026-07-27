@@ -127,15 +127,15 @@ struct HomeView: View {
     }
 
     private var quickActionCard: some View {
-        VFCard(background: VFColor.backgroundWarm) {
+        VFCard(background: VFColor.subtleSurface) {
             HStack(spacing: VFSpacing.md) {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text("오늘 다녀온 경기가 있나요?")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("날짜와 팀만 골라도 경기 정보가 자동으로 채워져요.")
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
                 Spacer()
                 Button {
@@ -145,7 +145,7 @@ struct HomeView: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 46, height: 46)
-                        .background(VFColor.victoryOrange)
+                        .background(VFColor.primaryAction)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -168,21 +168,21 @@ struct HomeView: View {
                 NavigationLink {
                     NewsView()
                 } label: {
-                    shortcutCard(title: "야구 소식", subtitle: "외부 기사 링크", systemImage: "newspaper.fill", tint: VFColor.scoreboardNavy)
+                    shortcutCard(title: "야구 소식", subtitle: "외부 기사 링크", systemImage: "newspaper.fill", tint: VFColor.deepAccent)
                 }
                 .buttonStyle(.plain)
 
                 NavigationLink {
                     MatchOutlookView()
                 } label: {
-                    shortcutCard(title: "경기 전망", subtitle: "재미로 보는 관전 포인트", systemImage: "sparkles", tint: VFColor.victoryOrange)
+                    shortcutCard(title: "경기 전망", subtitle: "재미로 보는 관전 포인트", systemImage: "sparkles", tint: VFColor.primaryAction)
                 }
                 .buttonStyle(.plain)
 
                 NavigationLink {
                     CommunityHomeView()
                 } label: {
-                    shortcutCard(title: "응원톡", subtitle: "팬 응원 나누기", systemImage: "bubble.left.and.bubble.right.fill", tint: VFColor.grassGreen)
+                    shortcutCard(title: "응원톡", subtitle: "팬 응원 나누기", systemImage: "bubble.left.and.bubble.right.fill", tint: VFColor.supportAccent)
                 }
                 .buttonStyle(.plain)
             }
@@ -200,12 +200,12 @@ struct HomeView: View {
                     .clipShape(Circle())
                 Text(title)
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
             }
@@ -226,10 +226,10 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                     Text("이번 주 직관 캘린더")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text(calendarPreviewText)
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
 
                 Spacer()
@@ -250,10 +250,10 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: VFSpacing.sm) {
                 Text("지난 직관 후기를 완성해볼까요?")
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text("한 줄 메모를 다이어리로 확장하면 시즌 회고가 더 풍성해져요.")
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                 VFSecondaryButton(title: "직관 다이어리 쓰기", systemImage: "square.and.pencil") {
                     isShowingLogEditor = true
                 }
@@ -264,7 +264,7 @@ struct HomeView: View {
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
             .font(.system(.headline, design: .rounded).weight(.bold))
-            .foregroundStyle(VFColor.primaryText)
+            .foregroundStyle(VFColor.bodyPrimary)
             .padding(.top, VFSpacing.xs)
     }
 }
@@ -279,34 +279,34 @@ private struct HomeAIHelperSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
                 Text("AI가 직관 기록을 정리해드릴게요")
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.sectionTitle)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("최근 직관 후기를 더 자연스럽게 다듬거나, 비어 있는 다이어리 초안을 만들 수 있어요.")
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                VFCard(background: VFColor.backgroundWarm) {
+                VFCard(background: VFColor.subtleSurface) {
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
                         if let recentLog {
                             Text(recentLog.matchup)
                                 .font(VFTypography.cardTitle)
-                                .foregroundStyle(VFColor.primaryText)
+                                .foregroundStyle(VFColor.bodyPrimary)
                             Text("\(recentLog.dateText) · \(recentLog.stadium)")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                             Text("AI 초안은 저장 전 직접 확인해 주세요")
                                 .font(.caption)
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                         } else {
                             Text("AI 초안을 만들 직관 기록이 아직 없어요.")
                                 .font(VFTypography.cardTitle)
-                                .foregroundStyle(VFColor.primaryText)
+                                .foregroundStyle(VFColor.bodyPrimary)
                             Text("첫 직관을 기록하면 경기 정보로 후기 초안을 시작할 수 있어요.")
                                 .font(.subheadline)
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                         }
                     }
                 }

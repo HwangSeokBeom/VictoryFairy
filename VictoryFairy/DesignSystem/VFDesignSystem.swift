@@ -3,68 +3,269 @@ import SwiftUI
 import UIKit
 #endif
 
+// VictoryFairy 디자인 시스템.
+//
+// 모든 값은 Pencil 디자인 원본(VictoryFairy.pen)의 문서 변수에서 그대로 옮겨왔다.
+// 원본은 종이 스크랩북 정서를 기준으로 하며, 밝은 종이 배경 위에 잉크색 글자와
+// 산호색 강조를 올리는 단일 외형(light appearance)만 정의한다.
+
+// MARK: - 색
+
+/// 화면 배경과 표면, 글자, 강조에 쓰는 의미 기반 색 토큰.
 enum VFColor {
-    static let background = Color(hex: "#F7F8FA")
-    static let backgroundWarm = Color(hex: "#F7F3EA")
-    static let card = Color(hex: "#FFFFFF")
-    static let cardTranslucent = Color.white.opacity(0.86)
-    static let primaryText = Color(hex: "#111827")
-    static let secondaryText = Color(hex: "#6B7280")
-    static let tertiaryText = Color(hex: "#9CA3AF")
-    static let scoreboardNavy = Color(hex: "#101A2E")
-    static let victoryOrange = Color(hex: "#FF6B1A")
-    static let grassGreen = Color(hex: "#2E9B63")
-    static let winGreen = Color(hex: "#1F9D55")
-    static let lossRed = Color(hex: "#E5484D")
-    static let drawGray = Color(hex: "#8B95A1")
-    static let canceledGray = Color(hex: "#A3AAB5")
-    static let mutedLine = Color(hex: "#E5E7EB")
-    static let offWhite = Color(hex: "#F7F3EA")
+    // 배경 레이어
+    /// 앱 전체 바탕이 되는 종이색. Pencil `paper`.
+    static let appBackground = Color(hex: "#F8F4EB")
+    /// 카드·시트처럼 배경에서 한 단계 떠오른 표면. Pencil `surface`.
+    static let elevatedSurface = Color(hex: "#FFFDF8")
+    /// 표면 위에 다시 얹는 은은한 톤 블록. Pencil `cream`.
+    static let subtleSurface = Color(hex: "#F1EADC")
+    /// 강조 스트립·선택 행에 쓰는 따뜻한 톤. Pencil `butter-pale`.
+    static let highlightSurface = Color(hex: "#F8EFD5")
+    /// 반투명 표면(탭바 등). Pencil 탭바 `#FFFDF8F0`.
+    static let translucentSurface = Color(hex: "#FFFDF8").opacity(0.94)
+
+    // 글자
+    /// 본문 1차 글자색. Pencil `ink`.
+    static let bodyPrimary = Color(hex: "#33302A")
+    /// 본문 2차 글자색. Pencil `ink-soft`.
+    static let bodySecondary = Color(hex: "#6F6759")
+    /// 보조 정보·플레이스홀더. Pencil `ink-faint`.
+    static let bodyTertiary = Color(hex: "#A59C8C")
+    /// 진한 표면 위에 올리는 글자색.
+    static let bodyOnDark = Color(hex: "#FFFDF8")
+
+    // 강조
+    /// 주요 액션. Pencil `coral`.
+    static let primaryAction = Color(hex: "#E0714F")
+    /// 주요 액션의 진한 변형(글자·강조 텍스트). Pencil `coral-deep`.
+    static let primaryActionDeep = Color(hex: "#BE5138")
+    /// 주요 액션의 옅은 배경. Pencil `coral-pale`.
+    static let primaryActionPale = Color(hex: "#F8E3D8")
+    /// 차분한 보조 강조. Pencil `navy`.
+    static let deepAccent = Color(hex: "#3D4A62")
+    /// 자연 톤 보조 강조. Pencil `sage`.
+    static let supportAccent = Color(hex: "#9FB394")
+    /// 정보 톤 보조 강조. Pencil `sky`.
+    static let infoAccent = Color(hex: "#8FAEC6")
+
+    // 옅은 톤 배경
+    static let supportAccentPale = Color(hex: "#E8EDDF")
+    static let infoAccentPale = Color(hex: "#E2EBF1")
+    /// 강조 노랑. Pencil `butter`.
+    static let attentionAccent = Color(hex: "#EFDCA4")
+
+    // 선
+    /// 카드·구분선에 쓰는 부드러운 경계. Pencil `line`.
+    static let hairline = Color(hex: "#E4DCCB")
+    /// 버튼·스탬프처럼 또렷한 손그림 윤곽. Pencil `line-ink`.
+    static let inkOutline = Color(hex: "#4A453C")
+
+    // 경기 결과 (Pencil 스탬프 체계)
+    /// 승 스탬프. Pencil `stamp-red`. 한국식 도장의 축하 인주색이다.
+    static let gameWin = Color(hex: "#C14E38")
+    /// 패 스탬프. Pencil `navy`.
+    static let gameLoss = Color(hex: "#3D4A62")
+    /// 무 스탬프. Pencil `ink-faint`.
+    static let gameDraw = Color(hex: "#A59C8C")
+    /// 취소·우천 등 진행되지 않은 경기.
+    static let gameCanceled = Color(hex: "#A59C8C")
+
+    // 상태
+    static let statusSuccess = Color(hex: "#9FB394")
+    static let statusWarning = Color(hex: "#EFDCA4")
+    static let statusError = Color(hex: "#BE5138")
+    static let disabled = Color(hex: "#A59C8C")
 }
+
+// MARK: - 간격
 
 enum VFSpacing {
+    /// Pencil `sp-xs`.
     static let xxs: CGFloat = 4
+    /// Pencil `sp-sm`.
     static let xs: CGFloat = 8
     static let sm: CGFloat = 12
+    /// Pencil `sp-md`. 화면 좌우 기본 여백과 같다.
     static let md: CGFloat = 16
     static let lg: CGFloat = 20
+    /// Pencil `sp-lg`.
     static let xl: CGFloat = 24
     static let xxl: CGFloat = 32
+
+    /// 화면 좌우 콘텐츠 여백. Pencil 홈/피드 콘텐츠 padding과 같다.
+    static let screenHorizontalMargin: CGFloat = 16
+    /// 세로로 쌓인 주요 섹션 사이 간격. Pencil 홈 콘텐츠 gap.
+    static let sectionGap: CGFloat = 22
 }
 
-enum VFTabBarMetrics {
-    static let customTabBarHeight: CGFloat = 66
-    /// 캡슐 하단과 화면 하단 사이 여백. iOS 26 네이티브 리퀴드 글라스 탭바가
-    /// 홈 인디케이터 유무와 무관하게 쓰는 값과 같게 맞춘다.
-    static let customTabBarBottomInset: CGFloat = 21
-    static let extraBreathingRoom: CGFloat = 20
-    /// 캡슐이 화면 하단에서 customTabBarBottomInset만큼 떠 있으므로, 스크롤 콘텐츠는
-    /// 캡슐 높이 + 그 여백까지 비켜야 한다. 홈 인디케이터가 없는 기기에서 기존과 같은
-    /// extraBreathingRoom이 남고, 있는 기기에서는 그만큼 더 여유가 생긴다.
-    static let tabContentBottomPadding = customTabBarHeight + customTabBarBottomInset + extraBreathingRoom
-}
+// MARK: - 모서리
 
 enum VFRadius {
+    /// 폴라로이드·사진처럼 거의 각진 모서리.
+    static let photo: CGFloat = 6
+    /// Pencil `r-sm`.
     static let sm: CGFloat = 10
-    static let md: CGFloat = 18
-    static let lg: CGFloat = 22
-    static let xl: CGFloat = 26
+    static let field: CGFloat = 12
+    /// Pencil `r-md`.
+    static let md: CGFloat = 14
+    /// 카드·버튼 기본 모서리.
+    static let card: CGFloat = 16
+    /// 패널·빈 상태 박스.
+    static let panel: CGFloat = 18
+    /// Pencil `r-lg`.
+    static let lg: CGFloat = 20
+    /// 시트·다이얼로그.
+    static let sheet: CGFloat = 24
     static let pill: CGFloat = 999
 }
 
-enum VFTypography {
-    static let title = Font.system(size: 27, weight: .bold, design: .rounded)
-    static let section = Font.system(size: 20, weight: .bold, design: .rounded)
-    static let cardTitle = Font.system(.headline, design: .rounded).weight(.semibold)
-    static let body = Font.system(.body, design: .default)
-    static let caption = Font.system(.caption, design: .default).weight(.medium)
-    static let number = Font.system(size: 34, weight: .heavy, design: .rounded)
+// MARK: - 선 두께
+
+enum VFStroke {
+    /// 카드 테두리. Pencil 카드 strokeWidth.
+    static let hairline: CGFloat = 1.2
+    /// 입력 박스.
+    static let field: CGFloat = 1.5
+    /// 버튼·다이얼로그처럼 또렷한 손그림 윤곽.
+    static let ink: CGFloat = 1.5
+    /// 팀 뱃지 윤곽.
+    static let badge: CGFloat = 1.8
 }
 
-struct VFShadow {
-    static let cardColor = Color.black.opacity(0.055)
-    static let cardRadius: CGFloat = 16
+// MARK: - 타이포그래피
+
+/// Pencil은 Jua(display) / Gaegu(hand) / Gothic A1(ui)을 쓴다. 세 글꼴 모두
+/// 저장소에 라이선스 파일이 없고 이 작업에서 폰트 파일을 추가하지 않기로 했으므로,
+/// 시스템 서체의 디자인 변형으로 각 역할을 대신한다.
+///
+/// - display -> `.rounded` 굵게 (Jua의 둥글고 친근한 인상)
+/// - hand    -> `.serif` (Gaegu의 손글씨 정서를 대신하는 개인적인 목소리)
+/// - ui      -> `.default`
+///
+/// 모든 역할은 `Font.TextStyle` 기반이라 Dynamic Type을 그대로 따른다.
+enum VFTypography {
+    /// 인사말·다이얼로그 제목 같은 가장 큰 표현 텍스트. Pencil 24/700 display.
+    static let display = Font.system(.title2, design: .rounded).weight(.bold)
+    /// 화면 제목. Pencil 내비 제목 17/600.
+    static let screenTitle = Font.system(.headline, design: .default).weight(.semibold)
+    /// 섹션 제목. Pencil 17/700.
+    static let sectionTitle = Font.system(.headline, design: .default).weight(.bold)
+    /// 카드 제목·매치업. Pencil 15/700.
+    static let cardTitle = Font.system(.subheadline, design: .default).weight(.bold)
+    /// 본문. Pencil 14.
+    static let body = Font.system(.subheadline, design: .default)
+    /// 보조 본문·설명. Pencil 13.
+    static let supporting = Font.system(.footnote, design: .default)
+    /// 메타 정보. Pencil 12.
+    static let metadata = Font.system(.caption, design: .default)
+    /// 뱃지·탭 라벨. Pencil 10~11.
+    static let badge = Font.system(.caption2, design: .default).weight(.medium)
+    /// 버튼 라벨. Pencil 16/700.
+    static let button = Font.system(.callout, design: .default).weight(.bold)
+    /// 숫자 강조(날짜·스코어). Pencil font-mono 26/700.
+    static let numericEmphasis = Font.system(.title, design: .default).weight(.bold).monospacedDigit()
+    /// 스코어처럼 자리수가 흔들리면 안 되는 작은 숫자. Pencil 13/600.
+    static let numericSupporting = Font.system(.footnote, design: .default).weight(.semibold).monospacedDigit()
+    /// 손글씨 정서를 담당하는 캡션·워드마크. Pencil font-hand.
+    static let handwritten = Font.system(.subheadline, design: .serif)
+    /// 큰 손글씨(워드마크·인사 위 날짜). Pencil font-hand 17~24.
+    static let handwrittenLarge = Font.system(.title3, design: .serif)
+    /// 차트 축·범례 라벨.
+    static let chartLabel = Font.system(.caption2, design: .default)
 }
+
+// MARK: - 그림자
+
+enum VFShadow {
+    /// 카드 그림자. Pencil 기록 카드 `#33302A14`, blur 8, y 2.
+    static let cardColor = Color(hex: "#33302A").opacity(0.08)
+    static let cardRadius: CGFloat = 8
+    static let cardOffsetY: CGFloat = 2
+
+    /// 떠 있는 표면(폴라로이드·공유 카드). Pencil blur 14~20, y 5~8.
+    static let liftedColor = Color(hex: "#33302A").opacity(0.13)
+    static let liftedRadius: CGFloat = 14
+    static let liftedOffsetY: CGFloat = 5
+
+    /// 탭바·시트처럼 화면 위에 겹치는 표면. Pencil blur 22~28.
+    static let overlayColor = Color(hex: "#33302A").opacity(0.14)
+    static let overlayRadius: CGFloat = 22
+    static let overlayOffsetY: CGFloat = 8
+
+    /// 버튼의 얕은 눌림 그림자. Pencil `#4A453C33`, y 3.
+    static let buttonColor = Color(hex: "#4A453C").opacity(0.20)
+    static let buttonRadius: CGFloat = 0
+    static let buttonOffsetY: CGFloat = 3
+}
+
+// MARK: - 아이콘·컨트롤 치수
+
+enum VFIconSize {
+    /// 메타 행 아이콘. Pencil 14.
+    static let small: CGFloat = 14
+    /// 본문 인라인 아이콘. Pencil 17~18.
+    static let medium: CGFloat = 18
+    /// 탭·내비 아이콘. Pencil 21~22.
+    static let large: CGFloat = 22
+}
+
+enum VFControl {
+    /// 기본 버튼 높이. Pencil 54.
+    static let buttonHeight: CGFloat = 54
+    /// 입력 박스 높이. Pencil 50.
+    static let fieldHeight: CGFloat = 50
+    /// 최소 터치 영역.
+    static let minimumTouchTarget: CGFloat = 44
+    /// 팀 뱃지 지름. Pencil 34.
+    static let teamBadgeSize: CGFloat = 34
+    /// 결과 스탬프 지름. Pencil 46.
+    static let stampSize: CGFloat = 46
+}
+
+enum VFTabBarMetrics {
+    /// Pencil 탭바 높이 62 + 상하 여유.
+    static let customTabBarHeight: CGFloat = 62
+    /// 캡슐 하단과 화면 하단 사이 여백. Pencil 탭 영역 bottom padding 12에
+    /// 홈 인디케이터를 고려한 여유를 더한 값이다.
+    static let customTabBarBottomInset: CGFloat = 12
+    static let extraBreathingRoom: CGFloat = 20
+    /// 스크롤 콘텐츠가 탭바에 가리지 않도록 확보하는 하단 여백.
+    static let tabContentBottomPadding = customTabBarHeight + customTabBarBottomInset + extraBreathingRoom
+}
+
+// MARK: - 모션
+
+/// Pencil 프로토타입이 요구하는 절제된 움직임만 정의한다.
+/// 모든 사용처는 Reduce Motion을 존중해야 한다.
+enum VFMotion {
+    static let tabTransition = Animation.snappy(duration: 0.22)
+    static let selection = Animation.snappy(duration: 0.18)
+    static let contentAppear = Animation.easeOut(duration: 0.24)
+    /// 로딩 점이 순환하는 주기.
+    static let loadingCycle: Double = 0.9
+
+    /// Reduce Motion이 켜져 있으면 애니메이션을 제거한다.
+    static func respectingReduceMotion(_ animation: Animation, reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+}
+
+// MARK: - 손으로 붙인 듯한 회전
+
+/// Pencil은 폴라로이드·테이프·스탬프에 아주 작은 회전을 준다.
+/// 값을 한곳에 모아 화면마다 임의로 흩어지지 않게 한다.
+enum VFTilt {
+    static let photo: Double = -3
+    static let card: Double = 0.6
+    static let tape: Double = -4
+    static let shareCard: Double = -1
+    static let winStamp: Double = 8
+    static let lossStamp: Double = -6
+    static let drawStamp: Double = 4
+}
+
+// MARK: - Color 유틸리티
 
 extension Color {
     init(hex: String) {
@@ -77,8 +278,9 @@ extension Color {
         self.init(red: red, green: green, blue: blue)
     }
 
+    /// 이 색을 배경으로 썼을 때 읽히는 글자색.
     var vfReadableForegroundColor: Color {
-        vfIsLight ? VFColor.primaryText : .white
+        vfIsLight ? VFColor.bodyPrimary : VFColor.bodyOnDark
     }
 
     var vfIsLight: Bool {
@@ -110,126 +312,28 @@ extension Color {
     }
 }
 
-struct VFCard<Content: View>: View {
-    let padding: CGFloat
-    var background: Color
-    @ViewBuilder var content: Content
-
-    init(
-        padding: CGFloat = VFSpacing.md,
-        background: Color = VFColor.card,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.padding = padding
-        self.background = background
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(background.opacity(0.96))
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous)
-                    .stroke(.white.opacity(0.9), lineWidth: 0.7)
-            )
-            .shadow(color: VFShadow.cardColor, radius: VFShadow.cardRadius, y: 8)
-    }
-}
-
-struct VFPrimaryButton: View {
-    @Environment(\.appTheme) private var theme
-    let title: String
-    var systemImage: String?
-    var action: () -> Void = {}
-
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage ?? "plus")
-                .font(.system(.headline, design: .rounded).weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 48)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(theme.textOnPrimary)
-        .background(
-            LinearGradient(
-                colors: [VFColor.victoryOrange, theme.primary.opacity(0.92)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-        .shadow(color: VFColor.victoryOrange.opacity(0.18), radius: 10, y: 5)
-        .accessibilityLabel(title)
-    }
-}
-
-struct VFSecondaryButton: View {
-    let title: String
-    var systemImage: String?
-    var action: () -> Void = {}
-
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage ?? "arrow.right")
-                .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(VFColor.primaryText)
-        .background(VFColor.backgroundWarm)
-        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                .stroke(VFColor.mutedLine.opacity(0.9), lineWidth: 1)
-        )
-        .accessibilityLabel(title)
-    }
-}
-
-struct VFChip: View {
-    @Environment(\.appTheme) private var theme
-    let title: String
-    var isSelected = false
-    var tint: Color?
-
-    var body: some View {
-        let selectedTint = tint ?? theme.primary
-        let selectedTextColor = selectedTint.vfIsLight ? VFColor.primaryText : selectedTint
-        Text(title)
-            .font(.system(.subheadline, design: .rounded).weight(.semibold))
-            .foregroundStyle(isSelected ? selectedTextColor : VFColor.primaryText)
-            .padding(.horizontal, VFSpacing.md)
-            .frame(minHeight: 36)
-            .background(isSelected ? selectedTint.opacity(0.14) : VFColor.card.opacity(0.94))
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(isSelected ? selectedTint.opacity(0.5) : VFColor.mutedLine.opacity(0.95), lineWidth: 1))
-    }
-}
+// MARK: - 화면 배경
 
 struct VFScreenBackground: ViewModifier {
     func body(content: Content) -> some View {
-        content
-            .background {
-                LinearGradient(
-                    colors: [VFColor.backgroundWarm.opacity(0.9), VFColor.background, Color.white.opacity(0.7)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-            }
+        content.background(VFColor.appBackground.ignoresSafeArea())
     }
 }
 
 extension View {
+    /// Pencil의 종이 배경을 화면 전체에 깐다.
     func vfScreenBackground() -> some View {
         modifier(VFScreenBackground())
     }
 
+    /// 탭바에 가리지 않도록 스크롤 콘텐츠 하단 여백을 준다.
     func vfTabContentPadding() -> some View {
         padding(.bottom, VFTabBarMetrics.tabContentBottomPadding)
+    }
+
+    /// Reduce Motion이 켜져 있으면 회전을 적용하지 않는다.
+    /// 손으로 붙인 듯한 기울기는 장식이므로 정보 접근을 막지 않아야 한다.
+    func vfTilt(_ degrees: Double, reduceMotion: Bool = false) -> some View {
+        rotationEffect(.degrees(reduceMotion ? 0 : degrees))
     }
 }

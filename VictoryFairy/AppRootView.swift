@@ -78,7 +78,7 @@ private struct FloatingTabBar: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity, minHeight: VFTabBarMetrics.customTabBarHeight)
-        .background(VFColor.cardTranslucent)
+        .background(VFColor.translucentSurface)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(
@@ -100,13 +100,13 @@ private struct FloatingTabBar: View {
                 Text(tab.title)
                     .font(.system(size: 11, weight: isSelected ? .bold : .semibold, design: .rounded))
             }
-            .foregroundStyle(isSelected ? VFColor.victoryOrange : VFColor.secondaryText)
+            .foregroundStyle(isSelected ? VFColor.primaryAction : VFColor.bodySecondary)
             .frame(maxWidth: .infinity, minHeight: 48)
             .background {
                 if isSelected {
                     Capsule()
-                        .fill(VFColor.victoryOrange.opacity(0.13))
-                        .overlay(Capsule().stroke(VFColor.victoryOrange.opacity(0.28), lineWidth: 1))
+                        .fill(VFColor.primaryAction.opacity(0.13))
+                        .overlay(Capsule().stroke(VFColor.primaryAction.opacity(0.28), lineWidth: 1))
                 }
             }
             .scaleEffect(isSelected ? 1.03 : 1)

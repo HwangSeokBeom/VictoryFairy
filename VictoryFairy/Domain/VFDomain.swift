@@ -20,10 +20,10 @@ enum GameResult: String, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
-        case .win: VFColor.winGreen
-        case .loss: VFColor.lossRed
-        case .draw: VFColor.drawGray
-        case .canceled: VFColor.canceledGray
+        case .win: VFColor.gameWin
+        case .loss: VFColor.gameLoss
+        case .draw: VFColor.gameDraw
+        case .canceled: VFColor.gameCanceled
         }
     }
 

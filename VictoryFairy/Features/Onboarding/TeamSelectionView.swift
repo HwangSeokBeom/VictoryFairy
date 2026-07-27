@@ -14,15 +14,15 @@ struct TeamSelectionView: View {
         VStack(alignment: .leading, spacing: VFSpacing.lg) {
             VStack(alignment: .leading, spacing: VFSpacing.xs) {
                 Text(title)
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.sectionTitle)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                 Text(footnote)
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
 
             LazyVGrid(columns: columns, spacing: VFSpacing.sm) {
@@ -51,28 +51,28 @@ struct TeamSelectionView: View {
                 HStack {
                     Text("선택 안 함")
                         .font(.system(.headline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Spacer()
                     if selectedTeamID == nil {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(VFColor.grassGreen)
+                            .foregroundStyle(VFColor.supportAccent)
                             .accessibilityHidden(true)
                     }
                 }
                 Text("기본 테마 사용")
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                 Text(selectedTeamID == nil ? "선택됨" : "기본")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(selectedTeamID == nil ? VFColor.grassGreen : VFColor.secondaryText)
+                    .foregroundStyle(selectedTeamID == nil ? VFColor.supportAccent : VFColor.bodySecondary)
             }
             .padding(VFSpacing.md)
             .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
-            .background(VFColor.card)
+            .background(VFColor.elevatedSurface)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                    .stroke(selectedTeamID == nil ? VFColor.grassGreen : VFColor.mutedLine, lineWidth: selectedTeamID == nil ? 2 : 1)
+                    .stroke(selectedTeamID == nil ? VFColor.supportAccent : VFColor.hairline, lineWidth: selectedTeamID == nil ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -101,19 +101,19 @@ private struct TeamSelectionCard: View {
                         .foregroundStyle(primaryColor)
                     Text(team.name)
                         .font(.system(.headline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.82)
                 }
                 Spacer()
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? primaryColor : VFColor.secondaryText.opacity(0.55))
+                    .foregroundStyle(isSelected ? primaryColor : VFColor.bodySecondary.opacity(0.55))
                     .accessibilityHidden(true)
             }
 
             Text("\(team.city) · \(team.homeStadiumName)")
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.82)
 
@@ -127,16 +127,16 @@ private struct TeamSelectionCard: View {
                 Spacer()
                 Text(isSelected ? "선택됨" : "선택")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(isSelected ? primaryColor : VFColor.secondaryText)
+                    .foregroundStyle(isSelected ? primaryColor : VFColor.bodySecondary)
             }
         }
         .padding(VFSpacing.md)
         .frame(maxWidth: .infinity, minHeight: 136, alignment: .leading)
-        .background(VFColor.card)
+        .background(VFColor.elevatedSurface)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                .stroke(isSelected ? primaryColor : VFColor.mutedLine, lineWidth: isSelected ? 2 : 1)
+                .stroke(isSelected ? primaryColor : VFColor.hairline, lineWidth: isSelected ? 2 : 1)
         )
     }
 }

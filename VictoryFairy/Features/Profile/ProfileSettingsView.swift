@@ -16,8 +16,8 @@ struct ProfileSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
                 Text("설정")
-                    .font(VFTypography.title)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.display)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .padding(.top, VFSpacing.sm)
 
                 VFCard {
@@ -55,7 +55,7 @@ struct ProfileSettingsView: View {
                                     .clipShape(Circle())
                                 Text("팀 컬러 테마 사용")
                                     .font(.subheadline)
-                                    .foregroundStyle(VFColor.primaryText)
+                                    .foregroundStyle(VFColor.bodyPrimary)
                             }
                         }
                         .tint(theme.primary)
@@ -69,11 +69,11 @@ struct ProfileSettingsView: View {
                         ProfileSettingsRow(title: "데이터 동기화 상태", value: appData.serverStatus.title, systemImage: serverStatusIcon)
                         Divider()
                         Text("데이터 저장")
-                            .font(VFTypography.section)
-                            .foregroundStyle(VFColor.primaryText)
+                            .font(VFTypography.sectionTitle)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text("기록은 우선 이 기기에 저장돼요.")
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                         ProfileSettingsRow(title: "데이터 내보내기", value: "추후 제공", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -81,14 +81,14 @@ struct ProfileSettingsView: View {
                 VFCard {
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
                         Text("AI 기능 안내")
-                            .font(VFTypography.section)
-                            .foregroundStyle(VFColor.primaryText)
+                            .font(VFTypography.sectionTitle)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text("AI 후기 초안은 서버에서 만들고 저장 전 직접 확인해요.")
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text("사진, 정확한 위치, 동행자 실명은 기본적으로 AI에 전송하지 않도록 설계합니다.")
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -175,8 +175,8 @@ struct ProfileSettingsView: View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text("지원 및 정책")
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.sectionTitle)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 legalButton(title: "이용약관", url: appData.legalURL(\.terms), systemImage: "doc.text")
                 Divider()
                 legalButton(title: "개인정보 처리방침", url: appData.legalURL(\.privacy), systemImage: "lock.shield")
@@ -230,13 +230,13 @@ struct ProfileSettingsRow: View {
 
             Text(title)
                 .font(.subheadline)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
 
             Spacer()
 
             Text(value)
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .multilineTextAlignment(.trailing)
         }
         .frame(minHeight: 44)
@@ -257,17 +257,17 @@ struct ProfileSummaryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("프로필")
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text(profile.nickname)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
 
             Spacer()
 
             Text("수정")
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
         }
         .frame(minHeight: 48)
     }
@@ -282,7 +282,7 @@ struct ProfileAvatarView: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(VFColor.backgroundWarm)
+                .fill(VFColor.subtleSurface)
             avatarContent
         }
         .frame(width: size, height: size)
@@ -323,7 +323,7 @@ struct ProfileAvatarView: View {
         } else {
             Image(systemName: "baseball.fill")
                 .font(.system(size: size * 0.36, weight: .semibold))
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
         }
     }
 }
@@ -379,25 +379,25 @@ struct ProfileCreationView: View {
 
                         Text("닉네임")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         TextField("닉네임을 입력해 주세요", text: $nickname)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .padding(.horizontal, VFSpacing.md)
                             .frame(minHeight: 46)
-                            .background(VFColor.backgroundWarm)
+                            .background(VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                         Text("2~12자로 입력해 주세요.")
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
 
                         Divider()
 
                         Text("응원팀")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Picker("응원팀", selection: $favoriteTeamID) {
                             ForEach(KBOSeed.teams) { team in
                                 Text(team.name).tag(team.id)
@@ -407,31 +407,31 @@ struct ProfileCreationView: View {
                         .tint(theme.primary)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .padding(.horizontal, VFSpacing.sm)
-                        .background(VFColor.backgroundWarm)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
 
                         Divider()
 
                         Text("프로필 이모지")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         TextField("⚾", text: $profileEmoji)
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .padding(.horizontal, VFSpacing.md)
                             .frame(minHeight: 46)
-                            .background(VFColor.backgroundWarm)
+                            .background(VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
 
                         Text("이 정보는 승리요정 안에서 응원톡 작성자 표시와 개인화에 사용돼요.")
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .fixedSize(horizontal: false, vertical: true)
 
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(VFColor.lossRed)
+                                .foregroundStyle(VFColor.gameLoss)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -499,10 +499,10 @@ struct ProfileCreationView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text("프로필 사진")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("프로필 사진은 응원톡 작성자 표시에 사용돼요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -524,10 +524,10 @@ struct ProfileCreationView: View {
                 } label: {
                     Label("사진 삭제", systemImage: "trash")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.lossRed)
+                        .foregroundStyle(VFColor.gameLoss)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 34)
-                        .background(VFColor.lossRed.opacity(0.08))
+                        .background(VFColor.gameLoss.opacity(0.08))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -634,11 +634,11 @@ struct BlockedUsersView: View {
                 ScreenHeaderView(title: "차단한 사용자", subtitle: "내 응원톡 화면에서 숨긴 사용자를 관리해요.")
 
                 if isLoading {
-                    blockedUsersStatusCard(title: "차단 목록을 불러오는 중이에요.", message: nil, systemImage: "arrow.clockwise", tint: VFColor.victoryOrange)
+                    blockedUsersStatusCard(title: "차단 목록을 불러오는 중이에요.", message: nil, systemImage: "arrow.clockwise", tint: VFColor.primaryAction)
                 } else if let errorMessage {
-                    blockedUsersStatusCard(title: "차단 목록을 불러오지 못했어요.", message: errorMessage, systemImage: "exclamationmark.triangle.fill", tint: VFColor.lossRed)
+                    blockedUsersStatusCard(title: "차단 목록을 불러오지 못했어요.", message: errorMessage, systemImage: "exclamationmark.triangle.fill", tint: VFColor.gameLoss)
                 } else if users.isEmpty {
-                    blockedUsersStatusCard(title: "차단한 사용자가 없어요.", message: nil, systemImage: "person.2", tint: VFColor.drawGray)
+                    blockedUsersStatusCard(title: "차단한 사용자가 없어요.", message: nil, systemImage: "person.2", tint: VFColor.gameDraw)
                 } else {
                     LazyVStack(spacing: VFSpacing.sm) {
                         ForEach(users) { user in
@@ -659,7 +659,7 @@ struct BlockedUsersView: View {
                 Button("닫기") {
                     dismiss()
                 }
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
             }
         }
         .vfScreenBackground()
@@ -670,18 +670,18 @@ struct BlockedUsersView: View {
             HStack(spacing: VFSpacing.md) {
                 Image(systemName: "person.crop.circle.fill")
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .frame(width: 42, height: 42)
-                    .background(VFColor.backgroundWarm)
+                    .background(VFColor.subtleSurface)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(user.authorDisplayName)
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text(formattedBlockedAt(user.blockedAt) ?? "차단됨")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
 
                 Spacer()
@@ -691,10 +691,10 @@ struct BlockedUsersView: View {
                 } label: {
                     Text(unblockingAuthorIDs.contains(user.authorID) ? "해제 중" : "차단 해제")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 32)
-                        .background(VFColor.victoryOrange.opacity(0.1))
+                        .background(VFColor.primaryAction.opacity(0.1))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -711,11 +711,11 @@ struct BlockedUsersView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     if let message {
                         Text(message)
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                 }
             }

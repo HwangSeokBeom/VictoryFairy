@@ -161,7 +161,7 @@ struct AttendanceCalendarView: View {
 
                 DataStateBanner(state: dataState)
 
-                VFCard(background: VFColor.backgroundWarm) {
+                VFCard(background: VFColor.subtleSurface) {
                     VStack(alignment: .leading, spacing: VFSpacing.md) {
                         HStack(spacing: VFSpacing.sm) {
                             monthButton(systemImage: "chevron.left", accessibilityLabel: "이전 달") {
@@ -177,7 +177,7 @@ struct AttendanceCalendarView: View {
                                     Image(systemName: "chevron.down")
                                         .font(.system(size: 12, weight: .bold))
                                 }
-                                .foregroundStyle(VFColor.primaryText)
+                                .foregroundStyle(VFColor.bodyPrimary)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(monthTitle), 월 선택")
@@ -192,15 +192,15 @@ struct AttendanceCalendarView: View {
                         HStack {
                             Text(summaryTitle)
                                 .font(.system(.subheadline, design: .rounded).weight(.bold))
-                                .foregroundStyle(VFColor.primaryText)
+                                .foregroundStyle(VFColor.bodyPrimary)
                             Spacer()
                         }
 
                         FlowLayout(spacing: VFSpacing.xs) {
-                            summaryChip("승 \(count(.win))", color: VFColor.winGreen)
-                            summaryChip("패 \(count(.loss))", color: VFColor.lossRed)
-                            summaryChip("무 \(count(.draw))", color: VFColor.drawGray)
-                            summaryChip("취소 \(count(.canceled))", color: VFColor.canceledGray)
+                            summaryChip("승 \(count(.win))", color: VFColor.gameWin)
+                            summaryChip("패 \(count(.loss))", color: VFColor.gameLoss)
+                            summaryChip("무 \(count(.draw))", color: VFColor.gameDraw)
+                            summaryChip("취소 \(count(.canceled))", color: VFColor.gameCanceled)
                         }
                     }
                 }
@@ -397,7 +397,7 @@ struct AttendanceCalendarView: View {
                     } label: {
                         Text(mode.title)
                             .font(.system(.subheadline, design: .rounded).weight(viewMode == mode ? .bold : .semibold))
-                            .foregroundStyle(viewMode == mode ? VFColor.victoryOrange : VFColor.secondaryText)
+                            .foregroundStyle(viewMode == mode ? VFColor.primaryAction : VFColor.bodySecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
                             .frame(maxWidth: .infinity, minHeight: 38)
@@ -407,19 +407,19 @@ struct AttendanceCalendarView: View {
                     .background {
                         if viewMode == mode {
                             RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                                .fill(VFColor.victoryOrange.opacity(0.12))
+                                .fill(VFColor.primaryAction.opacity(0.12))
                         }
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                            .stroke(viewMode == mode ? VFColor.victoryOrange.opacity(0.3) : Color.clear, lineWidth: 1)
+                            .stroke(viewMode == mode ? VFColor.primaryAction.opacity(0.3) : Color.clear, lineWidth: 1)
                     }
                     .accessibilityLabel(viewMode == mode ? "\(mode.accessibilityTitle), 선택됨" : mode.accessibilityTitle)
                     .accessibilityAddTraits(viewMode == mode ? .isSelected : [])
                 }
             }
             .padding(VFSpacing.xs)
-            .background(VFColor.cardTranslucent)
+            .background(VFColor.translucentSurface)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
             .overlay(
@@ -432,12 +432,12 @@ struct AttendanceCalendarView: View {
             } label: {
                 Label("필터", systemImage: activeFilterCount == 0 ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundStyle(activeFilterCount == 0 ? VFColor.primaryText : VFColor.victoryOrange)
+                    .foregroundStyle(activeFilterCount == 0 ? VFColor.bodyPrimary : VFColor.primaryAction)
                     .frame(width: 76, height: 46)
-                    .background(VFColor.cardTranslucent)
+                    .background(VFColor.translucentSurface)
                     .background(.ultraThinMaterial)
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(activeFilterCount == 0 ? .white.opacity(0.9) : VFColor.victoryOrange.opacity(0.3), lineWidth: 1))
+                    .overlay(Capsule().stroke(activeFilterCount == 0 ? .white.opacity(0.9) : VFColor.primaryAction.opacity(0.3), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(activeFilterCount == 0 ? "필터" : "필터, \(activeFilterCount)개 적용됨")
@@ -452,10 +452,10 @@ struct AttendanceCalendarView: View {
                 ForEach(activeFilterLabels, id: \.self) { label in
                     Text(label)
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 28)
-                        .background(VFColor.victoryOrange.opacity(0.1))
+                        .background(VFColor.primaryAction.opacity(0.1))
                         .clipShape(Capsule())
                 }
             }
@@ -556,7 +556,7 @@ struct AttendanceCalendarView: View {
                     CalendarResultDot(result: result)
                     Text(result.title)
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
             }
         }
@@ -574,10 +574,10 @@ struct AttendanceCalendarView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text(log.dateText)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(VFColor.tertiaryText)
+                        .foregroundStyle(VFColor.bodyTertiary)
                     Text(log.matchup)
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     HStack(spacing: VFSpacing.xs) {
                         Text(log.stadium)
                         if !log.photoLocalRefs.isEmpty {
@@ -586,10 +586,10 @@ struct AttendanceCalendarView: View {
                         }
                     }
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     Text(log.memo)
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .lineLimit(2)
                 }
                 Spacer()
@@ -632,7 +632,7 @@ private struct CalendarFilterSheet: View {
 
                     filterSection("사진") {
                         ForEach(CalendarPhotoFilter.allCases) { filter in
-                            filterChip(title: filter.title, isSelected: photoFilter == filter, tint: VFColor.scoreboardNavy) {
+                            filterChip(title: filter.title, isSelected: photoFilter == filter, tint: VFColor.deepAccent) {
                                 photoFilter = filter
                             }
                         }
@@ -640,7 +640,7 @@ private struct CalendarFilterSheet: View {
 
                     filterSection("기록 여부") {
                         ForEach(CalendarRecordFilter.allCases) { filter in
-                            filterChip(title: filter.title, isSelected: recordFilter == filter, tint: VFColor.victoryOrange) {
+                            filterChip(title: filter.title, isSelected: recordFilter == filter, tint: VFColor.primaryAction) {
                                 recordFilter = filter
                             }
                         }
@@ -681,7 +681,7 @@ private struct CalendarFilterSheet: View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             Text(title)
                 .font(VFTypography.cardTitle)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
             FlowLayout(spacing: VFSpacing.xs) {
                 content()
             }
@@ -770,7 +770,7 @@ private struct CalendarMonthView: View {
                     ForEach(weekdays, id: \.self) { weekday in
                         Text(weekday)
                             .font(.system(.caption, design: .rounded).weight(.bold))
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .frame(maxWidth: .infinity, minHeight: 28)
                     }
 
@@ -856,7 +856,7 @@ private struct CalendarDayCell: View {
                         if logs.count > 1 {
                             Text("\(logs.count)개")
                                 .font(.system(size: 8, weight: .heavy, design: .rounded))
-                                .foregroundStyle(isSelected ? .white.opacity(0.88) : VFColor.secondaryText)
+                                .foregroundStyle(isSelected ? .white.opacity(0.88) : VFColor.bodySecondary)
                                 .lineLimit(1)
                         }
                     }
@@ -872,7 +872,7 @@ private struct CalendarDayCell: View {
                             .font(.system(size: 8, weight: .heavy, design: .rounded))
                             .lineLimit(1)
                             .minimumScaleFactor(0.65)
-                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.secondaryText)
+                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.bodySecondary)
                             .frame(maxWidth: 38)
                         Text(teamResultText(for: first))
                             .font(.system(size: 8, weight: .black, design: .rounded))
@@ -902,11 +902,11 @@ private struct CalendarDayCell: View {
 
     private func baseContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content()
-            .background(isSelected ? VFColor.scoreboardNavy : (logs.first.map { $0.result.color.opacity(0.08) } ?? Color.clear))
+            .background(isSelected ? VFColor.deepAccent : (logs.first.map { $0.result.color.opacity(0.08) } ?? Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                    .stroke(isSelected ? VFColor.victoryOrange : (isToday ? VFColor.victoryOrange.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
+                    .stroke(isSelected ? VFColor.primaryAction : (isToday ? VFColor.primaryAction.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
             )
             .opacity(dayOpacity)
     }
@@ -937,7 +937,7 @@ private struct CalendarDayCell: View {
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                    .stroke(isSelected ? VFColor.victoryOrange : (isToday ? VFColor.victoryOrange.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
+                    .stroke(isSelected ? VFColor.primaryAction : (isToday ? VFColor.primaryAction.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
             )
             .opacity(dayOpacity)
         } else {
@@ -949,7 +949,7 @@ private struct CalendarDayCell: View {
                     } else {
                         Image(systemName: "photo")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.scoreboardNavy.opacity(0.74))
+                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.deepAccent.opacity(0.74))
                             .frame(width: 20, height: 18)
                         resultDots
                     }
@@ -967,7 +967,7 @@ private struct CalendarDayCell: View {
     private func dayNumber() -> some View {
         Text("\(Calendar.current.component(.day, from: day.date))")
             .font(.system(.subheadline, design: .rounded).weight(day.isInDisplayedMonth ? .semibold : .regular))
-            .foregroundStyle(isSelected ? .white : (day.isInDisplayedMonth ? VFColor.primaryText : VFColor.secondaryText.opacity(0.45)))
+            .foregroundStyle(isSelected ? .white : (day.isInDisplayedMonth ? VFColor.bodyPrimary : VFColor.bodySecondary.opacity(0.45)))
     }
 
     private var resultDots: some View {
@@ -984,7 +984,7 @@ private struct CalendarDayCell: View {
             .font(.system(size: 9, weight: .heavy, design: .rounded))
             .foregroundStyle(.white)
             .frame(width: 17, height: 17)
-            .background(VFColor.scoreboardNavy)
+            .background(VFColor.deepAccent)
             .clipShape(Circle())
             .accessibilityLabel("\(logs.count)개 기록")
     }
@@ -1084,14 +1084,14 @@ private struct CalendarDayDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: VFSpacing.lg) {
                     Text(day.title)
-                        .font(VFTypography.section)
-                        .foregroundStyle(VFColor.primaryText)
+                        .font(VFTypography.sectionTitle)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .padding(.top, VFSpacing.sm)
 
                     if day.logs.isEmpty {
                         Text("선택한 날짜에 기록이 없어요.")
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     } else {
                         ForEach(day.logs) { log in
                             VStack(alignment: .leading, spacing: VFSpacing.sm) {
@@ -1100,14 +1100,14 @@ private struct CalendarDayDetailSheet: View {
                                         HStack(alignment: .top, spacing: VFSpacing.sm) {
                                             Text(log.matchup)
                                                 .font(VFTypography.cardTitle)
-                                                .foregroundStyle(VFColor.primaryText)
+                                                .foregroundStyle(VFColor.bodyPrimary)
                                                 .fixedSize(horizontal: false, vertical: true)
                                             Spacer()
                                             ResultBadge(result: log.result, scoreText: log.result == .canceled ? nil : log.scoreText)
                                         }
                                         Text(log.stadium)
                                             .font(.subheadline)
-                                            .foregroundStyle(VFColor.secondaryText)
+                                            .foregroundStyle(VFColor.bodySecondary)
                                         HStack(spacing: VFSpacing.xs) {
                                             Text(log.scoreText)
                                             Text("·")
@@ -1118,14 +1118,14 @@ private struct CalendarDayDetailSheet: View {
                                             }
                                         }
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(VFColor.secondaryText)
+                                        .foregroundStyle(VFColor.bodySecondary)
                                         if !log.photoLocalRefs.isEmpty {
                                             PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 86)
                                                 .accessibilityLabel("사진 있음")
                                         }
                                         Text(log.memo)
                                             .font(VFTypography.body)
-                                            .foregroundStyle(VFColor.primaryText)
+                                            .foregroundStyle(VFColor.bodyPrimary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
@@ -1157,8 +1157,8 @@ private struct CalendarDayDetailSheet: View {
                     Label("이 날짜에 기록 추가", systemImage: "calendar.badge.plus")
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 46)
-                        .foregroundStyle(VFColor.primaryText)
-                        .background(VFColor.offWhite)
+                        .foregroundStyle(VFColor.bodyPrimary)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
