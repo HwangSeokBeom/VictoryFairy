@@ -119,6 +119,10 @@ private struct VFTabBar: View {
         }
         .padding(6)
         .frame(maxWidth: .infinity)
+        // 탭 라벨은 접근성 크기까지 따라 키우면 다섯 칸이 서로 겹치고 잘린다.
+        // 막대 자체는 크기를 묶어두고, 대신 VoiceOver가 각 탭의 온전한 이름을 읽는다.
+        // 화면 본문은 이 제한과 무관하게 Dynamic Type을 그대로 따른다.
+        .dynamicTypeSize(...DynamicTypeSize.large)
         .background(VFColor.translucentSurface)
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
