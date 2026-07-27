@@ -89,8 +89,8 @@ private struct TeamSelectionCard: View {
     let team: KBOTeam
     let isSelected: Bool
 
-    private var primaryColor: Color { Color(hex: team.primaryColorHex) }
-    private var secondaryColor: Color { Color(hex: team.secondaryColorHex) }
+    private var primaryColor: Color { team.accentColor }
+    private var secondaryColor: Color { VFColor.deepAccent }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {

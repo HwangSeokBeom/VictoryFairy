@@ -309,7 +309,7 @@ struct WinRateAnalysisView: View {
         guard let team = KBOSeed.teams.first(where: { title.contains($0.shortName) || title.contains($0.name) }) else {
             return theme.primary
         }
-        return Color(hex: team.accentColorHex)
+        return team.accentColor
     }
 }
 

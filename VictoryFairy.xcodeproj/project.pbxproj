@@ -6,8 +6,30 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */; };
+		358E6AB79F738C065C4DC16F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */; };
+		ACB1527C1A44BAA8FE8D2154 /* NavigationAndFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */; };
+		AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C025C6F6AB473B1071E51B9F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 01A8D7BE2E7A4A8F8EBC0011 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 01A8D7C62E7A4A8F8EBC0011;
+			remoteInfo = VictoryFairy;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VictoryFairy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		071661147C015553CCB78E53 /* VictoryFairyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = VictoryFairyTests.xctest; path = VictoryFairyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchitectureBoundaryTests.swift; sourceTree = "<group>"; };
+		7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystemContractTests.swift; sourceTree = "<group>"; };
+		B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationAndFormattingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -39,6 +61,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C83C90D25A5313BA1E7F0D1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				358E6AB79F738C065C4DC16F /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -47,6 +77,8 @@
 			children = (
 				01A8D7C12E7A4A8F8EBC0011 /* VictoryFairy */,
 				01A8D7C02E7A4A8F8EBC0011 /* Products */,
+				FE50C55D5796D53B0D3BF838 /* Frameworks */,
+				030862EE58DC627905C553FF /* VictoryFairyTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -54,8 +86,36 @@
 			isa = PBXGroup;
 			children = (
 				01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */,
+				071661147C015553CCB78E53 /* VictoryFairyTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		030862EE58DC627905C553FF /* VictoryFairyTests */ = {
+			isa = PBXGroup;
+			children = (
+				30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */,
+				7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */,
+				B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */,
+			);
+			name = VictoryFairyTests;
+			path = VictoryFairyTests;
+			sourceTree = "<group>";
+		};
+		B7E8289B001FF9B546C75CF7 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		FE50C55D5796D53B0D3BF838 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B7E8289B001FF9B546C75CF7 /* iOS */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -77,11 +137,27 @@
 				01A8D7C12E7A4A8F8EBC0011 /* VictoryFairy */,
 			);
 			name = VictoryFairy;
-			packageProductDependencies = (
-			);
 			productName = VictoryFairy;
 			productReference = 01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */;
 			productType = "com.apple.product-type.application";
+		};
+		133F9243AB9A2CE3F6AAB179 /* VictoryFairyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ECF46B3E3871133A12CEFDA4 /* Build configuration list for PBXNativeTarget "VictoryFairyTests" */;
+			buildPhases = (
+				9F6751916709B88510FFFD56 /* Sources */,
+				4C83C90D25A5313BA1E7F0D1 /* Frameworks */,
+				B1AB5E63EBD2D3810B4DA6A1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C56559FD8413EED40E3C70A /* PBXTargetDependency */,
+			);
+			name = VictoryFairyTests;
+			productName = VictoryFairyTests;
+			productReference = 071661147C015553CCB78E53 /* VictoryFairyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -114,12 +190,20 @@
 			projectRoot = "";
 			targets = (
 				01A8D7C62E7A4A8F8EBC0011 /* VictoryFairy */,
+				133F9243AB9A2CE3F6AAB179 /* VictoryFairyTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		01A8D7C82E7A4A8F8EBC0011 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1AB5E63EBD2D3810B4DA6A1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -136,7 +220,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9F6751916709B88510FFFD56 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */,
+				AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */,
+				ACB1527C1A44BAA8FE8D2154 /* NavigationAndFormattingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1C56559FD8413EED40E3C70A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = VictoryFairy;
+			target = 01A8D7C62E7A4A8F8EBC0011 /* VictoryFairy */;
+			targetProxy = C025C6F6AB473B1071E51B9F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		01A8D7CD2E7A4A8F8EBC0011 /* Debug */ = {
@@ -328,6 +431,43 @@
 			};
 			name = Release;
 		};
+		0CD753C728505199BF6C57D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hwangseokbeom.victoryfairy.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VictoryFairy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VictoryFairy";
+			};
+			name = Debug;
+		};
+		13CED6DD529A51375E33105F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hwangseokbeom.victoryfairy.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VictoryFairy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VictoryFairy";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -345,6 +485,15 @@
 			buildConfigurations = (
 				01A8D7CF2E7A4A8F8EBC0011 /* Debug */,
 				01A8D7D02E7A4A8F8EBC0011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		ECF46B3E3871133A12CEFDA4 /* Build configuration list for PBXNativeTarget "VictoryFairyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				13CED6DD529A51375E33105F /* Release */,
+				0CD753C728505199BF6C57D8 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
