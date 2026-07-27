@@ -466,6 +466,15 @@ extension DateFormatter {
         return formatter
     }()
 
+    /// 홈 인사말 위에 놓이는 날짜. Pencil "4월 16일 목요일" 표기를 따른다.
+    static let vfHomeGreetingDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "M월 d일 EEEE"
+        return formatter
+    }()
+
     static let vfDisplayDateTime: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ko_KR")

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct AppRootView: View {
     @EnvironmentObject private var preferences: UserPreferencesStore
@@ -21,26 +20,63 @@ struct AppRootView: View {
     }
 }
 
+/// 앱의 최상위 탭 경로.
+///
+/// `rawValue`는 화면에 보이지 않는 안정적인 경로 식별자다. Pencil이 정한 한국어
+/// 라벨(기록·시즌)이 바뀌어도 경로 자체는 그대로 유지된다.
+enum MainTab: String, Hashable, CaseIterable {
+    case home
+    case feed
+    case calendar
+    case statistics
+    case my
+
+    /// Pencil `탭바`가 정한 표시 라벨.
+    var title: String {
+        switch self {
+        case .home: "홈"
+        case .feed: "기록"
+        case .calendar: "캘린더"
+        case .statistics: "시즌"
+        case .my: "마이"
+        }
+    }
+
+    /// Pencil은 lucide 아이콘을 쓴다. iOS에는 해당 아이콘 세트를 넣지 않으므로
+    /// 의미가 같은 SF Symbol로 옮긴다.
+    /// house / notebook-pen / calendar-days / trophy / circle-user-round 순.
+    var systemImage: String {
+        switch self {
+        case .home: "house.fill"
+        case .feed: "book.pages.fill"
+        case .calendar: "calendar"
+        case .statistics: "trophy.fill"
+        case .my: "person.crop.circle.fill"
+        }
+    }
+
+    /// UI 테스트가 참조하는 안정적인 식별자.
+    var accessibilityIdentifier: String { "tab.\(rawValue)" }
+}
+
 struct MainTabView: View {
-    @Environment(\.appTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var appData: AppDataStore
     @State private var selectedTab: MainTab = .home
 
     var body: some View {
         selectedContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .vfScreenBackground()
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                FloatingTabBar(selectedTab: $selectedTab)
-                    .padding(.horizontal, VFSpacing.md)
-                    .padding(.top, 6)
+                VFTabBar(selectedTab: $selectedTab)
+                    .padding(.horizontal, VFSpacing.screenHorizontalMargin)
                     .padding(.bottom, VFTabBarMetrics.customTabBarBottomInset)
-                    .background(.clear)
             }
-            // 하단 safe area 예약(홈 인디케이터 영역)을 반납해 캡슐의 위치를
-            // customTabBarBottomInset이 직접 소유하게 만든다. 반납 대상은 하단 한 변,
-            // .container 영역뿐이라 상단/좌우와 키보드 회피는 그대로 남는다.
-            .ignoresSafeArea(.container, edges: .bottom)
-            .animation(.snappy(duration: 0.22), value: selectedTab)
+            .animation(
+                VFMotion.respectingReduceMotion(VFMotion.tabTransition, reduceMotion: reduceMotion),
+                value: selectedTab
+            )
     }
 
     @ViewBuilder
@@ -63,29 +99,31 @@ struct MainTabView: View {
             NavigationStack {
                 StatisticsView(viewModel: StatisticsViewModel(state: appData.statistics, dataState: appData.statisticsState))
             }
+        case .my:
+            NavigationStack {
+                ProfileSettingsView()
+            }
         }
     }
 }
 
-private struct FloatingTabBar: View {
+/// Pencil `탭바`. 종이색 캡슐이 화면 하단에 떠 있는 형태.
+private struct VFTabBar: View {
     @Binding var selectedTab: MainTab
 
     var body: some View {
-        HStack(spacing: VFSpacing.xs) {
+        HStack(spacing: 0) {
             ForEach(MainTab.allCases, id: \.self) { tab in
                 tabButton(for: tab)
             }
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, minHeight: VFTabBarMetrics.customTabBarHeight)
+        .padding(6)
+        .frame(maxWidth: .infinity)
         .background(VFColor.translucentSurface)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(.white.opacity(0.9), lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.10), radius: 16, y: 6)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(VFColor.hairline, lineWidth: 1))
+        .shadow(color: VFShadow.overlayColor, radius: VFShadow.overlayRadius, y: VFShadow.overlayOffsetY)
         .accessibilityElement(children: .contain)
     }
 
@@ -94,52 +132,27 @@ private struct FloatingTabBar: View {
         return Button {
             selectedTab = tab
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Image(systemName: tab.systemImage)
-                    .font(.system(size: 18, weight: isSelected ? .bold : .semibold))
+                    .font(.system(size: 20, weight: isSelected ? .bold : .regular))
                 Text(tab.title)
-                    .font(.system(size: 11, weight: isSelected ? .bold : .semibold, design: .rounded))
+                    .font(Font.system(.caption2, design: .default).weight(isSelected ? .bold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .foregroundStyle(isSelected ? VFColor.primaryAction : VFColor.bodySecondary)
-            .frame(maxWidth: .infinity, minHeight: 48)
+            .foregroundStyle(isSelected ? VFColor.primaryActionDeep : VFColor.bodyTertiary)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .background {
                 if isSelected {
-                    Capsule()
-                        .fill(VFColor.primaryAction.opacity(0.13))
-                        .overlay(Capsule().stroke(VFColor.primaryAction.opacity(0.28), lineWidth: 1))
+                    Capsule().fill(VFColor.primaryActionPale)
                 }
             }
-            .scaleEffect(isSelected ? 1.03 : 1)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isSelected ? "\(tab.title), 선택됨" : tab.title)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-private enum MainTab: Hashable, CaseIterable {
-    case home
-    case feed
-    case calendar
-    case statistics
-
-    var title: String {
-        switch self {
-        case .home: "홈"
-        case .feed: "피드"
-        case .calendar: "캘린더"
-        case .statistics: "통계"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .home: "house.fill"
-        case .feed: "rectangle.stack.fill"
-        case .calendar: "calendar"
-        case .statistics: "chart.bar.fill"
-        }
+        .accessibilityIdentifier(tab.accessibilityIdentifier)
+        .accessibilityLabel(tab.title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -156,11 +169,9 @@ private enum MainTab: Hashable, CaseIterable {
 #Preview("메인 탭 LG 테마") {
     let preferences = UserPreferencesStore.preview(suiteName: "MainTabLGPreview", favoriteTeamID: "lg-twins")
     let appData = AppDataStore(preferences: preferences)
-    let themeProvider = AppThemeProvider(preferences: preferences, appData: appData)
     MainTabView()
         .environmentObject(preferences)
         .environmentObject(appData)
-        .environmentObject(themeProvider)
         .environment(\.appTheme, TeamTheme(team: KBOSeed.teams[0]))
 }
 
@@ -171,4 +182,14 @@ private enum MainTab: Hashable, CaseIterable {
         .environmentObject(preferences)
         .environmentObject(appData)
         .environment(\.appTheme, .neutral)
+}
+
+#Preview("탭 쉘 · AccessibilityXXXL") {
+    let preferences = UserPreferencesStore.preview(suiteName: "MainTabXXXLPreview")
+    let appData = AppDataStore(preferences: preferences)
+    MainTabView()
+        .environmentObject(preferences)
+        .environmentObject(appData)
+        .environment(\.appTheme, .neutral)
+        .environment(\.dynamicTypeSize, .accessibility3)
 }
