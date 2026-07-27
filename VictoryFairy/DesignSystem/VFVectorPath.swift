@@ -44,19 +44,23 @@ enum VFSVGPathParser {
         var lastControl: CGPoint?
         var lastQuadControl: CGPoint?
         var previousCommand: Character?
+        var previousWasRelative = false
 
         var scanner = Tokenizer(definition)
 
         while let command = scanner.nextCommand() {
-            let isRelative = command.isLowercase
+            let isRepeat = command == Character("\u{0}")
             let upper = Character(command.uppercased())
 
             // 좌표만 반복되는 경우 직전 명령을 이어간다. M 뒤의 반복은 L로 취급한다.
+            // 이때 상대/절대 여부도 직전 명령을 그대로 물려받아야 한다.
+            // (`c ... -8.2 ...`의 두 번째 곡선은 여전히 상대 좌표다.)
             var effective = upper
-            if upper == Character("\u{0}") {
+            if isRepeat {
                 guard let previous = previousCommand else { break }
                 effective = previous == "M" ? "L" : previous
             }
+            let isRelative = isRepeat ? previousWasRelative : command.isLowercase
 
             func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
                 isRelative ? CGPoint(x: current.x + x, y: current.y + y) : CGPoint(x: x, y: y)
@@ -146,6 +150,7 @@ enum VFSVGPathParser {
             }
 
             previousCommand = effective
+            previousWasRelative = isRelative
         }
 
         return path
