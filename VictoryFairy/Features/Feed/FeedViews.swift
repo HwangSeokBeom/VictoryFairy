@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// 피드를 월 단위로 끊어 보여주기 위한 구간.
+struct FeedMonthSection: Identifiable, Equatable {
+    /// "2026-04" 형태의 안정 키.
+    let id: String
+    /// Pencil 월 구분 헤더에 찍히는 라벨. 예: "4월".
+    let title: String
+    let logs: [AttendanceLogViewState]
+}
+
 struct FeedViewModel {
     let logs: [AttendanceLogViewState]
     var selectedResultFilter: FeedResultFilter = .all
@@ -7,10 +16,50 @@ struct FeedViewModel {
 
     static let sample = FeedViewModel(logs: AttendanceLogSample.logs)
     static let empty = FeedViewModel(logs: [])
+
+    /// 기록을 월별로 묶는다. 뷰가 아니라 여기서 계산하며 SwiftUI에 의존하지 않는다.
+    /// 정렬은 최신 월이 먼저 오고, 월 안에서도 최신 기록이 먼저 온다.
+    var monthSections: [FeedMonthSection] {
+        Self.monthSections(from: logs)
+    }
+
+    static func monthSections(from logs: [AttendanceLogViewState]) -> [FeedMonthSection] {
+        let grouped = Dictionary(grouping: logs) { log in
+            DateFormatter.vfFeedMonthKey.string(from: log.date)
+        }
+        return grouped
+            .map { key, value in
+                let sorted = value.sorted { $0.date > $1.date }
+                let title = sorted.first.map { DateFormatter.vfFeedMonthLabel.string(from: $0.date) } ?? key
+                return FeedMonthSection(id: key, title: title, logs: sorted)
+            }
+            .sorted { $0.id > $1.id }
+    }
+
+    /// Pencil 피드 헤더의 부제. 실제 기록 수만 쓰고 값을 지어내지 않는다.
+    var summaryText: String {
+        logs.isEmpty ? "아직 기록이 없어요" : "\(logs.count)개의 기억"
+    }
 }
 
+extension DateFormatter {
+    /// 월 그룹 정렬용 키. 앱 전체와 같은 ko_KR / Asia/Seoul 기준이다.
+    static let vfFeedMonthKey: DateFormatter = vfFeedMonth(format: "yyyy-MM")
+    /// 월 구분 헤더 라벨.
+    static let vfFeedMonthLabel: DateFormatter = vfFeedMonth(format: "M월")
+
+    private static func vfFeedMonth(format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = format
+        return formatter
+    }
+}
+
+/// Pencil `기록 피드` 프레임.
+/// 헤더 -> 필터 행 -> 월 구분 -> 티켓 카드 목록.
 struct FeedView: View {
-    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var appData: AppDataStore
     let viewModel: FeedViewModel
     @State private var isShowingLogEditor = false
@@ -18,57 +67,33 @@ struct FeedView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "직관 피드", subtitle: "내가 직접 본 경기만 모아봤어요") {
-                    HeaderIconButton(systemImage: "plus", accessibilityLabel: "직관 기록 추가") {
-                        isShowingLogEditor = true
-                    }
-                }
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: VFSpacing.sm) {
-                        Button {
-                            isShowingSeasonPicker = true
-                        } label: {
-                            VFChip(title: appData.selectedSeasonLabel, isSelected: true, tint: theme.primary)
-                        }
-                        .buttonStyle(.plain)
-                        ForEach(FeedResultFilter.allCases) { filter in
-                            Button {
-                                Task {
-                                    await appData.selectFeedResultFilter(filter)
-                                }
-                            } label: {
-                                VFChip(
-                                    title: filter.title,
-                                    isSelected: viewModel.selectedResultFilter == filter,
-                                    tint: filter.result?.color ?? theme.secondary
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-
+            LazyVStack(alignment: .leading, spacing: VFSpacing.md) {
+                header
+                filterRow
                 DataStateBanner(state: viewModel.dataState)
 
                 if viewModel.logs.isEmpty {
-                    EmptyStateView(
-                        title: viewModel.selectedResultFilter == .all ? "첫 직관을 기록하고 나만의 시즌을 시작해보세요." : "해당 결과의 직관 기록이 없어요.",
-                        message: viewModel.selectedResultFilter == .all ? "내가 직접 본 경기만 차곡차곡 모아둘게요." : "다른 결과를 선택하거나 새 직관 기록을 남겨보세요.",
-                        buttonTitle: "직관 기록 추가"
-                    ) {
-                        isShowingLogEditor = true
-                    }
+                    emptyState
                 } else {
-                    LazyVStack(spacing: VFSpacing.lg) {
-                        ForEach(viewModel.logs) { log in
-                            AttendancePostCard(log: log)
+                    ForEach(viewModel.monthSections) { section in
+                        Section {
+                            ForEach(section.logs) { log in
+                                NavigationLink {
+                                    AttendancePostDetailView(log: log)
+                                } label: {
+                                    VFRecordCard(log: log)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } header: {
+                            VFMonthDivider(title: section.title)
+                                .padding(.top, VFSpacing.xxs)
                         }
                     }
                 }
             }
-            .padding(VFSpacing.lg)
+            .padding(.horizontal, VFSpacing.screenHorizontalMargin)
+            .padding(.top, VFSpacing.xxs)
             .vfTabContentPadding()
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +115,85 @@ struct FeedView: View {
             .presentationDetents([.medium])
         }
         .vfScreenBackground()
+    }
+
+    private var header: some View {
+        HStack(alignment: .top, spacing: VFSpacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("직관 기록")
+                    .font(VFTypography.display)
+                    .foregroundStyle(VFColor.bodyPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("\(appData.selectedSeasonLabel), \(viewModel.summaryText)")
+                    .font(VFTypography.handwritten)
+                    .foregroundStyle(VFColor.bodyTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: VFSpacing.xs)
+            VFProminentIconButton(systemImage: "plus", accessibilityLabel: "직관 기록 추가") {
+                isShowingLogEditor = true
+            }
+        }
+        .padding(.top, VFSpacing.xs)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var filterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: VFSpacing.xs) {
+                ForEach(FeedResultFilter.allCases) { filter in
+                    Button {
+                        Task {
+                            await appData.selectFeedResultFilter(filter)
+                        }
+                    } label: {
+                        VFChip(
+                            title: filter.title,
+                            isSelected: viewModel.selectedResultFilter == filter
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(viewModel.selectedResultFilter == filter ? [.isButton, .isSelected] : .isButton)
+                }
+
+                // Pencil 시즌 칩: 종이색 바탕에 아래 화살표.
+                Button {
+                    isShowingSeasonPicker = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(appData.selectedSeasonLabel)
+                            .font(Font.system(.footnote, design: .default).weight(.medium))
+                            .foregroundStyle(VFColor.bodySecondary)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(VFColor.bodyTertiary)
+                    }
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 7)
+                    .frame(minHeight: 32)
+                    .background(VFColor.elevatedSurface)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(VFColor.hairline, lineWidth: VFStroke.hairline))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("시즌 선택, \(appData.selectedSeasonLabel)")
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollClipDisabled()
+    }
+
+    private var emptyState: some View {
+        VFEmptyStatePanel(
+            title: viewModel.selectedResultFilter == .all ? "아직 직관 기록이 없어요" : "찾는 기록이 없어요",
+            message: viewModel.selectedResultFilter == .all
+                ? "첫 직관의 기억부터 차곡차곡 모아드릴게요.\n사진 한 장이면 충분해요."
+                : "다른 결과를 선택하거나 새 직관 기록을 남겨보세요.",
+            illustration: viewModel.selectedResultFilter == .all ? .glove : .baseball,
+            actionTitle: "첫 기록 남기기"
+        ) {
+            isShowingLogEditor = true
+        }
     }
 }
 

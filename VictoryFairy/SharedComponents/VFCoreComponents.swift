@@ -117,27 +117,67 @@ struct VFSecondaryButton: View {
 // MARK: - 칩
 
 /// Pencil `칩`. 필터·태그에 쓰는 작은 알약.
+///
+/// 선택 상태는 Pencil 기록 피드의 `칩 전체`를 따른다. 잉크색 바탕에 종이색 글자라
+/// 선택 여부가 색 대비만으로도 뚜렷하다.
 struct VFChip: View {
     let title: String
     var isSelected = false
+    /// 선택 시 바탕색. 비우면 Pencil 기본값인 잉크색.
     var tint: Color?
 
     var body: some View {
-        let selectedTint = tint ?? VFColor.primaryActionDeep
+        let selectedFill = tint ?? VFColor.bodyPrimary
         Text(title)
-            .font(Font.system(.footnote, design: .default).weight(isSelected ? .bold : .medium))
-            .foregroundStyle(isSelected ? selectedTint : VFColor.bodySecondary)
+            .font(Font.system(.footnote, design: .default).weight(isSelected ? .semibold : .medium))
+            .foregroundStyle(isSelected ? selectedFill.vfReadableForegroundColor : VFColor.bodySecondary)
+            .lineLimit(1)
             .padding(.horizontal, 13)
             .padding(.vertical, 7)
             .frame(minHeight: 32)
-            .background(isSelected ? VFColor.primaryActionPale : VFColor.subtleSurface)
+            .background(isSelected ? selectedFill : VFColor.subtleSurface)
             .clipShape(Capsule())
-            .overlay(
-                Capsule().stroke(
-                    isSelected ? selectedTint.opacity(0.55) : Color.clear,
-                    lineWidth: 1.2
-                )
-            )
+    }
+}
+
+/// Pencil 피드 헤더의 `기록 추가` 버튼. 산호색 원에 잉크 윤곽선.
+struct VFProminentIconButton: View {
+    let systemImage: String
+    let accessibilityLabel: String
+    var action: () -> Void = {}
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: VFIconSize.large, weight: .semibold))
+                .foregroundStyle(VFColor.bodyOnDark)
+                .frame(width: VFControl.minimumTouchTarget, height: VFControl.minimumTouchTarget)
+                .background(VFColor.primaryAction)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(VFColor.inkOutline, lineWidth: 1.4))
+                .shadow(color: VFShadow.buttonColor, radius: VFShadow.buttonRadius, y: VFShadow.buttonOffsetY)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+/// Pencil 피드의 월 구분 헤더. 손글씨 월 라벨 옆으로 가는 선이 이어진다.
+struct VFMonthDivider: View {
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(VFTypography.handwrittenLarge)
+                .foregroundStyle(VFColor.bodySecondary)
+            Rectangle()
+                .fill(VFColor.hairline)
+                .frame(height: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

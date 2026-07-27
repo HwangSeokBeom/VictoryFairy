@@ -17,13 +17,28 @@ struct StatisticsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "통계", subtitle: "KBO 흐름과 내 직관 데이터를 함께 봐요") {
+                ScreenHeaderView(title: "시즌 아카이브", subtitle: "KBO 흐름과 내 직관 데이터를 함께 봐요") {
+                    // Pencil `시즌 선택` 칩: 종이색 바탕에 아래 화살표.
                     Button {
                         isShowingSeasonPicker = true
                     } label: {
-                        VFChip(title: appData.selectedSeasonLabel, isSelected: true, tint: theme.primary)
+                        HStack(spacing: 4) {
+                            Text(appData.selectedSeasonLabel)
+                                .font(Font.system(.footnote, design: .default).weight(.medium))
+                                .foregroundStyle(VFColor.bodySecondary)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(VFColor.bodyTertiary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, VFSpacing.xs)
+                        .frame(minHeight: VFControl.minimumTouchTarget)
+                        .background(VFColor.elevatedSurface)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(VFColor.hairline, lineWidth: VFStroke.hairline))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("시즌 선택, \(appData.selectedSeasonLabel)")
                 }
 
                 DataStateBanner(state: viewModel.dataState)
@@ -85,6 +100,14 @@ struct StatisticsView: View {
 
     private var myAttendanceSection: some View {
         VStack(alignment: .leading, spacing: VFSpacing.lg) {
+            SeasonCoverCard(
+                seasonLabel: appData.selectedSeasonLabel,
+                wins: viewModel.state.wins,
+                losses: viewModel.state.losses,
+                draws: viewModel.state.draws,
+                canceled: viewModel.state.canceled
+            )
+
             VFCard {
                 HStack(spacing: VFSpacing.lg) {
                     ResultDonutChart(
@@ -237,6 +260,62 @@ enum StatisticsSection: String, CaseIterable, Identifiable {
         case .kbo: "KBO 현재"
         case .mine: "내 직관"
         }
+    }
+}
+
+/// Pencil `시즌 커버`. 남색 카드 위에 이번 시즌을 한 눈에 보여준다.
+///
+/// Pencil 원본은 감성적인 한 문장("잠실의 기적을 두 눈으로 본 사람")을 넣지만,
+/// 서버에 그런 문장을 주는 필드가 없다. 값을 지어내지 않고 실제 전적으로 문장을
+/// 만든다.
+struct SeasonCoverCard: View {
+    let seasonLabel: String
+    let wins: Int
+    let losses: Int
+    let draws: Int
+    let canceled: Int
+
+    private var totalGames: Int { wins + losses + draws + canceled }
+
+    private var headline: String {
+        guard totalGames > 0 else { return "아직 이번 시즌 기록이 없어요" }
+        return "\(totalGames)번의 직관,\n\(wins)승 \(losses)패 \(draws)무"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+            Text(seasonLabel)
+                .font(Font.system(.caption2, design: .default).weight(.semibold))
+                .tracking(2)
+                .foregroundStyle(VFColor.infoAccent)
+
+            Text(headline)
+                .font(Font.system(.title3, design: .rounded).weight(.bold))
+                .foregroundStyle(VFColor.bodyOnDark)
+                .lineSpacing(6)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if canceled > 0 {
+                Text("취소 \(canceled)경기")
+                    .font(VFTypography.metadata)
+                    .foregroundStyle(VFColor.bodyOnDark.opacity(0.7))
+            }
+        }
+        .padding(.vertical, 22)
+        .padding(.horizontal, VFSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(VFColor.deepAccent)
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.panel, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VFRadius.panel, style: .continuous)
+                .stroke(VFColor.inkOutline, lineWidth: 1.4)
+        )
+        .overlay(alignment: .topTrailing) {
+            VFIllustrationView(.sparkle, height: 22)
+                .padding(VFSpacing.md)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(seasonLabel), \(totalGames)번의 직관, \(wins)승 \(losses)패 \(draws)무")
     }
 }
 

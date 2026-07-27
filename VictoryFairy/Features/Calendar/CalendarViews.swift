@@ -327,14 +327,19 @@ struct AttendanceCalendarView: View {
         applyPickedMonth()
     }
 
+    /// Pencil `월 이동` 버튼. 원본은 38pt 원이지만 최소 터치 영역 44pt를 확보하기 위해
+    /// 보이는 원은 38pt로 두고 탭 영역만 44pt로 넓힌다.
     private func monthButton(systemImage: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(theme.primary)
-                .frame(width: 44, height: 44)
-                .background(theme.primary.opacity(0.1))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(VFColor.bodySecondary)
+                .frame(width: 38, height: 38)
+                .background(VFColor.elevatedSurface)
                 .clipShape(Circle())
+                .overlay(Circle().stroke(VFColor.hairline, lineWidth: 1.2))
+                .frame(width: VFControl.minimumTouchTarget, height: VFControl.minimumTouchTarget)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -764,14 +769,15 @@ private struct CalendarMonthView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: VFSpacing.xs), count: 7)
 
     var body: some View {
-        VFCard {
-            VStack(spacing: VFSpacing.sm) {
+        VFCard(padding: VFSpacing.sm, cornerRadius: VFRadius.panel) {
+            VStack(spacing: 6) {
                 LazyVGrid(columns: columns, spacing: VFSpacing.xs) {
-                    ForEach(weekdays, id: \.self) { weekday in
+                    // Pencil 요일 행: 일요일만 산호색으로 구분한다.
+                    ForEach(Array(weekdays.enumerated()), id: \.element) { index, weekday in
                         Text(weekday)
-                            .font(.system(.caption, design: .rounded).weight(.bold))
-                            .foregroundStyle(VFColor.bodySecondary)
-                            .frame(maxWidth: .infinity, minHeight: 28)
+                            .font(Font.system(.caption2, design: .default).weight(.semibold))
+                            .foregroundStyle(index == 0 ? VFColor.primaryAction : VFColor.bodyTertiary)
+                            .frame(maxWidth: .infinity, minHeight: 26)
                     }
 
                     ForEach(days, id: \.date) { day in
@@ -902,13 +908,27 @@ private struct CalendarDayCell: View {
 
     private func baseContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content()
-            .background(isSelected ? VFColor.deepAccent : (logs.first.map { $0.result.color.opacity(0.08) } ?? Color.clear))
+            .background(cellBackground)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                    .stroke(isSelected ? VFColor.primaryAction : (isToday ? VFColor.primaryAction.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
+                    .stroke(cellBorder, lineWidth: isSelected || isToday ? 1.4 : 1)
             )
             .opacity(dayOpacity)
+    }
+
+    /// Pencil 기본 달력은 선택을 날짜 원 하나로만 표시한다. 셀 전체를 칠하지 않는다.
+    /// 팀·사진 모드는 칸 안에 정보가 더 많아 기존의 칸 강조를 유지한다.
+    private var cellBackground: Color {
+        guard viewMode != .basic else { return .clear }
+        return isSelected ? VFColor.deepAccent : (logs.first.map { $0.result.color.opacity(0.08) } ?? Color.clear)
+    }
+
+    private var cellBorder: Color {
+        if viewMode == .basic {
+            return isToday && !isSelected ? VFColor.primaryAction.opacity(0.55) : .clear
+        }
+        return isSelected ? VFColor.primaryAction : (isToday ? VFColor.primaryAction.opacity(0.55) : .clear)
     }
 
     @ViewBuilder
@@ -964,16 +984,33 @@ private struct CalendarDayCell: View {
         }
     }
 
+    /// Pencil `일 원`. 32pt 원 안에 숫자 하나. 선택된 날은 산호색으로 채운다.
     private func dayNumber() -> some View {
-        Text("\(Calendar.current.component(.day, from: day.date))")
-            .font(.system(.subheadline, design: .rounded).weight(day.isInDisplayedMonth ? .semibold : .regular))
-            .foregroundStyle(isSelected ? .white : (day.isInDisplayedMonth ? VFColor.bodyPrimary : VFColor.bodySecondary.opacity(0.45)))
+        let isSunday = Calendar.current.component(.weekday, from: day.date) == 1
+        let numberColor: Color = {
+            if isSelected, viewMode == .basic { return VFColor.bodyOnDark }
+            if isSelected { return .white }
+            if !day.isInDisplayedMonth { return VFColor.bodyTertiary.opacity(0.4) }
+            return isSunday ? VFColor.primaryAction : VFColor.bodyPrimary
+        }()
+
+        return Text("\(Calendar.current.component(.day, from: day.date))")
+            .font(Font.system(.subheadline, design: .default).weight(isSelected ? .bold : .regular).monospacedDigit())
+            .foregroundStyle(numberColor)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(minWidth: 32, minHeight: 32)
+            .background {
+                if isSelected, viewMode == .basic {
+                    Circle().fill(VFColor.primaryAction)
+                }
+            }
     }
 
     private var resultDots: some View {
         HStack(spacing: 2) {
             ForEach(Array(logs.prefix(3))) { log in
-                CalendarResultDot(result: log.result, size: logs.count > 1 ? 5.5 : 7.5)
+                CalendarResultDot(result: log.result, size: 5)
                     .accessibilityHidden(true)
             }
         }
