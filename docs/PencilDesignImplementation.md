@@ -267,3 +267,86 @@ Pencil 표본 값(원태인·네일·4.16 THU·18:30·삼성 6 : 3 LG·8번)이 
 ### 남지 않은 것
 
 홈 자체에 남은 과제는 없다. 나머지 아홉 개 전용 화면은 여전히 토큰만 적용된 상태다.
+
+---
+
+## 피드 — 05_Feed_RecordList (프레임 단위 구현 완료)
+
+- Pencil 원본 SHA-256 `04e9f6710479b708705425d5a792149d94a9131371d6dacadf6aadf9d6c49874` (변동 없음)
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 최종 상태 **FRAME_LEVEL_IMPLEMENTATION**
+
+### 프레임 → 소스 매핑
+
+- `05_Feed_RecordList` → `Features/Feed/FeedViews.swift`
+- `피드 헤더` → `FeedView.header` (제목 + 요약 + `VFProminentIconButton`)
+- `필터 행` → `FeedView.filterRow` (`VFChip` + 시즌 칩)
+- `4월 헤더` / `3월 헤더` → `VFMonthDivider(title:romanTitle:)`
+- `기록 카드` → `VFRecordCard`
+- `스탬프/승·패·무` → `VFResultStamp`
+- 로딩·빈 상태·오류 → `VFLoadingPanel` / `VFEmptyStatePanel` / `VFErrorPanel`
+
+### 그룹과 정렬
+
+`date`로 묶는다. 미리 만들어둔 표시 문자열은 쓰지 않는다. 월 키는 `yyyy-MM`,
+정렬은 최신 월 → 최신 기록 순이며, 같은 날이면 기록 ID로 순서를 고정한다.
+영문 월 라벨은 `en_US_POSIX`로 고정해 기기 언어와 무관하게 같은 값이 나온다.
+연도 경계와 같은 날 중복까지 단위 테스트로 확인한다.
+
+### 필터
+
+정체성은 `FeedResultFilter`의 rawValue(all·win·loss·draw·canceled)다.
+표시 문구는 Pencil을 따라 전체 / 승리한 날 / 아쉬운 날로 바꿨고, Pencil이 그리지
+않은 무·취소는 같은 말투로 비긴 날 / 취소된 날로 확장했다(문구 확장, 범주 추가 아님).
+선택 상태는 색뿐 아니라 접근성 선택 특성으로도 드러난다.
+
+### 팀 아이덴티티
+
+매치업 문자열을 `AttendanceMatchup`이 canonical 팀으로 풀어, 상대 팀도 동등하게
+읽히도록 유지한다. 결과는 스탬프 글자(승·패·무)가 함께 말하므로 팀 색이나 결과 색
+하나에 기대지 않는다.
+
+### 구장 아이덴티티
+
+카드의 구장 줄은 Pencil을 따라 잔디색(`supportAccent`) 세미볼드로 올렸다.
+여기 나오는 구장은 **그 기록이 열린 구장**이며 사용자의 주 관람 구장이 아니다.
+`testFeedCardShowsRecordStadiumNotPrimaryStadium`이 이를 지킨다.
+
+### 실제 데이터 편차 (의도한 것)
+
+Pencil 표본 기록(9회말 역전·엄마랑 등)은 제품 코드에 넣지 않았고 테스트가 확인한다.
+사진이 있는 기록은 픽스처로 만들지 않는다. 사진 파일을 만들면 앱 컨테이너에 지워지지
+않는 가짜 데이터가 남기 때문이다. 대신 사진 파일이 없을 때의 자리표시자를 고쳐,
+사진 없음과 파일 유실이 같은 모습으로 보이게 했다.
+
+### 상태 범위
+
+채워진 목록, 여러 달, 같은 날 두 건, 연도 경계, 로딩, 기록 없음, 필터 결과 없음,
+복구 가능한 오류와 다시 시도, 사진 없음, 긴 메모, 긴 구장 이름, 승·패·무·취소.
+
+### 결정적 UI 테스트 픽스처 경계
+
+`VFFeedFixtures.swift`는 파일 전체가 `#if DEBUG`다. `VFUITestConfiguration.feedLogs`와
+`feedState`는 그 블록이 사라지면 인자를 그대로 돌려주므로 제품 대체 데이터가 될 수 없다.
+Release 아카이브 바이너리에서 `VFFeedFixtures` 문자열이 **0회** 나오는 것으로 확인했다.
+픽스처는 고정 날짜와 시드 UUID만 쓰고 사진 파일을 만들지 않는다.
+`-VFUITestInitialTab`으로 특정 탭에서 바로 시작할 수 있게 한 것도 같은 DEBUG 경계 안에 있다.
+
+### 접근성
+
+카드는 하나의 요소로 묶여 날짜·매치업·결과·스코어·구장을 한 문장으로 읽는다.
+접근성 글자 크기에서는 카드가 세로 배치로 바뀌어 아무 정보도 자르지 않는다.
+장식(절취선·날짜 스텁·사진 영역)은 VoiceOver에서 숨긴다.
+안정 식별자: `screen.feed`, `feed.addRecord`, `feed.month.<yyyy-MM>`,
+`feed.record.<uuid>`, `feed.loading`, `feed.empty`, `feed.filteredEmpty`, `feed.error`.
+
+### 검증 근거
+
+- 단위 95개 통과(FeedTests 19 포함), UI 42개 통과 + 온보딩 15개 건너뜀
+- 캡처 10장: 채워짐, 여러 달, 빈 상태, 오류, 로딩, 긴 구장 이름, 밝은/어두운 팀 강조색,
+  AccessibilityXXXL, 좁은 폭(SE 375pt)
+- Debug(Dev)·Release(Production) 빌드, 아이콘·릴리스 게이트, Release 아카이브 모두 통과
+
+### 남은 것
+
+사진이 실제로 있는 기록의 캡처는 만들지 않았다. 픽스처가 사진 파일을 쓰지 않기로 한
+결정 때문이며, 사진이 있는 레이아웃은 홈 폴라로이드 캡처와 프리뷰로 대신 확인한다.
