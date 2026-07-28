@@ -138,6 +138,123 @@ enum VFUITestConfiguration {
         return production
     }
 
+    // MARK: - 캘린더 결정적 픽스처
+
+    /// 캘린더 UI 테스트가 쓰는 상태 이름.
+    enum CalendarFixture: String {
+        case referenceMonth
+        case selectedRecord
+        case selectedEmptyDate
+        case multipleSameDayRecords
+        case loading
+        case emptyMonth
+        case recoverableError
+        case retrySuccess
+        case win
+        case loss
+        case draw
+        case cancelled
+        case scheduledDesignState
+        case liveDesignState
+        case postponedDesignState
+        case longTeamName
+        case longStadiumName
+        case lightTeamAccent
+        case darkTeamAccent
+        case compactReference
+        case accessibilityReference
+        case yearBoundary
+    }
+
+    static var calendarFixture: CalendarFixture? {
+        #if DEBUG
+        guard isActive,
+              let raw = value(for: "-VFUITestCalendarFixture", in: ProcessInfo.processInfo.arguments) else {
+            return nil
+        }
+        return CalendarFixture(rawValue: raw)
+        #else
+        return nil
+        #endif
+    }
+
+    /// 캘린더에 보여줄 기록. 픽스처가 없으면 실제 데이터를 그대로 돌려준다.
+    static func calendarLogs(_ production: [AttendanceLogViewState]) -> [AttendanceLogViewState] {
+        #if DEBUG
+        if let fixture = calendarFixture {
+            return VFCalendarFixtures.logs(for: fixture)
+        }
+        #endif
+        return production
+    }
+
+    /// 캘린더가 보여줄 달. 픽스처가 없으면 실제 선택 월을 그대로 돌려준다.
+    static func calendarMonth(_ production: Date) -> Date {
+        #if DEBUG
+        if let fixture = calendarFixture {
+            return VFCalendarFixtures.month(for: fixture)
+        }
+        #endif
+        return production
+    }
+
+    static func calendarState(_ production: RemoteDataState) -> RemoteDataState {
+        #if DEBUG
+        switch calendarFixture {
+        case .recoverableError: return .error("연결이 원활하지 않아요. 네트워크를 확인하고 다시 시도해 주세요.")
+        case .loading: return .loading
+        case .some: return .loaded
+        case nil: break
+        }
+        #endif
+        return production
+    }
+
+    /// 픽스처가 미리 고르는 날짜.
+    static var calendarPreselectedDate: Date? {
+        #if DEBUG
+        guard let fixture = calendarFixture else { return nil }
+        return VFCalendarFixtures.selectedDate(for: fixture)
+        #else
+        return nil
+        #endif
+    }
+
+    /// 디자인에만 존재하는 경기 상태. 제품 경로에서는 언제나 nil이다.
+    static var calendarDesignOnlyStatusTitle: String? {
+        #if DEBUG
+        switch calendarFixture {
+        case .scheduledDesignState: return CalendarDesignOnlyStatus.scheduled.title
+        case .liveDesignState: return CalendarDesignOnlyStatus.live.title
+        case .postponedDesignState: return CalendarDesignOnlyStatus.postponed.title
+        default: return nil
+        }
+        #else
+        return nil
+        #endif
+    }
+
+    /// 픽스처가 요구한 응원 팀. 없으면 저장된 값을 그대로 쓴다.
+    static var calendarFixtureTeamID: String? {
+        #if DEBUG
+        guard let fixture = calendarFixture else { return nil }
+        return VFCalendarFixtures.teamID(for: fixture)
+        #else
+        return nil
+        #endif
+    }
+
+    /// UI 테스트가 "픽스처가 정말 적용됐는지"를 화면에서 확인할 수 있게 하는 표식.
+    /// 조용히 제품 상태로 돌아가 버리는 일을 잡아내기 위한 것이다.
+    static var activeCalendarScenarioIdentifier: String? {
+        #if DEBUG
+        guard let fixture = calendarFixture else { return nil }
+        return "calendar.scenario.\(fixture.rawValue)"
+        #else
+        return nil
+        #endif
+    }
+
     /// `-Key value` 형태에서 값을 읽는다.
     private static func value(for key: String, in arguments: [String]) -> String? {
         guard let index = arguments.firstIndex(of: key),

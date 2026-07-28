@@ -168,17 +168,14 @@ struct AttendanceCalendarView: View {
 
                 legend
 
+                designOnlyStatusBanner
+
                 selectedDateDetail
+
+                fixtureScenarioMarker
             }
             .padding(VFSpacing.lg)
             .vfTabContentPadding()
-        }
-        .sheet(item: $selectedDay) { day in
-            CalendarDayDetailSheet(day: day) { date in
-                openEditor(date: date)
-            }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isShowingFilters) {
             CalendarFilterSheet(
@@ -210,6 +207,7 @@ struct AttendanceCalendarView: View {
                 LogEditorView(initialDate: editorDate)
             }
         }
+        .onAppear(perform: applyFixturePreselectionIfNeeded)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         // Pencil 섹션 헤더의 "자세히"가 실제로 기존 기록 상세 경로를 연다.
@@ -217,6 +215,14 @@ struct AttendanceCalendarView: View {
             AttendancePostDetailView(log: log)
         }
         .vfScreenBackground()
+    }
+
+    /// 픽스처가 지정한 날짜를 처음 한 번 선택 상태로 만든다.
+    /// 제품 경로에서는 `calendarPreselectedDate`가 nil이라 아무 일도 하지 않는다.
+    private func applyFixturePreselectionIfNeeded() {
+        guard selectedDay == nil,
+              let preselected = VFUITestConfiguration.calendarPreselectedDate else { return }
+        selectedDay = CalendarSelectedDay(date: preselected, logs: logs(on: preselected))
     }
 
     private func openEditor(date: Date) {
@@ -616,6 +622,28 @@ struct AttendanceCalendarView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
+    }
+
+    /// 예정·진행 중·연기는 제품에 데이터원이 없어 **디자인 전용 상태**다.
+    /// DEBUG 픽스처에서만 값이 오고, Release에서는 언제나 nil이라 이 뷰가 나오지 않는다.
+    @ViewBuilder
+    private var designOnlyStatusBanner: some View {
+        if let title = VFUITestConfiguration.calendarDesignOnlyStatusTitle {
+            VFStatusBadge(title: title, tint: VFColor.gameLive)
+                .accessibilityIdentifier("calendar.designStatus")
+        }
+    }
+
+    /// UI 테스트가 픽스처 적용 여부를 화면에서 확인하기 위한 표식.
+    /// 조용히 제품 상태로 되돌아가면 이 요소가 없으므로 테스트가 실패한다.
+    @ViewBuilder
+    private var fixtureScenarioMarker: some View {
+        if let identifier = VFUITestConfiguration.activeCalendarScenarioIdentifier {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityIdentifier(identifier)
+                .accessibilityHidden(true)
+        }
     }
 
     /// Pencil `선택일 미리보기`. 섹션 헤더와 기록 카드 두 조각으로 이루어진다.
@@ -1205,116 +1233,5 @@ private struct CalendarSelectedDay: Identifiable {
         formatter.locale = Locale(identifier: "ko_KR")
         formatter.dateFormat = "yyyy.MM.dd"
         return "\(formatter.string(from: date)) 직관 기록"
-    }
-}
-
-private struct CalendarDayDetailSheet: View {
-    @Environment(\.appTheme) private var theme
-    @Environment(\.dismiss) private var dismiss
-    let day: CalendarSelectedDay
-    var onAddLog: (Date) -> Void = { _ in }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                    Text(day.title)
-                        .font(VFTypography.sectionTitle)
-                        .foregroundStyle(VFColor.bodyPrimary)
-                        .padding(.top, VFSpacing.sm)
-
-                    if day.logs.isEmpty {
-                        Text("선택한 날짜에 기록이 없어요.")
-                            .font(.subheadline)
-                            .foregroundStyle(VFColor.bodySecondary)
-                    } else {
-                        ForEach(day.logs) { log in
-                            VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                                VFCard {
-                                    VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                                        HStack(alignment: .top, spacing: VFSpacing.sm) {
-                                            Text(log.matchup)
-                                                .font(VFTypography.cardTitle)
-                                                .foregroundStyle(VFColor.bodyPrimary)
-                                                .fixedSize(horizontal: false, vertical: true)
-                                            Spacer()
-                                            ResultBadge(result: log.result, scoreText: log.result == .canceled ? nil : log.scoreText)
-                                        }
-                                        Text(log.stadium)
-                                            .font(.subheadline)
-                                            .foregroundStyle(VFColor.bodySecondary)
-                                        HStack(spacing: VFSpacing.xs) {
-                                            Text(log.scoreText)
-                                            Text("·")
-                                            Text(log.dateText)
-                                            if !log.seat.isEmpty {
-                                                Text("·")
-                                                Text(log.seat)
-                                            }
-                                        }
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(VFColor.bodySecondary)
-                                        if !log.photoLocalRefs.isEmpty {
-                                            PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 86)
-                                                .accessibilityLabel("사진 있음")
-                                        }
-                                        Text(log.memo)
-                                            .font(VFTypography.body)
-                                            .foregroundStyle(VFColor.bodyPrimary)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                }
-
-                                NavigationLink {
-                                    AttendancePostDetailView(log: log)
-                                } label: {
-                                    Label("자세히 보기", systemImage: "arrow.right")
-                                        .font(.system(.headline, design: .rounded).weight(.semibold))
-                                        .frame(maxWidth: .infinity, minHeight: 48)
-                                        .foregroundStyle(theme.textOnPrimary)
-                                        .background(theme.primary)
-                                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, VFSpacing.lg)
-                .padding(.top, VFSpacing.md)
-                .padding(.bottom, 96)
-            }
-            .safeAreaInset(edge: .bottom) {
-                Button {
-                    dismiss()
-                    onAddLog(day.date)
-                } label: {
-                    Label("이 날짜에 기록 추가", systemImage: "calendar.badge.plus")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                        .foregroundStyle(VFColor.bodyPrimary)
-                        .background(VFColor.subtleSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, VFSpacing.lg)
-                .padding(.top, VFSpacing.sm)
-                .padding(.bottom, VFSpacing.sm)
-                .background(.ultraThinMaterial)
-            }
-            .vfScreenBackground()
-        }
-    }
-}
-
-#Preview("캘린더 데이터") {
-    NavigationStack {
-        AttendanceCalendarView(logs: AttendanceLogSample.logs)
-    }
-}
-
-#Preview("캘린더 빈 상태") {
-    NavigationStack {
-        AttendanceCalendarView(logs: [])
     }
 }

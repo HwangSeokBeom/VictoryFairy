@@ -110,7 +110,13 @@ struct MainTabView: View {
             .accessibilityIdentifier(MainTab.feed.screenIdentifier)
         case .calendar:
             NavigationStack {
-                AttendanceCalendarView(logs: appData.calendarLogs, dataState: appData.calendarState, month: appData.selectedCalendarMonth)
+                // UI 테스트 픽스처 이음새. Release 빌드에서는 세 함수가 인자를 그대로
+                // 돌려주므로 제품 경로에는 아무 영향이 없다.
+                AttendanceCalendarView(
+                    logs: VFUITestConfiguration.calendarLogs(appData.calendarLogs),
+                    dataState: VFUITestConfiguration.calendarState(appData.calendarState),
+                    month: VFUITestConfiguration.calendarMonth(appData.selectedCalendarMonth)
+                )
             }
             .accessibilityIdentifier(MainTab.calendar.screenIdentifier)
         case .statistics:
