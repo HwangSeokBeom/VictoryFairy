@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */; };
 		358E6AB79F738C065C4DC16F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */; };
+		827220FAA0E669B42EA07549 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */; };
 		ACB1527C1A44BAA8FE8D2154 /* NavigationAndFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */; };
 		AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */; };
 /* End PBXBuildFile section */
@@ -25,11 +26,12 @@
 
 /* Begin PBXFileReference section */
 		01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VictoryFairy.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		071661147C015553CCB78E53 /* VictoryFairyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = VictoryFairyTests.xctest; path = VictoryFairyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		071661147C015553CCB78E53 /* VictoryFairyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VictoryFairyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchitectureBoundaryTests.swift; sourceTree = "<group>"; };
 		7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystemContractTests.swift; sourceTree = "<group>"; };
 		B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationAndFormattingTests.swift; sourceTree = "<group>"; };
+		E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -97,8 +99,8 @@
 				30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */,
 				7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */,
 				B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */,
+				E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */,
 			);
-			name = VictoryFairyTests;
 			path = VictoryFairyTests;
 			sourceTree = "<group>";
 		};
@@ -227,6 +229,7 @@
 				1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */,
 				AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */,
 				ACB1527C1A44BAA8FE8D2154 /* NavigationAndFormattingTests.swift in Sources */,
+				827220FAA0E669B42EA07549 /* OnboardingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

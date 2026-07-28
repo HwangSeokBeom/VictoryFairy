@@ -227,11 +227,23 @@ final class AppDataStore: ObservableObject {
         team(id: id)?.name ?? "선택 안 함"
     }
 
-    func completeOnboarding(favoriteTeamID: String?) {
-        preferences.completeOnboarding(favoriteTeamID: favoriteTeamID)
+    /// 온보딩 완료. 응원 팀과 주 관람 구장이 모두 있어야 저장된다.
+    @discardableResult
+    func completeOnboarding(favoriteTeamID: String?, primaryStadiumID: String?) -> Bool {
+        let saved = preferences.completeOnboarding(
+            favoriteTeamID: favoriteTeamID,
+            primaryStadiumID: primaryStadiumID
+        )
+        guard saved else { return false }
         Task {
             await syncPreferencesToServer()
         }
+        return true
+    }
+
+    /// 주 관람 구장만 바꾼다. 응원 팀은 그대로 둔다.
+    func updatePrimaryStadium(_ stadiumID: String?) {
+        preferences.setPrimaryStadium(stadiumID)
     }
 
     func updateFavoriteTeam(_ favoriteTeamID: String?) {
