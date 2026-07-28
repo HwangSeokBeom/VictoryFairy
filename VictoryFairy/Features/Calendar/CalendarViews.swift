@@ -153,57 +153,9 @@ struct AttendanceCalendarView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "직관 캘린더", subtitle: "날짜별 직관 기록과 결과를 확인해요") {
-                    HeaderIconButton(systemImage: "calendar.badge.plus", accessibilityLabel: "직관 기록 추가") {
-                        openEditor(date: selectedDay?.date ?? month)
-                    }
-                }
+                calendarHeader
 
                 DataStateBanner(state: dataState)
-
-                VFCard(background: VFColor.subtleSurface) {
-                    VStack(alignment: .leading, spacing: VFSpacing.md) {
-                        HStack(spacing: VFSpacing.sm) {
-                            monthButton(systemImage: "chevron.left", accessibilityLabel: "이전 달") {
-                                selectedDay = nil
-                                Task { await appData.moveCalendarMonth(by: -1) }
-                            }
-                            Button {
-                                openMonthPicker()
-                            } label: {
-                                HStack(spacing: VFSpacing.xs) {
-                                    Text(monthTitle)
-                                        .font(.system(size: 21, weight: .bold, design: .rounded))
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 12, weight: .bold))
-                                }
-                                .foregroundStyle(VFColor.bodyPrimary)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("\(monthTitle), 월 선택")
-                            .accessibilityHint("연도와 월을 직접 선택합니다")
-                            .frame(maxWidth: .infinity)
-                            monthButton(systemImage: "chevron.right", accessibilityLabel: "다음 달") {
-                                selectedDay = nil
-                                Task { await appData.moveCalendarMonth(by: 1) }
-                            }
-                        }
-
-                        HStack {
-                            Text(summaryTitle)
-                                .font(.system(.subheadline, design: .rounded).weight(.bold))
-                                .foregroundStyle(VFColor.bodyPrimary)
-                            Spacer()
-                        }
-
-                        FlowLayout(spacing: VFSpacing.xs) {
-                            summaryChip("승 \(count(.win))", color: VFColor.gameWin)
-                            summaryChip("패 \(count(.loss))", color: VFColor.gameLoss)
-                            summaryChip("무 \(count(.draw))", color: VFColor.gameDraw)
-                            summaryChip("취소 \(count(.canceled))", color: VFColor.gameCanceled)
-                        }
-                    }
-                }
 
                 viewModeToolbar
 
@@ -368,6 +320,83 @@ struct AttendanceCalendarView: View {
 
     private var favoriteTeam: KBOTeam? {
         appData.team(id: preferences.favoriteTeamID)
+    }
+
+    /// Pencil `캘린더 헤더`. 화면 제목이 곧 보고 있는 달이고, 그 아래에 이 달의 요약,
+    /// 오른쪽에 이전·다음 달 버튼이 온다.
+    private var calendarHeader: some View {
+        HStack(alignment: .top, spacing: VFSpacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Button {
+                    openMonthPicker()
+                } label: {
+                    HStack(spacing: VFSpacing.xxs) {
+                        Text(monthTitle)
+                            .font(VFTypography.display)
+                            .foregroundStyle(VFColor.bodyPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(VFColor.bodyTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(monthTitle), 월 선택")
+                .accessibilityHint("연도와 월을 직접 선택합니다")
+                .accessibilityIdentifier("calendar.monthTitle")
+
+                Text(monthSummaryText)
+                    .font(Font.system(.caption, design: .default))
+                    .foregroundStyle(VFColor.bodyTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("calendar.monthSummary")
+            }
+
+            Spacer(minLength: VFSpacing.xs)
+
+            HStack(spacing: VFSpacing.xs) {
+                monthButton(systemImage: "chevron.left", accessibilityLabel: "이전 달") {
+                    moveMonth(by: -1)
+                }
+                .accessibilityIdentifier("calendar.previousMonth")
+                monthButton(systemImage: "chevron.right", accessibilityLabel: "다음 달") {
+                    moveMonth(by: 1)
+                }
+                .accessibilityIdentifier("calendar.nextMonth")
+            }
+        }
+        .padding(.top, VFSpacing.xs)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// Pencil "이번 달 3번의 직관 · 2승 1무". 실제 집계만 쓰고 값을 지어내지 않는다.
+    private var monthSummaryText: String {
+        let visible = matchingLogs
+        guard !visible.isEmpty else { return "이번 달 기록이 없어요" }
+        var parts = ["이번 달 \(visible.count)번의 직관"]
+        let record = [
+            count(.win) > 0 ? "\(count(.win))승" : nil,
+            count(.loss) > 0 ? "\(count(.loss))패" : nil,
+            count(.draw) > 0 ? "\(count(.draw))무" : nil
+        ].compactMap { $0 }
+        if !record.isEmpty { parts.append(record.joined(separator: " ")) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// 달 이동은 뷰의 버튼 클로저가 아니라 이 한 곳에서만 한다.
+    /// 선택 날짜는 새 달에 맞춰 명시적으로 보정하고, 조용히 다른 달로 넘기지 않는다.
+    private func moveMonth(by offset: Int) {
+        let previousDay = selectedDay.map {
+            CalendarMonth.referenceCalendar().component(.day, from: $0.date)
+        }
+        selectedDay = nil
+        Task {
+            await appData.moveCalendarMonth(by: offset)
+            if let previousDay,
+               let clamped = CalendarMonth.clampedSelection(day: previousDay, in: appData.selectedCalendarMonth) {
+                selectedDay = CalendarSelectedDay(date: clamped, logs: logs(on: clamped))
+            }
+        }
     }
 
     private var summaryTitle: String {
@@ -554,19 +583,45 @@ struct AttendanceCalendarView: View {
             .clipShape(Capsule())
     }
 
+    /// Pencil `캘린더 범례`. 점 색이 무엇을 뜻하는지 글자로 함께 알린다.
+    /// 색만으로 결과를 구분하지 않기 위한 장치이기도 하다.
+    /// 글자가 커지면 한 줄에 다 들어가지 않으므로 가로 스크롤로 접근을 보장한다.
     private var legend: some View {
-        HStack(spacing: VFSpacing.md) {
-            ForEach(GameResult.allCases) { result in
-                HStack(spacing: VFSpacing.xs) {
-                    CalendarResultDot(result: result)
-                    Text(result.title)
-                        .font(.caption)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: VFSpacing.md) {
+                legendItem(color: VFColor.gameWin, title: "승리한 직관")
+                legendItem(color: VFColor.gameLoss, title: "아쉬운 직관")
+                legendItem(color: VFColor.gameDraw, title: "무승부")
+                HStack(spacing: 5) {
+                    VFHomePlateGlyph()
+                        .frame(width: 11, height: 11)
+                    Text("홈구장")
+                        .font(Font.system(.caption2, design: .default).weight(.medium))
                         .foregroundStyle(VFColor.bodySecondary)
+                        .lineLimit(1)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("홈구장 표시")
             }
+            .padding(.horizontal, VFSpacing.xxs)
+            .padding(.vertical, VFSpacing.xs)
         }
-        .padding(.horizontal, VFSpacing.xs)
-        .padding(.vertical, VFSpacing.xs)
+        .scrollClipDisabled()
+        .accessibilityIdentifier("calendar.legend")
+    }
+
+    private func legendItem(color: Color, title: String) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(title)
+                .font(Font.system(.caption2, design: .default).weight(.medium))
+                .foregroundStyle(VFColor.bodySecondary)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
     }
 
     private func selectedPreview(_ log: AttendanceLogViewState) -> some View {
@@ -765,7 +820,8 @@ private struct CalendarMonthView: View {
     var selectedDate: Date?
     let onDateTap: (Date) -> Void
 
-    private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+    /// 요일 라벨은 기준 달력과 로캘에서 가져온다. 배열을 직접 적어두지 않는다.
+    private let weekdays = CalendarMonth.weekdaySymbols()
     private let columns = Array(repeating: GridItem(.flexible(), spacing: VFSpacing.xs), count: 7)
 
     var body: some View {
@@ -796,39 +852,15 @@ private struct CalendarMonthView: View {
         }
     }
 
+    /// 달의 기하 구조는 순수 계산인 `CalendarMonth`가 만든다.
+    /// 뷰는 그 결과를 그리기만 하고 날짜를 직접 계산하지 않는다.
     private var days: [CalendarDay] {
-        let calendar = Calendar.current
-        guard let monthInterval = calendar.dateInterval(of: .month, for: month),
-              let monthRange = calendar.range(of: .day, in: .month, for: month) else {
-            return []
-        }
-
-        let firstWeekday = calendar.component(.weekday, from: monthInterval.start)
-        let leadingCount = firstWeekday - 1
-        let previousDates = (0..<leadingCount).compactMap {
-            calendar.date(byAdding: .day, value: $0 - leadingCount, to: monthInterval.start)
-        }
-        let monthDates = monthRange.compactMap { day in
-            calendar.date(byAdding: .day, value: day - 1, to: monthInterval.start)
-        }
-        let trailingCount = (7 - ((previousDates.count + monthDates.count) % 7)) % 7
-        let trailingDates = (0..<trailingCount).compactMap {
-            calendar.date(byAdding: .day, value: $0, to: monthInterval.end)
-        }
-
-        return (previousDates.map { CalendarDay(date: $0, isInDisplayedMonth: false) }
-            + monthDates.map { CalendarDay(date: $0, isInDisplayedMonth: true) }
-            + trailingDates.map { CalendarDay(date: $0, isInDisplayedMonth: false) })
+        CalendarMonth.make(containing: month).days
     }
 
     private func logs(on date: Date) -> [AttendanceLogViewState] {
         logs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
-}
-
-private struct CalendarDay: Hashable {
-    let date: Date
-    let isInDisplayedMonth: Bool
 }
 
 private struct CalendarDayCell: View {
