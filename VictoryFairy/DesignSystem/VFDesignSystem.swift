@@ -32,6 +32,18 @@ enum VFColor {
     static let nightElevated = Color(hex: "#1A2338")
     /// Pencil `night-line`. 야간 표면 위의 경계선.
     static let nightHairline = Color(hex: "#2B3652")
+    /// 야간 표면 위의 흐린 보조 아이콘·기호.
+    static let nightTertiary = Color(hex: "#5E6B8A")
+
+    // 홈 히어로 — Pencil `MatchupCard_Expanded`의 남색 그라디언트.
+    static let heroGradientTop = Color(hex: "#1B2A4C")
+    static let heroGradientBottom = Color(hex: "#0C1322")
+
+    // 필드 — Pencil 구장 스트립의 잔디 계열.
+    /// 홈 플레이트 기호.
+    static let fieldMark = Color(hex: "#8FCDAA")
+    /// 구장명 글자.
+    static let fieldLabel = Color(hex: "#B9D8C6")
 
     // 글자
     /// 본문 1차 글자색. Pencil `ink`.

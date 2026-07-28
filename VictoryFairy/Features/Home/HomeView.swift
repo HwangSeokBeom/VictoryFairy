@@ -7,10 +7,12 @@ struct HomeViewModel {
     static let empty = HomeViewModel(dashboard: .empty)
 }
 
-/// Pencil `홈` 프레임의 구조를 그대로 따른다.
-/// 워드마크 -> 인사 -> 가장 최근의 직관 -> 기록 CTA -> 시즌 스트립 -> 바로가기.
+/// Pencil `04_Home_Default_TeamSelected` 프레임의 구현.
+///
+/// 순서는 원본을 그대로 따른다.
+/// 워드마크 -> 팀 아이덴티티 헤더 -> 매치업 히어로 -> 가장 최근의 직관 -> 기록 CTA -> 시즌 스트립.
+/// 그 아래 승리요정 지수와 바로가기는 Pencil에 없지만 이미 있는 기능이라 남긴다.
 struct HomeView: View {
-    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var preferences: UserPreferencesStore
     @EnvironmentObject private var appData: AppDataStore
     let viewModel: HomeViewModel
@@ -18,28 +20,35 @@ struct HomeView: View {
     @State private var isShowingAIHelper = false
     @State private var isShowingAIDraftEditor = false
 
+    private var team: KBOTeam? { preferences.favoriteTeam }
+    private var primaryStadium: KBOStadium? { preferences.primaryStadium }
+    private var latestLog: AttendanceLogViewState? { viewModel.dashboard.recentLogs.first }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.sectionGap) {
                 wordmarkHeader
-                greetingBlock
 
-                if viewModel.dashboard.isEmpty {
-                    VFEmptyStatePanel(
-                        title: "아직 직관 기록이 없어요",
-                        message: "첫 직관의 기억부터 차곡차곡 모아드릴게요.\n사진 한 장이면 충분해요.",
-                        illustration: .glove,
-                        actionTitle: "첫 기록 남기기"
-                    ) {
-                        isShowingLogEditor = true
-                    }
-                } else {
-                    recentAttendanceSection
-                    logCTA
-                    seasonStrip
-                    fairyIndexSection
+                if let team {
+                    VFTeamIdentityHeader(
+                        team: team,
+                        seasonRecordText: seasonRecordText,
+                        primaryStadium: primaryStadium
+                    )
                 }
 
+                heroSection
+
+                if latestLog != nil {
+                    recentAttendanceSection
+                }
+
+                logCTA
+                seasonStrip
+
+                if !viewModel.dashboard.isEmpty {
+                    fairyIndexSection
+                }
                 featureShortcuts
             }
             .padding(.horizontal, VFSpacing.screenHorizontalMargin)
@@ -49,24 +58,18 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isShowingLogEditor) {
-            NavigationStack {
-                LogEditorView()
-            }
+            NavigationStack { LogEditorView() }
         }
         .sheet(isPresented: $isShowingAIHelper) {
             HomeAIHelperSheet(
-                recentLog: viewModel.dashboard.recentLogs.first,
+                recentLog: latestLog,
                 onStartDraft: {
                     isShowingAIHelper = false
-                    DispatchQueue.main.async {
-                        isShowingAIDraftEditor = true
-                    }
+                    DispatchQueue.main.async { isShowingAIDraftEditor = true }
                 },
                 onAddLog: {
                     isShowingAIHelper = false
-                    DispatchQueue.main.async {
-                        isShowingLogEditor = true
-                    }
+                    DispatchQueue.main.async { isShowingLogEditor = true }
                 }
             )
             .presentationDetents([.medium])
@@ -74,56 +77,115 @@ struct HomeView: View {
         }
         .sheet(isPresented: $isShowingAIDraftEditor) {
             NavigationStack {
-                if let recentLog = viewModel.dashboard.recentLogs.first {
-                    LogEditorView(editingLog: recentLog, startsAIPreflightOnAppear: true)
+                if let latestLog {
+                    LogEditorView(editingLog: latestLog, startsAIPreflightOnAppear: true)
                 } else {
                     LogEditorView()
                 }
             }
         }
         .vfScreenBackground()
+        .accessibilityIdentifier("home.root")
     }
 
-    // MARK: - 헤더와 인사
+    // MARK: - 워드마크
 
-    /// Pencil 홈 헤더의 워드마크. 원본의 알림 버튼은 앱에 알림 화면이 없어 넣지 않는다.
-    /// 설정은 Pencil이 정한 `마이` 탭이 담당한다.
+    /// Pencil 홈 헤더. 원본의 알림 버튼은 앱에 알림 화면이 없어 넣지 않는다.
     private var wordmarkHeader: some View {
         HStack {
             Text("승리요정")
-                .font(VFTypography.handwrittenLarge)
-                .foregroundStyle(VFColor.primaryActionDeep)
+                .font(Font.system(.title3, design: .default).weight(.heavy))
+                .foregroundStyle(VFColor.bodyPrimary)
             Spacer()
         }
         .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("home.wordmark")
     }
 
-    private var greetingBlock: some View {
-        VStack(alignment: .leading, spacing: VFSpacing.xs) {
-            Text(todayText)
-                .font(VFTypography.handwritten)
-                .foregroundStyle(VFColor.bodyTertiary)
+    /// 시즌 전적 문구. 계산은 StatisticsService가 만든 값을 읽기만 한다.
+    private var seasonRecordText: String? {
+        let stats = appData.statistics
+        guard stats.totalGames > 0 else { return nil }
+        return "시즌 \(stats.wins)승 \(stats.losses)패 \(stats.draws)무"
+    }
+
+    // MARK: - 매치업 히어로
+
+    /// Pencil 히어로는 "오늘 경기"를 보여주지만 홈에는 예정 경기 데이터원이 없다.
+    /// 없는 경기를 지어내지 않고, 실제로 있는 가장 최근 직관을 같은 구성으로 보여준다.
+    /// 기록이 없으면 팀과 주 관람 구장만으로 정직한 빈 히어로를 만든다.
+    @ViewBuilder
+    private var heroSection: some View {
+        if let log = latestLog {
+            let sides = log.resolvedMatchup.sides(favoriteTeamID: preferences.favoriteTeamID)
+            VFMatchupHeroCard(
+                statusTitle: log.result.diaryTitle,
+                statusTint: log.result.color,
+                dateText: log.dateText,
+                leading: .init(
+                    team: sides.mine,
+                    fallbackLabel: log.resolvedMatchup.firstLabel,
+                    role: "나의 팀",
+                    isFavorite: true
+                ),
+                trailing: .init(
+                    team: sides.opponent,
+                    fallbackLabel: log.resolvedMatchup.secondLabel,
+                    role: "상대",
+                    isFavorite: false
+                ),
+                centerText: log.scoreText,
+                centerSubtitle: log.seat.isEmpty ? nil : log.seat,
+                // 이 구장은 경기가 열린 곳이다. 사용자의 주 관람 구장과 다르다.
+                stadiumName: log.stadium.isEmpty ? nil : log.stadium,
+                stadium: log.recordStadium,
+                stadiumNote: nil,
+                onStadiumTap: nil
+            )
+        } else if let team {
+            emptyHero(team: team)
+        }
+    }
+
+    /// 기록이 없을 때의 히어로. 값을 지어내지 않고 팀·구장 정체성만 유지한다.
+    private func emptyHero(team: KBOTeam) -> some View {
+        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+            HStack(spacing: 5) {
+                Circle().fill(VFColor.bodyTertiary).frame(width: 6, height: 6)
+                Text("아직 직관 기록이 없어요")
+                    .font(Font.system(.caption2, design: .default).weight(.bold))
+                    .foregroundStyle(VFColor.bodyOnDark.opacity(0.7))
+            }
+            Text("첫 직관을 남기면\n여기에 경기가 올라와요")
+                .font(Font.system(.title3, design: .default).weight(.bold))
+                .foregroundStyle(VFColor.bodyOnDark)
+                .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(greetingText)
-                .font(VFTypography.display)
-                .foregroundStyle(VFColor.bodyPrimary)
-                .lineSpacing(6)
-                .fixedSize(horizontal: false, vertical: true)
+            if let primaryStadium {
+                VFStadiumGameStrip(
+                    stadiumName: primaryStadium.name,
+                    stadium: primaryStadium,
+                    trailingNote: "주 관람 구장"
+                )
+            }
         }
+        .padding(VFSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// 날짜 문자열은 공용 포매터가 만든다. View에서 날짜를 다시 계산하지 않는다.
-    private var todayText: String {
-        DateFormatter.vfHomeGreetingDate.string(from: .now)
-    }
-
-    private var greetingText: String {
-        if let teamName = appData.team(id: preferences.favoriteTeamID)?.name {
-            return "\(teamName) 팬의 기록,\n\(viewModel.dashboard.title)"
-        }
-        return viewModel.dashboard.title
+        .background(
+            LinearGradient(
+                colors: [VFColor.heroGradientTop, VFColor.heroGradientBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.panel, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VFRadius.panel, style: .continuous)
+                .stroke(VFColor.nightHairline, lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.matchupHero")
     }
 
     // MARK: - 가장 최근의 직관
@@ -131,14 +193,14 @@ struct HomeView: View {
     private var recentAttendanceSection: some View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             VFSectionHeader(title: "가장 최근의 직관")
-
-            if let recentLog = viewModel.dashboard.recentLogs.first {
+            if let log = latestLog {
                 NavigationLink {
-                    AttendancePostDetailView(log: recentLog)
+                    AttendancePostDetailView(log: log)
                 } label: {
-                    VFPolaroidCard(log: recentLog)
+                    VFPolaroidCard(log: log)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("home.recentRecord")
             }
         }
     }
@@ -147,69 +209,33 @@ struct HomeView: View {
         VFPrimaryButton(title: "오늘의 직관 남기기", systemImage: "square.and.pencil") {
             isShowingLogEditor = true
         }
+        .accessibilityIdentifier("home.recordCTA")
     }
 
     // MARK: - 시즌 스트립
 
-    /// Pencil `시즌 스트립`. 세 칸에 시즌 요약 수치를 늘어놓는다.
-    /// 글자가 커지면 가로 세 칸이 좁아지므로 세로로 접힌다.
+    /// Pencil 시즌 스트립. 값은 모두 실제 집계에서 온다.
     private var seasonStrip: some View {
-        let cells = Array(viewModel.dashboard.metrics.prefix(3).enumerated())
-        return ViewThatFits(in: .horizontal) {
-            HStack(spacing: VFSpacing.xs) {
-                ForEach(cells, id: \.element.id) { index, metric in
-                    seasonCell(metric: metric, index: index)
-                }
-            }
-            VStack(spacing: VFSpacing.sm) {
-                ForEach(cells, id: \.element.id) { index, metric in
-                    seasonCell(metric: metric, index: index)
-                }
-            }
-        }
-        .padding(.vertical, VFSpacing.sm)
-        .padding(.horizontal, VFSpacing.xs)
-        .frame(maxWidth: .infinity)
-        .background(VFColor.highlightSurface)
-        .clipShape(RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
-                .stroke(VFColor.inkOutline.opacity(0.65), lineWidth: VFStroke.hairline)
-        )
+        VFSeasonStrip(cells: seasonCells)
     }
 
-    private func seasonCell(metric: MetricViewState, index: Int) -> some View {
-        VStack(spacing: VFSpacing.xxs) {
-            VFIllustrationView(seasonCellIllustration(at: index), height: 30)
-            Text(metric.value)
-                .font(Font.system(.subheadline, design: .default).weight(.bold))
-                .foregroundStyle(VFColor.bodyPrimary)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .minimumScaleFactor(0.7)
-            Text(metric.title)
-                .font(VFTypography.badge)
-                .foregroundStyle(VFColor.bodySecondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
+    private var seasonCells: [VFSeasonStrip.Cell] {
+        let stats = appData.statistics
+        var cells: [VFSeasonStrip.Cell] = [
+            .init(value: "\(stats.totalGames)번", label: "올해 직관"),
+            .init(value: "\(stats.wins)승 \(stats.losses)패 \(stats.draws)무", label: "나의 전적")
+        ]
+        // 세 번째 칸은 실제 방문 기록이 있을 때만 보여준다.
+        if let topStadium = stats.stadiumRankings.first {
+            cells.append(.init(value: topStadium.trailing, label: topStadium.title))
+        } else if let primaryStadium {
+            cells.append(.init(value: "-", label: "\(primaryStadium.shortName) 방문"))
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(metric.title) \(metric.value)")
+        return cells
     }
 
-    /// Pencil 시즌 스트립은 칸마다 다른 일러스트를 쓴다(공·페넌트·야간조명).
-    private func seasonCellIllustration(at index: Int) -> VFIllustration {
-        switch index {
-        case 0: .baseball
-        case 1: .pennant
-        default: .stadiumLight
-        }
-    }
+    // MARK: - 승리요정 지수 (Pencil 외 기존 기능)
 
-    // MARK: - 승리요정 지수
-
-    /// Pencil에는 없지만 앱의 핵심 기능이라 종이 언어로 다시 칠해 남겨둔다.
     private var fairyIndexSection: some View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             VFSectionHeader(title: "승리요정 지수")
@@ -223,7 +249,7 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - 바로가기
+    // MARK: - 바로가기 (Pencil 외 기존 기능)
 
     private var featureShortcuts: some View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
@@ -352,9 +378,7 @@ private struct HomeAIHelperSheet: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") {
-                        dismiss()
-                    }
+                    Button("취소") { dismiss() }
                 }
             }
             .navigationTitle("AI 도우미")
@@ -364,33 +388,78 @@ private struct HomeAIHelperSheet: View {
     }
 }
 
-#Preview("홈 데이터") {
-    let preferences = UserPreferencesStore.preview(suiteName: "HomeDataPreview")
+// MARK: - 프리뷰
+
+/// 프리뷰 전용 조립. 네트워크를 타지 않고 제품 데이터 경로로 새지 않는다.
+@MainActor
+private func homePreview(
+    suite: String,
+    teamID: String = "samsung-lions",
+    stadiumID: String = "daegu-lions",
+    dashboard: HomeDashboardViewState = .sample()
+) -> some View {
+    let preferences = UserPreferencesStore.preview(
+        suiteName: suite,
+        favoriteTeamID: teamID,
+        primaryStadiumID: stadiumID
+    )
     let appData = AppDataStore(preferences: preferences)
-    NavigationStack {
-        HomeView(viewModel: .sample)
+    return NavigationStack {
+        HomeView(viewModel: HomeViewModel(dashboard: dashboard))
     }
     .environmentObject(preferences)
     .environmentObject(appData)
 }
 
-#Preview("홈 빈 상태") {
-    let preferences = UserPreferencesStore.preview(suiteName: "HomeEmptyPreview")
-    let appData = AppDataStore(preferences: preferences)
-    NavigationStack {
-        HomeView(viewModel: .empty)
-    }
-    .environmentObject(preferences)
-    .environmentObject(appData)
+#Preview("홈 · Pencil 기준 상태") {
+    homePreview(suite: "HomePencilPreview")
+}
+
+#Preview("홈 · 기록 없음") {
+    homePreview(suite: "HomeEmptyPreview", dashboard: .empty)
+}
+
+#Preview("홈 · 긴 팀·구장 이름") {
+    homePreview(suite: "HomeLongNamePreview", teamID: "hanwha-eagles", stadiumID: "daejeon-hanwha")
+}
+
+#Preview("홈 · 밝은 팀 강조색") {
+    homePreview(suite: "HomeLightAccentPreview", teamID: "hanwha-eagles", stadiumID: "daejeon-hanwha")
+}
+
+#Preview("홈 · 어두운 팀 강조색") {
+    homePreview(suite: "HomeDarkAccentPreview", teamID: "kt-wiz", stadiumID: "suwon-kt")
 }
 
 #Preview("홈 · AccessibilityXXXL") {
-    let preferences = UserPreferencesStore.preview(suiteName: "HomeXXXLPreview")
-    let appData = AppDataStore(preferences: preferences)
-    NavigationStack {
-        HomeView(viewModel: .sample)
+    homePreview(suite: "HomeXXXLPreview")
+        .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("홈 · 열 팀 아이덴티티") {
+    ScrollView {
+        VStack(spacing: VFSpacing.sm) {
+            ForEach(KBOSeed.teams) { team in
+                VFTeamIdentityHeader(
+                    team: team,
+                    seasonRecordText: "시즌 5승 2패 1무",
+                    primaryStadium: KBOStadiumSeed.recommendedStadium(forTeamID: team.id)
+                )
+            }
+        }
+        .padding(VFSpacing.md)
     }
-    .environmentObject(preferences)
-    .environmentObject(appData)
-    .environment(\.dynamicTypeSize, .accessibility5)
+    .vfScreenBackground()
+}
+
+#Preview("홈 · 아홉 구장 스트립") {
+    ScrollView {
+        VStack(spacing: VFSpacing.xs) {
+            ForEach(KBOStadiumSeed.all) { stadium in
+                VFStadiumGameStrip(stadiumName: stadium.name, stadium: stadium)
+            }
+        }
+        .padding(VFSpacing.md)
+        .background(VFColor.nightSurface)
+    }
 }
