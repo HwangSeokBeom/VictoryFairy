@@ -196,3 +196,74 @@ Pencil은 이상적인 화면 위주라, 아래는 앱 동작에 맞춰 같은 �
 시작하는 것을 확인했다. 제대로 고치려면 테스트 훅이 해당 저장소까지 초기화해야 하는데,
 이번 작업 범위에서 건드리지 않기로 한 영속성 계층을 수정해야 한다. 실패를 숨기지 않고
 `XCTSkip`으로 명시했으며, 통과로 보고하지 않는다.
+
+---
+
+## 홈 — 04_Home_Default_TeamSelected (프레임 단위 구현 완료)
+
+- Pencil 원본 SHA-256 `04e9f6710479b708705425d5a792149d94a9131371d6dacadf6aadf9d6c49874` (변동 없음)
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 최종 상태 **FRAME_LEVEL_IMPLEMENTATION**
+
+### 프레임 → 소스 매핑
+
+- `04_Home_Default_TeamSelected` → `Features/Home/HomeView.swift`
+- `TeamIdentityHeader` → `VFTeamIdentityHeader` (SharedComponents/VFHomeComponents.swift)
+- `MatchupCard_Expanded` → `VFMatchupHeroCard`
+- 매치업 카드 내 `구장 스트립` → `VFStadiumGameStrip`
+- `Glyph_HomePlate` → `VFHomePlateGlyph`
+- `시즌 스트립` → `VFSeasonStrip`
+- `폴라로이드 카드` → 기존 `VFPolaroidCard`
+- `기록 CTA` → 기존 `VFPrimaryButton`
+
+순서도 원본을 따른다: 워드마크 → 팀 아이덴티티 헤더 → 매치업 히어로 →
+가장 최근의 직관 → 기록 CTA → 시즌 스트립. 그 아래 승리요정 지수와 바로가기는
+Pencil에 없지만 이미 있는 기능이라 삭제하지 않고 남겼다.
+
+### 팀 아이덴티티
+
+레일 + 심볼 + 팀명 + "응원 중" 칩이 함께 정체성을 만든다. 색 하나에 기대지 않는다.
+`Color.vfOnDarkVariant`가 팀 색을 밝은 쪽으로 유도해 남색 카드 위 대비를 확보하므로,
+팀마다 별도 색을 적어두지 않는다. 열 팀 모두 단위 테스트와 UI 테스트로 확인한다.
+
+### 구장 아이덴티티
+
+- **주 관람 구장**: 팀 아이덴티티 헤더 메타("주 관람 대구")와 빈 히어로의 구장 스트립
+- **경기 구장**: 히어로의 구장 스트립. 표시 중인 기록이 실제로 열린 곳이다.
+
+둘을 섞지 않는다는 것을 `testRecordStadiumIsNotConflatedWithPrimaryStadium`이 지킨다.
+구장 그래픽은 추상 모티프이며 실제 구조물을 그린 것이 아니다. 수용 인원·주소·좌표·
+교통·주차·날씨는 만들지 않았다.
+
+### 실제 데이터 편차 (의도한 것)
+
+Pencil 히어로는 "오늘 경기"(상대·시작 시각·선발 투수)를 보여주지만, 홈에는 예정 경기
+데이터원이 없다. 유일한 경기 조회는 기록 작성용 후보 검색이라 홈의 데이터원이 아니다.
+없는 경기를 지어내지 않고, 히어로 자리에 **실제 최근 직관**을 같은 구성으로 넣었다.
+기록이 없으면 팀과 주 관람 구장만 남긴 정직한 빈 히어로를 보여준다.
+Pencil 표본 값(원태인·네일·4.16 THU·18:30·삼성 6 : 3 LG·8번)이 제품 코드에 들어가지
+않았음을 테스트가 확인한다.
+
+### 상태 범위
+
+개인화 성공, 기록 없음(빈 히어로 + 0 집계), 사진 없는 기록, 긴 한글 팀·구장 이름,
+좁은 폭, AccessibilityXXXL. 승/패/무 결과는 히어로 상태 배지와 결과 색으로 구분되며
+글자가 함께 있어 색에만 기대지 않는다.
+
+### 접근성
+
+팀 헤더는 접근성 글자 크기에서 세로로 접히고, 팀명·메타·"응원 중"을 자르지 않는다.
+장식 벡터(레일·심볼·플레이트)는 VoiceOver에서 숨기고, 카드 단위로 라벨과 값을 준다.
+안정 식별자: `home.root`, `home.wordmark`, `home.teamIdentity`, `home.matchupHero`,
+`home.gameStadium`, `home.seasonStrip`, `home.recordCTA`, `home.recentRecord`.
+
+### 검증 근거
+
+- 단위 76개 통과(HomeTests 11 포함), UI 20개 통과 + 온보딩 15개 건너뜀
+- 캡처: 기본 홈, 밝은 팀 강조색(한화), 어두운 팀 강조색(KT), AccessibilityXXXL,
+  좁은 폭(SE 375pt)
+- AccessibilityXXXL 캡처에서 팀명 잘림과 칩 붕괴를 발견해 수정한 뒤 재확인
+- Debug(Dev)·Release(Production) 빌드, 아이콘·릴리스 게이트 모두 통과
+
+### 남지 않은 것
+
+홈 자체에 남은 과제는 없다. 나머지 아홉 개 전용 화면은 여전히 토큰만 적용된 상태다.
