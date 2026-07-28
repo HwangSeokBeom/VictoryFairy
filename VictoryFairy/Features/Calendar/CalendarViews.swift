@@ -135,6 +135,7 @@ struct AttendanceCalendarView: View {
     var month = Date.vfDate(year: 2026, month: 4, day: 1)
     @AppStorage("calendarViewMode") private var calendarViewModeRaw = CalendarViewMode.basic.rawValue
     @State private var selectedDay: CalendarSelectedDay?
+    @State private var detailRoute: AttendanceLogViewState?
     @State private var editorDate: Date?
     @State private var isShowingLogEditor = false
     @State private var isShowingFilters = false
@@ -167,18 +168,7 @@ struct AttendanceCalendarView: View {
 
                 legend
 
-                if shouldShowFilteredEmptyState {
-                    EmptyStateView(
-                        title: emptyStateTitle,
-                        message: emptyStateMessage,
-                        buttonTitle: "이 날짜에 기록 추가",
-                        systemImage: "calendar.badge.plus"
-                    ) {
-                        openEditor(date: selectedDay?.date ?? month)
-                    }
-                } else if let log = selectedDay?.logs.first ?? matchingLogs.first {
-                    selectedPreview(log)
-                }
+                selectedDateDetail
             }
             .padding(VFSpacing.lg)
             .vfTabContentPadding()
@@ -222,6 +212,10 @@ struct AttendanceCalendarView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
+        // Pencil 섹션 헤더의 "자세히"가 실제로 기존 기록 상세 경로를 연다.
+        .navigationDestination(item: $detailRoute) { log in
+            AttendancePostDetailView(log: log)
+        }
         .vfScreenBackground()
     }
 
@@ -622,6 +616,78 @@ struct AttendanceCalendarView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
+    }
+
+    /// Pencil `선택일 미리보기`. 섹션 헤더와 기록 카드 두 조각으로 이루어진다.
+    /// 카드는 피드와 같은 `VFRecordCard`라 팀·구장 표현이 앱 전체에서 일치한다.
+    @ViewBuilder
+    private var selectedDateDetail: some View {
+        let presentation = selectedDatePresentation
+        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+            VFSectionHeader(
+                title: presentation.title,
+                actionTitle: presentation.primaryRecord == nil ? nil : "자세히",
+                action: presentation.primaryRecord == nil ? nil : {
+                    detailRoute = presentation.primaryRecord
+                }
+            )
+            .accessibilityIdentifier("calendar.detailHeader")
+
+            if let record = presentation.primaryRecord {
+                NavigationLink {
+                    AttendancePostDetailView(log: record)
+                } label: {
+                    VFRecordCard(log: record)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("calendar.detailRecord")
+
+                // 같은 날 기록이 더 있으면 개수를 숨기지 않고 알린다.
+                if presentation.eventCount > 1 {
+                    Text("이 날 기록 \(presentation.eventCount)개")
+                        .font(VFTypography.metadata)
+                        .foregroundStyle(VFColor.bodySecondary)
+                        .accessibilityIdentifier("calendar.detailEventCount")
+                }
+            } else {
+                selectedDateEmptyDetail(presentation)
+            }
+        }
+        .accessibilityIdentifier("calendar.selectedDetail")
+    }
+
+    /// 고른 날에 기록이 없을 때. 다른 구장이나 경기를 지어내지 않고 기록 추가만 권한다.
+    private func selectedDateEmptyDetail(_ presentation: CalendarSelectedDatePresentation) -> some View {
+        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+            Text(presentation.emptyMessage)
+                .font(VFTypography.supporting)
+                .foregroundStyle(VFColor.bodySecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            VFSecondaryButton(title: "이 날짜에 기록 추가", systemImage: "calendar.badge.plus") {
+                openEditor(date: presentation.date)
+            }
+            .accessibilityIdentifier("calendar.detailAddRecord")
+        }
+        .padding(VFSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(VFColor.elevatedSurface)
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
+                .stroke(VFColor.hairline, lineWidth: 1)
+        )
+        .accessibilityIdentifier("calendar.detailEmpty")
+    }
+
+    /// 선택일 표시에 필요한 값만 모은 의미 모델. 색이나 뷰는 담지 않는다.
+    private var selectedDatePresentation: CalendarSelectedDatePresentation {
+        let date = selectedDay?.date ?? month
+        let events = selectedDay?.logs ?? []
+        return CalendarSelectedDatePresentation(
+            date: date,
+            events: events,
+            hasSelection: selectedDay != nil
+        )
     }
 
     private func selectedPreview(_ log: AttendanceLogViewState) -> some View {

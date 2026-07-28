@@ -138,3 +138,58 @@ struct CalendarMonth: Equatable {
         return Array(symbols[offset...]) + Array(symbols[..<offset])
     }
 }
+
+/// 선택한 날짜를 보여주기 위한 의미 모델.
+///
+/// 색이나 뷰를 담지 않고, 화면이 그릴 때 필요한 값과 문구만 정리한다.
+/// 같은 날 기록이 여럿이면 하나도 버리지 않고 모두 들고 있으면서, 대표로 보여줄
+/// 하나만 결정적으로 고른다.
+struct CalendarSelectedDatePresentation: Equatable {
+    let date: Date
+    /// 그 날의 모든 기록. 개수를 접근성으로 알릴 때 쓴다.
+    let events: [AttendanceLogViewState]
+    /// 사용자가 날짜를 직접 골랐는지. 고르지 않았으면 달 전체 맥락이다.
+    let hasSelection: Bool
+
+    /// 대표 기록. 최신순, 같은 시각이면 ID로 순서를 고정해 매번 같은 것이 뽑힌다.
+    var primaryRecord: AttendanceLogViewState? {
+        events.sorted { lhs, rhs in
+            if lhs.date != rhs.date { return lhs.date > rhs.date }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }.first
+    }
+
+    var eventCount: Int { events.count }
+
+    /// Pencil "4월 12일의 기억". 날짜를 고르지 않았으면 달 맥락을 알린다.
+    var title: String {
+        guard hasSelection else { return "이 달의 기록" }
+        return "\(DateFormatter.vfCalendarDayTitle.string(from: date))의 기억"
+    }
+
+    var emptyMessage: String {
+        hasSelection
+            ? "이 날의 직관 기록이 아직 없어요."
+            : "날짜를 누르면 그 날의 기록을 볼 수 있어요."
+    }
+
+    /// VoiceOver가 읽을 한 문장 요약.
+    var accessibilitySummary: String {
+        guard let record = primaryRecord else { return "\(title), 기록 없음" }
+        var parts = [title, record.matchup, record.result.diaryTitle]
+        if !record.stadium.isEmpty { parts.append(record.stadium) }
+        if eventCount > 1 { parts.append("기록 \(eventCount)개") }
+        return parts.joined(separator: ", ")
+    }
+}
+
+extension DateFormatter {
+    /// 선택일 섹션 제목에 쓰는 날짜. 앱 전체와 같은 ko_KR / Asia/Seoul 기준이다.
+    static let vfCalendarDayTitle: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "M월 d일"
+        return formatter
+    }()
+}
