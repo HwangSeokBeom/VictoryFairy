@@ -401,3 +401,34 @@ Pencil 캘린더는 승리 점을 금색(`gold`)으로 그리지만, 금색은 �
 - 캘린더 좁은 폭 / AccessibilityXXXL 확인
 - 캘린더 캡처 매트릭스(26장 중 2장만 확보)
 - 앱 타깃 파일 추가 이후 Release 아카이브 재확인
+
+### 캘린더 — 결정적 픽스처와 디자인 전용 상태 (검증 패스)
+
+- `Services/VFCalendarFixtures.swift` — 시나리오 22개. 파일 전체가 `#if DEBUG`다.
+  고정 Asia/Seoul 날짜와 시드 UUID만 쓰고, SwiftData에 쓰지 않으며 사진 파일도 만들지
+  않는다. 반복 실행해도 시뮬레이터에 흔적이 남지 않는다.
+- `VFUITestConfiguration`에 `calendarLogs` / `calendarMonth` / `calendarState` /
+  `calendarPreselectedDate` 이음새를 추가했다. DEBUG 블록이 사라지면 인자를 그대로
+  돌려주므로 제품 대체 데이터가 될 수 없다.
+- **디자인 전용 상태**: 예정·진행 중·연기는 제품에 데이터원이 없다.
+  `CalendarDesignOnlyStatus`로만 존재하며 DEBUG 픽스처를 통해서만 그려진다.
+  제품의 `GameResult`에서는 나올 수 없고, 시각으로 추론하지도 않는다.
+- **픽스처 활성화 표식**: 화면에 `calendar.scenario.<이름>` 요소를 심어, 요청한 픽스처가
+  조용히 제품 상태로 되돌아갔는지 UI 테스트가 화면에서 확인할 수 있게 했다.
+  (온보딩에서 실행 인자만 믿었다가 놓쳤던 실패 방식을 막기 위한 것이다.)
+
+### 캘린더 — 이 패스에서 고친 결함
+
+날짜를 선택하면 `selectedDay`가 `.sheet(item:)`도 함께 열어, Pencil 인라인 선택일
+상세를 시트가 덮어버렸다. 첫 픽스처 캡처에서 재현했다. 인라인 상세가 구현된 지금
+그 시트는 역할이 겹치므로 자동 표시와 도달 불가능해진 `CalendarDayDetailSheet`를
+함께 제거했다. 시트가 하던 두 가지(기록 카드, "이 날짜에 기록 추가")는 인라인 상세에
+모두 있다.
+
+### 캘린더 — 아직 남은 검증
+
+- 캘린더 XCUITest 스위트(56개 요구, 0개 작성)
+- 좁은 폭 / AccessibilityXXXL 캘린더 확인
+- 캡처 매트릭스(28장 중 3장 확보)
+- 앱 타깃 파일 추가 이후 Release 아카이브 재실행
+- 아카이브 바이너리 대상 픽스처 심볼 제외 게이트
