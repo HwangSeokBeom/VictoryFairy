@@ -104,9 +104,18 @@ final class NavigationAndFormattingTests: XCTestCase {
         XCTAssertTrue(FeedViewModel.monthSections(from: []).isEmpty)
     }
 
+    /// 요약 문구는 실제 기록 수만 쓴다.
+    /// 시즌 라벨과 전적은 화면이 집계에서 받아 넘기므로 여기서는 생략해 확인한다.
     func testFeedSummaryNeverInventsCounts() {
-        XCTAssertEqual(FeedViewModel(logs: []).summaryText, "아직 기록이 없어요")
-        XCTAssertEqual(FeedViewModel(logs: [makeLog(year: 2026, month: 4, day: 1)]).summaryText, "1개의 기억")
+        XCTAssertEqual(
+            FeedViewModel(logs: []).summaryText(seasonLabel: nil, recordText: nil),
+            "아직 기록이 없어요"
+        )
+        XCTAssertEqual(
+            FeedViewModel(logs: [makeLog(year: 2026, month: 4, day: 1)])
+                .summaryText(seasonLabel: nil, recordText: nil),
+            "1개의 기록"
+        )
     }
 
     // MARK: - 상태 모델
