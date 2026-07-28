@@ -88,7 +88,6 @@ struct VFPolaroidCard: View {
 /// 세로 배치로 바꾼다. 정보는 하나도 숨기지 않는다.
 struct VFRecordCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let log: AttendanceLogViewState
 
     var body: some View {
@@ -100,10 +99,10 @@ struct VFRecordCard: View {
             }
         }
         .background(VFColor.elevatedSurface)
-        .clipShape(RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
-                .stroke(VFColor.hairline, lineWidth: VFStroke.hairline)
+            RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
+                .stroke(VFColor.hairline, lineWidth: 1)
         )
         .shadow(color: VFShadow.cardColor, radius: VFShadow.cardRadius, y: VFShadow.cardOffsetY)
         .accessibilityElement(children: .combine)
@@ -152,8 +151,8 @@ struct VFRecordCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(weekdayText)
-                .font(VFTypography.handwritten)
-                .foregroundStyle(VFColor.primaryActionDeep)
+                .font(Font.system(.caption2, design: .default))
+                .foregroundStyle(VFColor.bodyTertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -182,15 +181,16 @@ struct VFRecordCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if log.ourScore != nil, log.opponentScore != nil {
                     Text(log.scoreText)
-                        .font(VFTypography.numericSupporting)
-                        .foregroundStyle(VFColor.primaryActionDeep)
+                        .font(Font.system(.callout, design: .default).weight(.bold).monospacedDigit())
+                        .foregroundStyle(scoreTint)
                 }
             }
 
+            // Pencil은 구장 줄을 잔디색 세미볼드로 올려 회색 메타데이터에서 벗어나게 한다.
             if !metaText.isEmpty {
                 Text(metaText)
-                    .font(VFTypography.metadata)
-                    .foregroundStyle(VFColor.bodyTertiary)
+                    .font(Font.system(.caption, design: .default).weight(.semibold))
+                    .foregroundStyle(VFColor.supportAccent)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -206,34 +206,43 @@ struct VFRecordCard: View {
         .padding(dynamicTypeSize.isAccessibilitySize ? 0 : 14)
     }
 
-    /// Pencil 사진 영역: 살짝 기울인 사진 위에 테이프와 결과 스탬프를 겹친다.
+    /// Pencil 사진 영역. 최신 문서에서는 기울기와 테이프가 사라지고, 사진 위에
+    /// 결과 스탬프만 겹친다. 사진이 없으면 잔디색 판과 이미지 기호를 보여준다.
     private var photoCorner: some View {
         ZStack {
             ZStack {
                 if let ref = log.photoLocalRefs.first {
                     AttachmentPhotoView(ref: ref, target: .editorThumbnail)
                 } else {
-                    VFColor.subtleSurface
+                    VFColor.supportAccentPale
+                    Image(systemName: "photo")
+                        .font(.system(size: 20, weight: .regular))
+                        .foregroundStyle(VFColor.bodyTertiary)
                 }
             }
             .frame(width: 66, height: 80)
             .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .stroke(VFColor.elevatedSurface, lineWidth: 5)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(VFColor.elevatedSurface, lineWidth: 3)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .shadow(color: VFShadow.cardColor, radius: 6, y: 2)
-            .vfTilt(VFTilt.photo, reduceMotion: reduceMotion)
-
-            VFTapeStrip(width: 40, tilt: -7)
-                .offset(y: -38)
 
             VFResultStamp(result: log.result, size: 40)
                 .offset(x: 20, y: 26)
         }
         .frame(maxHeight: .infinity)
         .accessibilityHidden(true)
+    }
+
+    /// 스코어 색. 승은 결과색, 그 밖에는 잉크 계열로 눌러 결과를 색으로만 말하지 않는다.
+    private var scoreTint: Color {
+        switch log.result {
+        case .win: VFColor.primaryActionDeep
+        case .loss: VFColor.deepAccent
+        case .draw, .canceled: VFColor.bodySecondary
+        }
     }
 
     // MARK: 표시 문자열

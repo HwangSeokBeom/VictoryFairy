@@ -48,11 +48,11 @@ enum FeedResultFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: "전체 결과"
-        case .win: "승"
-        case .loss: "패"
-        case .draw: "무"
-        case .canceled: "취소"
+        case .all: "전체"
+        case .win: "승리한 날"
+        case .loss: "아쉬운 날"
+        case .draw: "비긴 날"
+        case .canceled: "취소된 날"
         }
     }
 

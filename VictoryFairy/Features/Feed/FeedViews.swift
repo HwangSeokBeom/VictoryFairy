@@ -2,10 +2,12 @@ import SwiftUI
 
 /// 피드를 월 단위로 끊어 보여주기 위한 구간.
 struct FeedMonthSection: Identifiable, Equatable {
-    /// "2026-04" 형태의 안정 키.
+    /// "2026-04" 형태의 안정 키. 정렬도 이 값으로 한다.
     let id: String
-    /// Pencil 월 구분 헤더에 찍히는 라벨. 예: "4월".
+    /// Pencil 월 구분 헤더의 한글 라벨. 예: "4월".
     let title: String
+    /// 같은 헤더의 영문 라벨. 예: "APRIL".
+    let romanTitle: String
     let logs: [AttendanceLogViewState]
 }
 
@@ -23,22 +25,43 @@ struct FeedViewModel {
         Self.monthSections(from: logs)
     }
 
+    /// 기록을 월별로 묶는다.
+    ///
+    /// 묶는 기준은 미리 만들어둔 표시 문자열이 아니라 `date`라는 의미 있는 값이다.
+    /// 최신 월이 먼저 오고, 월 안에서도 최신 기록이 먼저 온다. 날짜가 같으면
+    /// 기록 ID로 순서를 고정해 실행할 때마다 결과가 흔들리지 않게 한다.
     static func monthSections(from logs: [AttendanceLogViewState]) -> [FeedMonthSection] {
         let grouped = Dictionary(grouping: logs) { log in
             DateFormatter.vfFeedMonthKey.string(from: log.date)
         }
         return grouped
             .map { key, value in
-                let sorted = value.sorted { $0.date > $1.date }
-                let title = sorted.first.map { DateFormatter.vfFeedMonthLabel.string(from: $0.date) } ?? key
-                return FeedMonthSection(id: key, title: title, logs: sorted)
+                let sorted = value.sorted { lhs, rhs in
+                    if lhs.date != rhs.date { return lhs.date > rhs.date }
+                    return lhs.id.uuidString < rhs.id.uuidString
+                }
+                let reference = sorted.first?.date
+                return FeedMonthSection(
+                    id: key,
+                    title: reference.map { DateFormatter.vfFeedMonthLabel.string(from: $0) } ?? key,
+                    romanTitle: reference.map {
+                        DateFormatter.vfFeedMonthRoman.string(from: $0).uppercased()
+                    } ?? "",
+                    logs: sorted
+                )
             }
             .sorted { $0.id > $1.id }
     }
 
     /// Pencil 피드 헤더의 부제. 실제 기록 수만 쓰고 값을 지어내지 않는다.
-    var summaryText: String {
-        logs.isEmpty ? "아직 기록이 없어요" : "\(logs.count)개의 기억"
+    /// 시즌 라벨과 전적은 화면이 실제 집계에서 받아 넘긴다.
+    func summaryText(seasonLabel: String?, recordText: String?) -> String {
+        guard !logs.isEmpty else { return "아직 기록이 없어요" }
+        var parts: [String] = []
+        if let seasonLabel, !seasonLabel.isEmpty { parts.append(seasonLabel) }
+        parts.append("\(logs.count)개의 기록")
+        if let recordText, !recordText.isEmpty { parts.append(recordText) }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -47,6 +70,16 @@ extension DateFormatter {
     static let vfFeedMonthKey: DateFormatter = vfFeedMonth(format: "yyyy-MM")
     /// 월 구분 헤더 라벨.
     static let vfFeedMonthLabel: DateFormatter = vfFeedMonth(format: "M월")
+
+    /// Pencil "4월 APRIL"의 영문 부분.
+    /// 기기 언어와 무관하게 같은 영문이 나오도록 고정 로캘을 쓴다.
+    static let vfFeedMonthRoman: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "MMMM"
+        return formatter
+    }()
 
     private static func vfFeedMonth(format: String) -> DateFormatter {
         let formatter = DateFormatter()
@@ -71,26 +104,7 @@ struct FeedView: View {
                 header
                 filterRow
                 DataStateBanner(state: viewModel.dataState)
-
-                if viewModel.logs.isEmpty {
-                    emptyState
-                } else {
-                    ForEach(viewModel.monthSections) { section in
-                        Section {
-                            ForEach(section.logs) { log in
-                                NavigationLink {
-                                    AttendancePostDetailView(log: log)
-                                } label: {
-                                    VFRecordCard(log: log)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        } header: {
-                            VFMonthDivider(title: section.title)
-                                .padding(.top, VFSpacing.xxs)
-                        }
-                    }
-                }
+                content
             }
             .padding(.horizontal, VFSpacing.screenHorizontalMargin)
             .padding(.top, VFSpacing.xxs)
@@ -117,6 +131,48 @@ struct FeedView: View {
         .vfScreenBackground()
     }
 
+    /// Pencil 피드 본문. 상태에 따라 목록·로딩·빈 상태·오류 중 하나를 보여준다.
+    /// 어떤 상태에서도 제목·필터·추가 버튼은 위에 그대로 남는다.
+    @ViewBuilder
+    private var content: some View {
+        switch viewModel.dataState {
+        case .loading where viewModel.logs.isEmpty:
+            VFLoadingPanel(message: "직관 기록을 불러오는 중이에요")
+                .accessibilityIdentifier("feed.loading")
+        case .error(let message) where viewModel.logs.isEmpty:
+            VFErrorPanel(message: message) {
+                Task { await appData.refreshContent() }
+            }
+            .accessibilityIdentifier("feed.error")
+        default:
+            if viewModel.logs.isEmpty {
+                emptyState
+            } else {
+                recordSections
+            }
+        }
+    }
+
+    private var recordSections: some View {
+        ForEach(viewModel.monthSections) { section in
+            Section {
+                ForEach(section.logs) { log in
+                    NavigationLink {
+                        AttendancePostDetailView(log: log)
+                    } label: {
+                        VFRecordCard(log: log)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("feed.record.\(log.id.uuidString)")
+                }
+            } header: {
+                VFMonthDivider(title: section.title, romanTitle: section.romanTitle)
+                    .padding(.top, VFSpacing.xxs)
+                    .accessibilityIdentifier("feed.month.\(section.id)")
+            }
+        }
+    }
+
     private var header: some View {
         HStack(alignment: .top, spacing: VFSpacing.sm) {
             VStack(alignment: .leading, spacing: 2) {
@@ -124,8 +180,8 @@ struct FeedView: View {
                     .font(VFTypography.display)
                     .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("\(appData.selectedSeasonLabel), \(viewModel.summaryText)")
-                    .font(VFTypography.handwritten)
+                Text(summaryText)
+                    .font(Font.system(.caption, design: .default))
                     .foregroundStyle(VFColor.bodyTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -133,9 +189,20 @@ struct FeedView: View {
             VFProminentIconButton(systemImage: "plus", accessibilityLabel: "직관 기록 추가") {
                 isShowingLogEditor = true
             }
+            .accessibilityIdentifier("feed.addRecord")
         }
         .padding(.top, VFSpacing.xs)
         .accessibilityElement(children: .contain)
+    }
+
+    /// Pencil "2026 시즌 · 8개의 기록 · 5승 2패 1무".
+    /// 전적은 이미 집계된 통계에서 읽고, 화면에서 다시 세지 않는다.
+    private var summaryText: String {
+        let stats = appData.statistics
+        let record = stats.totalGames > 0
+            ? "\(stats.wins)승 \(stats.losses)패 \(stats.draws)무"
+            : nil
+        return viewModel.summaryText(seasonLabel: appData.selectedSeasonLabel, recordText: record)
     }
 
     private var filterRow: some View {
@@ -194,6 +261,9 @@ struct FeedView: View {
         ) {
             isShowingLogEditor = true
         }
+        .accessibilityIdentifier(
+            viewModel.selectedResultFilter == .all ? "feed.empty" : "feed.filteredEmpty"
+        )
     }
 }
 

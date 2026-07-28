@@ -65,7 +65,10 @@ enum MainTab: String, Hashable, CaseIterable {
 struct MainTabView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var appData: AppDataStore
-    @State private var selectedTab: MainTab = .home
+    // UI 테스트가 특정 탭에서 바로 시작할 수 있게 한다.
+    // Release에서는 `initialTabRawValue`가 항상 nil이라 언제나 홈에서 시작한다.
+    @State private var selectedTab: MainTab =
+        VFUITestConfiguration.initialTabRawValue.flatMap(MainTab.init(rawValue:)) ?? .home
 
     var body: some View {
         selectedContent
@@ -93,7 +96,16 @@ struct MainTabView: View {
             .accessibilityIdentifier(MainTab.home.screenIdentifier)
         case .feed:
             NavigationStack {
-                FeedView(viewModel: FeedViewModel(logs: appData.feedLogs, selectedResultFilter: appData.selectedFeedResultFilter, dataState: appData.feedState))
+                // UI 테스트 픽스처 이음새. Release 빌드에서는 두 함수가 인자를 그대로
+                // 돌려주므로 제품 경로에는 아무 영향이 없다.
+                FeedView(viewModel: FeedViewModel(
+                    logs: VFUITestConfiguration.feedLogs(
+                        appData.feedLogs,
+                        filter: appData.selectedFeedResultFilter
+                    ),
+                    selectedResultFilter: appData.selectedFeedResultFilter,
+                    dataState: VFUITestConfiguration.feedState(appData.feedState)
+                ))
             }
             .accessibilityIdentifier(MainTab.feed.screenIdentifier)
         case .calendar:

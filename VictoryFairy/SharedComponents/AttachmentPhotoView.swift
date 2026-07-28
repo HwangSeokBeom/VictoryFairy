@@ -22,8 +22,13 @@ struct AttachmentPhotoView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Rectangle()
-                    .fill(VFColor.hairline.opacity(0.35))
+                // 사진 파일이 사라졌거나 아직 읽지 못한 경우.
+                // 빈 회색 사각형 대신 사진 없음과 같은 자리표시자를 써서
+                // 무엇이 비어 있는지 알 수 있게 한다.
+                VFColor.supportAccentPale
+                Image(systemName: "photo")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(VFColor.bodyTertiary)
             }
         }
         .task(id: ref) {

@@ -140,7 +140,8 @@ struct VFChip: View {
     }
 }
 
-/// Pencil 피드 헤더의 `기록 추가` 버튼. 산호색 원에 잉크 윤곽선.
+/// Pencil 피드 헤더의 `기록 추가` 버튼.
+/// 금색 원에 남색 기호. 최신 문서에서는 윤곽선이 사라지고 금색 글로우만 남는다.
 struct VFProminentIconButton: View {
     let systemImage: String
     let accessibilityLabel: String
@@ -150,27 +151,36 @@ struct VFProminentIconButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: VFIconSize.large, weight: .semibold))
-                .foregroundStyle(VFColor.bodyOnDark)
+                .foregroundStyle(VFColor.nightSurface)
                 .frame(width: VFControl.minimumTouchTarget, height: VFControl.minimumTouchTarget)
                 .background(VFColor.primaryAction)
                 .clipShape(Circle())
-                .overlay(Circle().stroke(VFColor.inkOutline, lineWidth: 1.4))
-                .shadow(color: VFShadow.buttonColor, radius: VFShadow.buttonRadius, y: VFShadow.buttonOffsetY)
+                .shadow(color: VFColor.primaryAction.opacity(0.30), radius: 12, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
     }
 }
 
-/// Pencil 피드의 월 구분 헤더. 손글씨 월 라벨 옆으로 가는 선이 이어진다.
+/// Pencil 피드의 월 구분 헤더.
+/// 최신 문서는 "4월 APRIL"처럼 한글과 영문 월을 함께 적고 옆으로 가는 선을 잇는다.
 struct VFMonthDivider: View {
+    /// 한글 월 라벨. 예: "4월".
     let title: String
+    /// 영문 월 라벨. 예: "APRIL". 비우면 한글만 보여준다.
+    var romanTitle: String?
+
+    private var label: String {
+        guard let romanTitle, !romanTitle.isEmpty else { return title }
+        return "\(title) \(romanTitle)"
+    }
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(title)
-                .font(VFTypography.handwrittenLarge)
-                .foregroundStyle(VFColor.bodySecondary)
+            Text(label)
+                .font(Font.system(.footnote, design: .default).weight(.heavy))
+                .foregroundStyle(VFColor.bodyTertiary)
+                .fixedSize(horizontal: false, vertical: true)
             Rectangle()
                 .fill(VFColor.hairline)
                 .frame(height: 1)
