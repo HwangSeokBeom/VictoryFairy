@@ -9,16 +9,16 @@ import SwiftUI
 /// 대체하지 않고, 화면에 칠할 색만 담당한다.
 enum VFTeamAccent {
     private static let byTeamID: [String: Color] = [
-        "lg-twins": Color(hex: "#C6564E"),
-        "doosan-bears": Color(hex: "#2F3D5C"),
-        "kiwoom-heroes": Color(hex: "#7E4B52"),
-        "ssg-landers": Color(hex: "#D07A6A"),
-        "kt-wiz": Color(hex: "#4A4753"),
-        "hanwha-eagles": Color(hex: "#C8743C"),
-        "samsung-lions": Color(hex: "#4A6C9B"),
-        "kia-tigers": Color(hex: "#B23A34"),
-        "lotte-giants": Color(hex: "#8390AE"),
-        "nc-dinos": Color(hex: "#5E7C93")
+        "lg-twins": Color(hex: "#B5195B"),
+        "doosan-bears": Color(hex: "#1A2C55"),
+        "kiwoom-heroes": Color(hex: "#7A1F33"),
+        "ssg-landers": Color(hex: "#CE4A2D"),
+        "kt-wiz": Color(hex: "#2E2E36"),
+        "hanwha-eagles": Color(hex: "#E5691F"),
+        "samsung-lions": Color(hex: "#1E63C4"),
+        "kia-tigers": Color(hex: "#C42B26"),
+        "lotte-giants": Color(hex: "#1F3E73"),
+        "nc-dinos": Color(hex: "#1F5B78")
     ]
 
     /// 팀 ID에 해당하는 강조색. 알 수 없는 팀이면 중립 잉크색으로 되돌린다.

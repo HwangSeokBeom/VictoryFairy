@@ -14,68 +14,80 @@ import UIKit
 /// 화면 배경과 표면, 글자, 강조에 쓰는 의미 기반 색 토큰.
 enum VFColor {
     // 배경 레이어
-    /// 앱 전체 바탕이 되는 종이색. Pencil `paper`.
-    static let appBackground = Color(hex: "#F8F4EB")
+    /// 앱 전체 바탕. Pencil `paper`.
+    static let appBackground = Color(hex: "#F4F4F2")
     /// 카드·시트처럼 배경에서 한 단계 떠오른 표면. Pencil `surface`.
-    static let elevatedSurface = Color(hex: "#FFFDF8")
+    static let elevatedSurface = Color(hex: "#FFFFFF")
     /// 표면 위에 다시 얹는 은은한 톤 블록. Pencil `cream`.
-    static let subtleSurface = Color(hex: "#F1EADC")
+    static let subtleSurface = Color(hex: "#EAEAE6")
     /// 강조 스트립·선택 행에 쓰는 따뜻한 톤. Pencil `butter-pale`.
-    static let highlightSurface = Color(hex: "#F8EFD5")
-    /// 반투명 표면(탭바 등). Pencil 탭바 `#FFFDF8F0`.
-    static let translucentSurface = Color(hex: "#FFFDF8").opacity(0.94)
+    static let highlightSurface = Color(hex: "#F6EEDC")
+    /// 반투명 표면(탭바 등).
+    static let translucentSurface = Color(hex: "#FFFFFF").opacity(0.94)
+
+    // 야간 표면 — 온보딩 웰컴·완료, 시즌 커버, 스플래시가 쓰는 어두운 무대.
+    /// Pencil `night`.
+    static let nightSurface = Color(hex: "#0E1526")
+    /// Pencil `night-2`. 야간 표면 위의 카드.
+    static let nightElevated = Color(hex: "#1A2338")
+    /// Pencil `night-line`. 야간 표면 위의 경계선.
+    static let nightHairline = Color(hex: "#2B3652")
 
     // 글자
     /// 본문 1차 글자색. Pencil `ink`.
-    static let bodyPrimary = Color(hex: "#33302A")
+    static let bodyPrimary = Color(hex: "#14171F")
     /// 본문 2차 글자색. Pencil `ink-soft`.
-    static let bodySecondary = Color(hex: "#6F6759")
+    static let bodySecondary = Color(hex: "#4C5160")
     /// 보조 정보·플레이스홀더. Pencil `ink-faint`.
-    static let bodyTertiary = Color(hex: "#A59C8C")
-    /// 진한 표면 위에 올리는 글자색.
-    static let bodyOnDark = Color(hex: "#FFFDF8")
+    static let bodyTertiary = Color(hex: "#8B909E")
+    /// 어두운 표면 위에 올리는 글자색.
+    static let bodyOnDark = Color(hex: "#F6F5F0")
 
     // 강조
-    /// 주요 액션. Pencil `coral`.
-    static let primaryAction = Color(hex: "#E0714F")
+    /// 주요 액션. Pencil `coral`/`gold`/`butter`가 모두 같은 금색을 가리킨다.
+    static let primaryAction = Color(hex: "#F2B63C")
     /// 주요 액션의 진한 변형(글자·강조 텍스트). Pencil `coral-deep`.
-    static let primaryActionDeep = Color(hex: "#BE5138")
+    static let primaryActionDeep = Color(hex: "#D99A26")
     /// 주요 액션의 옅은 배경. Pencil `coral-pale`.
-    static let primaryActionPale = Color(hex: "#F8E3D8")
+    static let primaryActionPale = Color(hex: "#F7E7C2")
     /// 차분한 보조 강조. Pencil `navy`.
-    static let deepAccent = Color(hex: "#3D4A62")
+    static let deepAccent = Color(hex: "#0E1526")
     /// 자연 톤 보조 강조. Pencil `sage`.
-    static let supportAccent = Color(hex: "#9FB394")
+    static let supportAccent = Color(hex: "#2F7A56")
     /// 정보 톤 보조 강조. Pencil `sky`.
-    static let infoAccent = Color(hex: "#8FAEC6")
+    static let infoAccent = Color(hex: "#5E7FA6")
 
     // 옅은 톤 배경
-    static let supportAccentPale = Color(hex: "#E8EDDF")
-    static let infoAccentPale = Color(hex: "#E2EBF1")
-    /// 강조 노랑. Pencil `butter`.
-    static let attentionAccent = Color(hex: "#EFDCA4")
+    static let supportAccentPale = Color(hex: "#E3EFE8")
+    static let infoAccentPale = Color(hex: "#E8EDF4")
+    /// 강조 금색. Pencil `butter`.
+    static let attentionAccent = Color(hex: "#F2B63C")
 
     // 선
     /// 카드·구분선에 쓰는 부드러운 경계. Pencil `line`.
-    static let hairline = Color(hex: "#E4DCCB")
-    /// 버튼·스탬프처럼 또렷한 손그림 윤곽. Pencil `line-ink`.
-    static let inkOutline = Color(hex: "#4A453C")
+    static let hairline = Color(hex: "#E2E3E1")
+    /// 버튼·뱃지처럼 또렷한 윤곽. Pencil `line-ink`.
+    static let inkOutline = Color(hex: "#232A3C")
 
     // 경기 결과 (Pencil 스탬프 체계)
-    /// 승 스탬프. Pencil `stamp-red`. 한국식 도장의 축하 인주색이다.
-    static let gameWin = Color(hex: "#C14E38")
-    /// 패 스탬프. Pencil `navy`.
-    static let gameLoss = Color(hex: "#3D4A62")
-    /// 무 스탬프. Pencil `ink-faint`.
-    static let gameDraw = Color(hex: "#A59C8C")
+    /// 승. Pencil `win`.
+    static let gameWin = Color(hex: "#2E9E6B")
+    /// 패. Pencil 스탬프/패의 채움색.
+    static let gameLoss = Color(hex: "#3A4157")
+    /// 무. Pencil `ink-faint`.
+    static let gameDraw = Color(hex: "#8B909E")
     /// 취소·우천 등 진행되지 않은 경기.
-    static let gameCanceled = Color(hex: "#A59C8C")
+    static let gameCanceled = Color(hex: "#8B909E")
+    /// 진행 중인 경기. Pencil `live`.
+    static let gameLive = Color(hex: "#E5484D")
+    /// 예정된 경기.
+    static let gameScheduled = Color(hex: "#8B909E")
 
     // 상태
-    static let statusSuccess = Color(hex: "#9FB394")
-    static let statusWarning = Color(hex: "#EFDCA4")
-    static let statusError = Color(hex: "#BE5138")
-    static let disabled = Color(hex: "#A59C8C")
+    static let statusSuccess = Color(hex: "#2F7A56")
+    static let statusWarning = Color(hex: "#F2B63C")
+    static let statusError = Color(hex: "#E5484D")
+    static let disabled = Color(hex: "#8B909E")
 }
 
 // MARK: - 간격
@@ -135,18 +147,21 @@ enum VFStroke {
 
 // MARK: - 타이포그래피
 
-/// Pencil은 Jua(display) / Gaegu(hand) / Gothic A1(ui)을 쓴다. 세 글꼴 모두
-/// 저장소에 라이선스 파일이 없고 이 작업에서 폰트 파일을 추가하지 않기로 했으므로,
-/// 시스템 서체의 디자인 변형으로 각 역할을 대신한다.
+/// Pencil은 Black Han Sans(display) / Noto Sans KR(ui·hand) / Barlow Condensed(mono)를
+/// 쓴다. 세 글꼴 모두 저장소에 라이선스 파일이 없고 이 작업에서도 폰트 파일을 추가하지
+/// 않으므로, 시스템 서체의 굵기와 디자인 변형으로 각 역할을 대신한다.
 ///
-/// - display -> `.rounded` 굵게 (Jua의 둥글고 친근한 인상)
-/// - hand    -> `.serif` (Gaegu의 손글씨 정서를 대신하는 개인적인 목소리)
-/// - ui      -> `.default`
+/// - display -> `.default` 아주 굵게 (Black Han Sans의 묵직한 인상)
+/// - ui/hand -> `.default` (두 역할이 같은 Noto Sans KR로 통합됐다)
+/// - mono    -> `monospacedDigit()` (Barlow Condensed의 자리수 고정 성격)
+///
+/// 이전 문서의 손글씨 목소리(Gaegu)는 최신 Pencil에서 사라졌다. `handwritten` 역할은
+/// 호출부 호환을 위해 이름을 유지하되 평범한 산세리프로 바뀌었다.
 ///
 /// 모든 역할은 `Font.TextStyle` 기반이라 Dynamic Type을 그대로 따른다.
 enum VFTypography {
-    /// 인사말·다이얼로그 제목 같은 가장 큰 표현 텍스트. Pencil 24/700 display.
-    static let display = Font.system(.title2, design: .rounded).weight(.bold)
+    /// 화면 제목·인사말 같은 가장 큰 표현 텍스트. Pencil display.
+    static let display = Font.system(.title2, design: .default).weight(.heavy)
     /// 화면 제목. Pencil 내비 제목 17/600.
     static let screenTitle = Font.system(.headline, design: .default).weight(.semibold)
     /// 섹션 제목. Pencil 17/700.
@@ -167,10 +182,10 @@ enum VFTypography {
     static let numericEmphasis = Font.system(.title, design: .default).weight(.bold).monospacedDigit()
     /// 스코어처럼 자리수가 흔들리면 안 되는 작은 숫자. Pencil 13/600.
     static let numericSupporting = Font.system(.footnote, design: .default).weight(.semibold).monospacedDigit()
-    /// 손글씨 정서를 담당하는 캡션·워드마크. Pencil font-hand.
-    static let handwritten = Font.system(.subheadline, design: .serif)
-    /// 큰 손글씨(워드마크·인사 위 날짜). Pencil font-hand 17~24.
-    static let handwrittenLarge = Font.system(.title3, design: .serif)
+    /// 부제·캡션. 최신 Pencil에서 손글씨 글꼴이 사라져 본문과 같은 산세리프를 쓴다.
+    static let handwritten = Font.system(.subheadline, design: .default)
+    /// 큰 부제·워드마크.
+    static let handwrittenLarge = Font.system(.title3, design: .default).weight(.semibold)
     /// 차트 축·범례 라벨.
     static let chartLabel = Font.system(.caption2, design: .default)
 }

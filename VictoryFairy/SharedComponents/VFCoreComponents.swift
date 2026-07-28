@@ -215,45 +215,56 @@ struct VFTeamBadge: View {
 
 // MARK: - 결과 스탬프
 
-/// Pencil `스탬프/승·패·무`. 도장을 눌러 찍은 듯한 경기 결과 표시.
+/// Pencil `스탬프/승·패·무`. 결과색으로 꽉 채운 원 안에 흰 글자.
 ///
-/// 색만으로 결과를 구분하지 않는다. 승·패·무 글자 자체가 구분 수단이라
-/// Differentiate Without Color 설정에서도 의미가 유지된다.
+/// 최신 Pencil에서 손으로 찍은 듯한 이중 링과 기울기가 사라지고, 단색 원 하나로
+/// 정리됐다. 색만으로 결과를 구분하지 않는다는 원칙은 그대로다. 승·패·무 글자 자체가
+/// 구분 수단이라 Differentiate Without Color 설정에서도 의미가 유지된다.
 struct VFResultStamp: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let result: GameResult
     var size: CGFloat = VFControl.stampSize
 
     @ScaledMetric(relativeTo: .body) private var scaleFactor: CGFloat = 1
 
-    private var tilt: Double {
-        switch result {
-        case .win: VFTilt.winStamp
-        case .loss: VFTilt.lossStamp
-        case .draw: VFTilt.drawStamp
-        case .canceled: 0
-        }
-    }
-
     var body: some View {
         let resolvedSize = size * scaleFactor
-        let color = result.color
         ZStack {
             Circle()
-                .stroke(color, lineWidth: resolvedSize * 2 / 46)
+                .fill(result.color)
                 .frame(width: resolvedSize * 42 / 46, height: resolvedSize * 42 / 46)
-            Circle()
-                .stroke(color, lineWidth: resolvedSize * 1 / 46)
-                .opacity(0.5)
-                .frame(width: resolvedSize * 34 / 46, height: resolvedSize * 34 / 46)
             Text(result.title)
-                .font(Font.system(size: resolvedSize * 19 / 46, weight: .bold, design: .rounded))
-                .foregroundStyle(color)
+                .font(Font.system(size: resolvedSize * 15 / 46, weight: .heavy))
+                .foregroundStyle(VFColor.elevatedSurface)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
         }
         .frame(width: resolvedSize, height: resolvedSize)
-        .vfTilt(tilt, reduceMotion: reduceMotion)
         .accessibilityElement()
         .accessibilityLabel(result.diaryTitle)
+    }
+}
+
+/// Pencil `StatusBadge`. 예정·진행 중처럼 결과가 아직 없는 경기 상태를 알린다.
+struct VFStatusBadge: View {
+    let title: String
+    var tint: Color = VFColor.gameScheduled
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(tint)
+                .frame(width: 6, height: 6)
+            Text(title)
+                .font(Font.system(.caption2, design: .default).weight(.bold))
+                .foregroundStyle(VFColor.bodySecondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(VFColor.subtleSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
     }
 }
 

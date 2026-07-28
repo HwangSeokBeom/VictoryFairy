@@ -119,14 +119,45 @@ final class DesignSystemContractTests: XCTestCase {
 
     /// Pencil 문서 변수에서 옮겨온 핵심 색이 그대로인지 고정한다.
     func testCoreTokensMatchThePencilDocumentVariables() {
-        XCTAssertEqual(VFColor.appBackground, Color(hex: "#F8F4EB"), "paper")
-        XCTAssertEqual(VFColor.elevatedSurface, Color(hex: "#FFFDF8"), "surface")
-        XCTAssertEqual(VFColor.bodyPrimary, Color(hex: "#33302A"), "ink")
-        XCTAssertEqual(VFColor.bodySecondary, Color(hex: "#6F6759"), "ink-soft")
-        XCTAssertEqual(VFColor.bodyTertiary, Color(hex: "#A59C8C"), "ink-faint")
-        XCTAssertEqual(VFColor.primaryAction, Color(hex: "#E0714F"), "coral")
-        XCTAssertEqual(VFColor.hairline, Color(hex: "#E4DCCB"), "line")
-        XCTAssertEqual(VFColor.inkOutline, Color(hex: "#4A453C"), "line-ink")
+        XCTAssertEqual(VFColor.appBackground, Color(hex: "#F4F4F2"), "paper")
+        XCTAssertEqual(VFColor.elevatedSurface, Color(hex: "#FFFFFF"), "surface")
+        XCTAssertEqual(VFColor.bodyPrimary, Color(hex: "#14171F"), "ink")
+        XCTAssertEqual(VFColor.bodySecondary, Color(hex: "#4C5160"), "ink-soft")
+        XCTAssertEqual(VFColor.bodyTertiary, Color(hex: "#8B909E"), "ink-faint")
+        XCTAssertEqual(VFColor.primaryAction, Color(hex: "#F2B63C"), "coral/gold")
+        XCTAssertEqual(VFColor.hairline, Color(hex: "#E2E3E1"), "line")
+        XCTAssertEqual(VFColor.inkOutline, Color(hex: "#232A3C"), "line-ink")
+        XCTAssertEqual(VFColor.nightSurface, Color(hex: "#0E1526"), "night")
+        XCTAssertEqual(VFColor.nightElevated, Color(hex: "#1A2338"), "night-2")
+        XCTAssertEqual(VFColor.nightHairline, Color(hex: "#2B3652"), "night-line")
+    }
+
+    /// 최신 Pencil은 승을 초록으로, 빨강을 진행 중(live) 상태로 재배정했다.
+    func testResultAndLiveTokensFollowTheLatestPencil() {
+        XCTAssertEqual(VFColor.gameWin, Color(hex: "#2E9E6B"), "win")
+        XCTAssertEqual(VFColor.gameLoss, Color(hex: "#3A4157"), "loss")
+        XCTAssertEqual(VFColor.gameDraw, Color(hex: "#8B909E"), "draw")
+        XCTAssertEqual(VFColor.gameLive, Color(hex: "#E5484D"), "live")
+        XCTAssertNotEqual(VFColor.gameWin, VFColor.gameLive, "승과 진행 중 상태가 같은 색이면 안 된다")
+    }
+
+    /// 팀 강조색은 최신 Pencil 팀 포인트 컬러를 그대로 따라야 한다.
+    func testTeamAccentsMatchTheLatestPencil() {
+        let expected = [
+            "lg-twins": "#B5195B",
+            "doosan-bears": "#1A2C55",
+            "kiwoom-heroes": "#7A1F33",
+            "ssg-landers": "#CE4A2D",
+            "kt-wiz": "#2E2E36",
+            "hanwha-eagles": "#E5691F",
+            "samsung-lions": "#1E63C4",
+            "kia-tigers": "#C42B26",
+            "lotte-giants": "#1F3E73",
+            "nc-dinos": "#1F5B78"
+        ]
+        for (id, hex) in expected {
+            XCTAssertEqual(VFTeamAccent.color(forTeamID: id), Color(hex: hex), "\(id) 강조색이 Pencil과 다르다")
+        }
     }
 
     func testSpacingAndRadiusScalesMatchPencil() {
