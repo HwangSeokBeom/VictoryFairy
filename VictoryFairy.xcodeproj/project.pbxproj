@@ -11,7 +11,9 @@
 		358E6AB79F738C065C4DC16F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */; };
 		5362641498F569B0572DF2C6 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62870DA56EA814F915135D87 /* OnboardingUITests.swift */; };
 		5BD2CA924539750A580D6EDA /* NavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6A286C7629719131BF3239 /* NavigationUITests.swift */; };
+		6DDE89DA19B86E23B8D7B616 /* HomeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B37B408959F96857281923 /* HomeTests.swift */; };
 		6EA045B8181B5048E518F1A9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */; };
+		7B85C8C111E3DE1E77078183 /* HomeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7564C16C6D44FAAE58D15ABC /* HomeUITests.swift */; };
 		827220FAA0E669B42EA07549 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */; };
 		ACB1527C1A44BAA8FE8D2154 /* NavigationAndFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */; };
 		AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */; };
@@ -41,8 +43,10 @@
 		30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchitectureBoundaryTests.swift; sourceTree = "<group>"; };
 		62870DA56EA814F915135D87 /* OnboardingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystemContractTests.swift; sourceTree = "<group>"; };
+		7564C16C6D44FAAE58D15ABC /* HomeUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeUITests.swift; sourceTree = "<group>"; };
 		B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationAndFormattingTests.swift; sourceTree = "<group>"; };
+		E0B37B408959F96857281923 /* HomeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTests.swift; sourceTree = "<group>"; };
 		E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
 		F0FF893D04A1A41729248BC0 /* VictoryFairyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VictoryFairyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -123,6 +127,7 @@
 				7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */,
 				B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */,
 				E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */,
+				E0B37B408959F96857281923 /* HomeTests.swift */,
 			);
 			path = VictoryFairyTests;
 			sourceTree = "<group>";
@@ -132,8 +137,8 @@
 			children = (
 				0B6A286C7629719131BF3239 /* NavigationUITests.swift */,
 				62870DA56EA814F915135D87 /* OnboardingUITests.swift */,
+				7564C16C6D44FAAE58D15ABC /* HomeUITests.swift */,
 			);
-			name = VictoryFairyUITests;
 			path = VictoryFairyUITests;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -287,6 +292,7 @@
 			files = (
 				5BD2CA924539750A580D6EDA /* NavigationUITests.swift in Sources */,
 				5362641498F569B0572DF2C6 /* OnboardingUITests.swift in Sources */,
+				7B85C8C111E3DE1E77078183 /* HomeUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -298,6 +304,7 @@
 				AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */,
 				ACB1527C1A44BAA8FE8D2154 /* NavigationAndFormattingTests.swift in Sources */,
 				827220FAA0E669B42EA07549 /* OnboardingTests.swift in Sources */,
+				6DDE89DA19B86E23B8D7B616 /* HomeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
