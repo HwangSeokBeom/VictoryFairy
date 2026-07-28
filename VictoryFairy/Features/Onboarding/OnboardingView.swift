@@ -87,6 +87,7 @@ private struct OnboardingWelcomeView: View {
         }
         .padding(.horizontal, VFSpacing.lg)
         .padding(.bottom, VFSpacing.xl)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.welcome.accessibilityIdentifier)
     }
 }
@@ -151,6 +152,7 @@ private struct OnboardingOverviewView: View {
         }
         .padding(.horizontal, VFSpacing.lg)
         .padding(.bottom, VFSpacing.xl)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.overview.accessibilityIdentifier)
     }
 }
@@ -185,6 +187,7 @@ private struct OnboardingTeamStepView: View {
                 }
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.selectTeam.accessibilityIdentifier)
     }
 }
@@ -274,6 +277,7 @@ private struct OnboardingStadiumStepView: View {
                 }
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.selectStadium.accessibilityIdentifier)
     }
 
@@ -410,6 +414,7 @@ private struct OnboardingCompleteView: View {
         }
         .padding(.horizontal, VFSpacing.lg)
         .padding(.bottom, VFSpacing.md)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.complete.accessibilityIdentifier)
     }
 }

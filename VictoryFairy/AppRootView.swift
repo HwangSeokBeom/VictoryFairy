@@ -55,8 +55,11 @@ enum MainTab: String, Hashable, CaseIterable {
         }
     }
 
-    /// UI 테스트가 참조하는 안정적인 식별자.
+    /// UI 테스트가 참조하는 탭 버튼 식별자.
     var accessibilityIdentifier: String { "tab.\(rawValue)" }
+
+    /// UI 테스트가 참조하는 화면 루트 식별자.
+    var screenIdentifier: String { "screen.\(rawValue)" }
 }
 
 struct MainTabView: View {
@@ -87,22 +90,27 @@ struct MainTabView: View {
                 // 대시보드는 AppDataStore가 feedLogs 변경 시 1회 집계해 보관한다.
                 HomeView(viewModel: HomeViewModel(dashboard: appData.homeDashboard))
             }
+            .accessibilityIdentifier(MainTab.home.screenIdentifier)
         case .feed:
             NavigationStack {
                 FeedView(viewModel: FeedViewModel(logs: appData.feedLogs, selectedResultFilter: appData.selectedFeedResultFilter, dataState: appData.feedState))
             }
+            .accessibilityIdentifier(MainTab.feed.screenIdentifier)
         case .calendar:
             NavigationStack {
                 AttendanceCalendarView(logs: appData.calendarLogs, dataState: appData.calendarState, month: appData.selectedCalendarMonth)
             }
+            .accessibilityIdentifier(MainTab.calendar.screenIdentifier)
         case .statistics:
             NavigationStack {
                 StatisticsView(viewModel: StatisticsViewModel(state: appData.statistics, dataState: appData.statisticsState))
             }
+            .accessibilityIdentifier(MainTab.statistics.screenIdentifier)
         case .my:
             NavigationStack {
                 ProfileSettingsView()
             }
+            .accessibilityIdentifier(MainTab.my.screenIdentifier)
         }
     }
 }

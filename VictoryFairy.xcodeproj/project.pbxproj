@@ -9,12 +9,22 @@
 /* Begin PBXBuildFile section */
 		1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */; };
 		358E6AB79F738C065C4DC16F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */; };
+		5362641498F569B0572DF2C6 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62870DA56EA814F915135D87 /* OnboardingUITests.swift */; };
+		5BD2CA924539750A580D6EDA /* NavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6A286C7629719131BF3239 /* NavigationUITests.swift */; };
+		6EA045B8181B5048E518F1A9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */; };
 		827220FAA0E669B42EA07549 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */; };
 		ACB1527C1A44BAA8FE8D2154 /* NavigationAndFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */; };
 		AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		3D4BE7E7FCF0DCA4734DB72D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 01A8D7BE2E7A4A8F8EBC0011 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 01A8D7C62E7A4A8F8EBC0011;
+			remoteInfo = VictoryFairy;
+		};
 		C025C6F6AB473B1071E51B9F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 01A8D7BE2E7A4A8F8EBC0011 /* Project object */;
@@ -27,11 +37,14 @@
 /* Begin PBXFileReference section */
 		01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VictoryFairy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		071661147C015553CCB78E53 /* VictoryFairyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VictoryFairyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0B6A286C7629719131BF3239 /* NavigationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationUITests.swift; sourceTree = "<group>"; };
 		30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchitectureBoundaryTests.swift; sourceTree = "<group>"; };
+		62870DA56EA814F915135D87 /* OnboardingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystemContractTests.swift; sourceTree = "<group>"; };
 		B888CB3220CC3CBC71BEB8E7 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		B8F05ECE09A53E6EB7A7214D /* NavigationAndFormattingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationAndFormattingTests.swift; sourceTree = "<group>"; };
 		E4278B21C148ED13A98BFED5 /* OnboardingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
+		F0FF893D04A1A41729248BC0 /* VictoryFairyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VictoryFairyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -71,6 +84,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B30224BDE6191E7C89AFC9AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6EA045B8181B5048E518F1A9 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -81,6 +102,7 @@
 				01A8D7C02E7A4A8F8EBC0011 /* Products */,
 				FE50C55D5796D53B0D3BF838 /* Frameworks */,
 				030862EE58DC627905C553FF /* VictoryFairyTests */,
+				7FC7450127D042A5C200EE50 /* VictoryFairyUITests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -89,6 +111,7 @@
 			children = (
 				01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */,
 				071661147C015553CCB78E53 /* VictoryFairyTests.xctest */,
+				F0FF893D04A1A41729248BC0 /* VictoryFairyUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -103,6 +126,16 @@
 			);
 			path = VictoryFairyTests;
 			sourceTree = "<group>";
+		};
+		7FC7450127D042A5C200EE50 /* VictoryFairyUITests */ = {
+			isa = PBXGroup;
+			children = (
+				0B6A286C7629719131BF3239 /* NavigationUITests.swift */,
+				62870DA56EA814F915135D87 /* OnboardingUITests.swift */,
+			);
+			name = VictoryFairyUITests;
+			path = VictoryFairyUITests;
+			sourceTree = SOURCE_ROOT;
 		};
 		B7E8289B001FF9B546C75CF7 /* iOS */ = {
 			isa = PBXGroup;
@@ -161,6 +194,24 @@
 			productReference = 071661147C015553CCB78E53 /* VictoryFairyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		C4B1F974822F20004A60E72F /* VictoryFairyUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2F3E1C5983E097F608C72E28 /* Build configuration list for PBXNativeTarget "VictoryFairyUITests" */;
+			buildPhases = (
+				3A4FABF667B8D084C3854FA8 /* Sources */,
+				B30224BDE6191E7C89AFC9AA /* Frameworks */,
+				D9C974D697519E96C02D1884 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C0058394D730B71BDA076C50 /* PBXTargetDependency */,
+			);
+			name = VictoryFairyUITests;
+			productName = VictoryFairyUITests;
+			productReference = F0FF893D04A1A41729248BC0 /* VictoryFairyUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -193,6 +244,7 @@
 			targets = (
 				01A8D7C62E7A4A8F8EBC0011 /* VictoryFairy */,
 				133F9243AB9A2CE3F6AAB179 /* VictoryFairyTests */,
+				C4B1F974822F20004A60E72F /* VictoryFairyUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -212,6 +264,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D9C974D697519E96C02D1884 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -219,6 +278,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3A4FABF667B8D084C3854FA8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5BD2CA924539750A580D6EDA /* NavigationUITests.swift in Sources */,
+				5362641498F569B0572DF2C6 /* OnboardingUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -241,6 +309,12 @@
 			name = VictoryFairy;
 			target = 01A8D7C62E7A4A8F8EBC0011 /* VictoryFairy */;
 			targetProxy = C025C6F6AB473B1071E51B9F /* PBXContainerItemProxy */;
+		};
+		C0058394D730B71BDA076C50 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = VictoryFairy;
+			target = 01A8D7C62E7A4A8F8EBC0011 /* VictoryFairy */;
+			targetProxy = 3D4BE7E7FCF0DCA4734DB72D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -471,6 +545,41 @@
 			};
 			name = Release;
 		};
+		2D677D074149DB73347DBC63 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hwangseokbeom.victoryfairy.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = VictoryFairy;
+			};
+			name = Debug;
+		};
+		354224451516C9E1CB92C510 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hwangseokbeom.victoryfairy.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = VictoryFairy;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -488,6 +597,15 @@
 			buildConfigurations = (
 				01A8D7CF2E7A4A8F8EBC0011 /* Debug */,
 				01A8D7D02E7A4A8F8EBC0011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2F3E1C5983E097F608C72E28 /* Build configuration list for PBXNativeTarget "VictoryFairyUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				354224451516C9E1CB92C510 /* Release */,
+				2D677D074149DB73347DBC63 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
