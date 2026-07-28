@@ -10,18 +10,29 @@ final class OnboardingUITests: XCTestCase {
         try super.setUpWithError()
         continueAfterFailure = false
 
-        // 아직 결정적인 첫 실행 상태를 만들 수 없어 건너뛴다.
+        // 예전에 적어 둔 건너뛰기 사유는 사실이 아니었다. "`-VFUITestReset`이
+        // UserDefaults만 지우고 응원 팀은 프로필/저장소 계층에서 되살아난다"고
+        // 보았는데, 실제로 확인해 보니 팀과 완료 플래그를 심어 저장한 뒤 초기화하고
+        // 다시 띄우면 온보딩 첫 화면이 정상으로 나온다. 초기화는 동작한다.
         //
-        // `-VFUITestReset`은 UserDefaults의 앱 관리 키를 지우지만, 응원 팀은 앱의 프로필/
-        // 저장소 계층에서 다시 복원된다. 그래서 초기화 후에도 이전 팀이 남고 온보딩이
-        // 보완 단계에서 시작한다(시뮬레이터에서 재현 확인).
+        // 진짜 이유는 다른 데 있다. 아래 열세 개는 재설계 **이전** 온보딩 흐름
+        // (환영 → 소개 → 팀)을 전제로 쓰여 있고, `onboarding.overview.next` 같은
+        // 식별자를 찾는다. 재설계된 온보딩은 쪽 넘김 소개 화면이라 그 단계가 없다.
+        // 이 묶음을 되살리려면 새 흐름에 맞춰 다시 쓰는 온보딩 작업이 필요하다.
         //
-        // 제대로 고치려면 테스트 훅이 그 저장소까지 초기화해야 하는데, 이는 이번 작업에서
-        // 건드리지 않기로 한 영속성 계층을 수정해야 한다. 실패를 숨기지 않고 명시적으로
-        // 건너뛴 뒤, 남은 과제로 보고한다.
-        throw XCTSkip(
-            "결정적 첫 실행 상태 미구현: 응원 팀이 UserDefaults 밖(프로필/저장소)에서 복원된다."
-        )
+        // 새 흐름에서도 뜻이 통하는 두 개(test10, test13)는 건너뛰지 않고 계속 돌린다.
+        // 통째로 건너뛰면 실제로 지켜지고 있는 것까지 확인을 멈추게 된다.
+        let stillMeaningful = [
+            "test10_completedOnboardingDoesNotRepeatAfterRelaunch",
+            "test13_existingUserWithBothValuesBypassesOnboarding"
+        ]
+        if !stillMeaningful.contains(where: { name.contains($0) }) {
+            throw XCTSkip(
+                "재설계 이전 온보딩 흐름을 전제로 작성됨: 환영 → 소개 → 팀 단계와 "
+                + "onboarding.overview.next 식별자가 지금 화면에 없다. "
+                + "초기화 자체는 동작하며, 되살리려면 새 흐름에 맞춘 재작성이 필요하다."
+            )
+        }
     }
 
     // MARK: - 앱 실행 도우미
