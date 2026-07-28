@@ -17,6 +17,67 @@ struct CalendarDay: Identifiable, Hashable {
     let isSaturday: Bool
 
     var id: Date { date }
+
+    /// 이 칸의 안정적인 정체성. 기준 시간대의 ISO 날짜다.
+    ///
+    /// 화면에 보이는 한국어 문구나 격자 안의 순번은 정체성이 될 수 없다. 문구는 로캘과
+    /// 디자인에 따라 바뀌고, 순번은 달이 바뀌면 같은 자리에 다른 날짜가 온다.
+    var identifier: String { DateFormatter.vfCalendarDayIdentifier.string(from: date) }
+
+    /// UI 테스트가 특정 날짜를 집어 쓰는 식별자. 예: `calendar.day.2026-04-12`
+    var accessibilityIdentifier: String { "calendar.day.\(identifier)" }
+}
+
+/// 날짜 칸이 색 없이도 전달해야 하는 의미.
+///
+/// 색만으로 결과를 구분하면 색을 구분하지 못하는 사람에게는 빈 칸과 같다.
+/// 그래서 셀이 그리는 모양과 별개로, 읽어서 전달할 값을 여기서 만든다.
+/// 뷰가 아니라 순수 계산이므로 화면 없이도 검증할 수 있다.
+struct CalendarDaySemantics: Equatable {
+    let day: CalendarDay
+    let events: [AttendanceLogViewState]
+    let isSelected: Bool
+    let isToday: Bool
+
+    /// VoiceOver가 읽을 이름. 날짜 자체를 온전히 읽는다.
+    var label: String {
+        DateFormatter.vfCalendarDayVoiceOver.string(from: day.date)
+    }
+
+    /// 이름 뒤에 덧붙일 상태. 선택·오늘·달 소속·기록 내용을 색 없이 전달한다.
+    var value: String {
+        var parts: [String] = []
+        if isToday { parts.append("오늘") }
+        if isSelected { parts.append("선택됨") }
+        if !day.isInDisplayedMonth { parts.append("다른 달") }
+
+        switch events.count {
+        case 0:
+            break
+        case 1:
+            if let record = events.first {
+                parts.append(record.result.title)
+                parts.append(record.matchup)
+            }
+        default:
+            parts.append("기록 \(events.count)개")
+            // 여러 건이면 대표 한 건의 결과까지만 알린다. 나머지는 선택하면 볼 수 있다.
+            if let record = primaryEvent {
+                parts.append(record.result.title)
+            }
+        }
+        if hasPhoto { parts.append("사진 있음") }
+        return parts.joined(separator: ", ")
+    }
+
+    var hasPhoto: Bool {
+        events.contains { !$0.photoLocalRefs.isEmpty }
+    }
+
+    /// 같은 날 기록이 여럿일 때 대표로 알릴 하나. 선택일 상세와 같은 규칙으로 고른다.
+    var primaryEvent: AttendanceLogViewState? {
+        CalendarSelectedDatePresentation(date: day.date, events: events, hasSelection: true).primaryRecord
+    }
 }
 
 /// 한 달의 실제 기하 구조.
@@ -190,6 +251,26 @@ extension DateFormatter {
         formatter.locale = Locale(identifier: "ko_KR")
         formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         formatter.dateFormat = "M월 d일"
+        return formatter
+    }()
+
+    /// 날짜 칸의 정체성에 쓰는 ISO 형식.
+    ///
+    /// 로캘이 바뀌어도 흔들리지 않도록 `en_US_POSIX`를 쓴다. 사용자에게는 보이지 않는다.
+    static let vfCalendarDayIdentifier: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    /// VoiceOver가 읽을 날짜. 숫자만 읽지 않고 요일까지 온전히 읽는다.
+    static let vfCalendarDayVoiceOver: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        formatter.dateFormat = "M월 d일 EEEE"
         return formatter
     }()
 }

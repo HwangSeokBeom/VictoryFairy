@@ -25,6 +25,9 @@ enum VFCalendarFixtures {
         switch scenario {
         case .referenceMonth, .selectedRecord, .compactReference, .accessibilityReference:
             return referenceLogs
+        case .retrySuccess:
+            // 다시 불러오기에 성공한 뒤의 상태. 오류가 걷히고 기록이 들어와 있다.
+            return referenceLogs
         case .multipleSameDayRecords:
             return referenceLogs + [sameDaySecondRecord]
         case .win:
@@ -46,7 +49,7 @@ enum VFCalendarFixtures {
         case .scheduledDesignState, .liveDesignState, .postponedDesignState:
             // 설계 전용 상태는 기록이 아니라 상태 배지로만 표현된다.
             return []
-        case .selectedEmptyDate, .emptyMonth, .loading, .recoverableError, .retrySuccess, .yearBoundary:
+        case .selectedEmptyDate, .emptyMonth, .loading, .recoverableError, .yearBoundary:
             return []
         }
     }

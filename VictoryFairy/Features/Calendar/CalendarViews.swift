@@ -128,6 +128,7 @@ private enum CalendarViewMode: String, CaseIterable, Identifiable {
 
 struct AttendanceCalendarView: View {
     @Environment(\.appTheme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var appData: AppDataStore
     @EnvironmentObject private var preferences: UserPreferencesStore
     let logs: [AttendanceLogViewState]
@@ -150,13 +151,16 @@ struct AttendanceCalendarView: View {
     @State private var draftRecordFilter: CalendarRecordFilter = .all
     @State private var pickerYear = 2026
     @State private var pickerMonth = 4
+    /// 화면 안의 모든 날짜 판단은 기준 달력으로 한다. 기기 시간대 설정에 흔들리면
+    /// 같은 기록이 기기마다 다른 날에 찍힌다.
+    private let referenceCalendar = CalendarMonth.referenceCalendar()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
                 calendarHeader
 
-                DataStateBanner(state: dataState)
+                dataStateSection
 
                 viewModeToolbar
 
@@ -165,6 +169,7 @@ struct AttendanceCalendarView: View {
                 CalendarMonthView(month: month, logs: displayedCalendarLogs, viewMode: viewMode, selectedDate: selectedDay?.date) { date in
                     selectedDay = CalendarSelectedDay(date: date, logs: logs(on: date))
                 }
+                .accessibilityIdentifier("calendar.grid")
 
                 legend
 
@@ -177,6 +182,9 @@ struct AttendanceCalendarView: View {
             .padding(VFSpacing.lg)
             .vfTabContentPadding()
         }
+        // 좁은 폭과 큰 글자 검증이 스크롤 컨테이너 자체의 실제 경계를 재야 하므로
+        // 루트에도 식별자를 둔다.
+        .accessibilityIdentifier("calendar.root")
         .sheet(isPresented: $isShowingFilters) {
             CalendarFilterSheet(
                 resultFilter: $draftResultFilter,
@@ -217,6 +225,23 @@ struct AttendanceCalendarView: View {
         .vfScreenBackground()
     }
 
+    /// 불러오기 상태를 알리는 자리.
+    ///
+    /// 복구할 수 있는 오류일 때는 문구만 띄우지 않고 다시 시도할 방법을 함께 준다.
+    /// 다시 불러오는 동안에도 보고 있던 달과 고른 날짜는 그대로 둔다. 캘린더는
+    /// 읽기 전용이므로 이 경로는 저장소를 바꾸지 않는다.
+    @ViewBuilder
+    private var dataStateSection: some View {
+        if case .error(let message) = dataState {
+            VFErrorPanel(message: message) {
+                Task { await appData.refreshContent() }
+            }
+            .accessibilityIdentifier("calendar.errorRetry")
+        } else {
+            DataStateBanner(state: dataState)
+        }
+    }
+
     /// 픽스처가 지정한 날짜를 처음 한 번 선택 상태로 만든다.
     /// 제품 경로에서는 `calendarPreselectedDate`가 nil이라 아무 일도 하지 않는다.
     private func applyFixturePreselectionIfNeeded() {
@@ -245,7 +270,7 @@ struct AttendanceCalendarView: View {
     }
 
     private var monthPickerYears: [Int] {
-        let currentYear = Calendar.current.component(.year, from: .now)
+        let currentYear = referenceCalendar.component(.year, from: .now)
         let fallbackYears = Array((currentYear - 5)...(currentYear + 1))
         let seasonYears = appData.availableSeasons.map(\.season)
         return Array(Set(fallbackYears + seasonYears + [2026])).sorted()
@@ -259,8 +284,8 @@ struct AttendanceCalendarView: View {
     }
 
     private func openMonthPicker() {
-        pickerYear = Calendar.current.component(.year, from: month)
-        pickerMonth = Calendar.current.component(.month, from: month)
+        pickerYear = referenceCalendar.component(.year, from: month)
+        pickerMonth = referenceCalendar.component(.month, from: month)
         isShowingMonthPicker = true
     }
 
@@ -274,8 +299,8 @@ struct AttendanceCalendarView: View {
 
     private func applyTodayMonth() {
         let today = Date()
-        pickerYear = Calendar.current.component(.year, from: today)
-        pickerMonth = Calendar.current.component(.month, from: today)
+        pickerYear = referenceCalendar.component(.year, from: today)
+        pickerMonth = referenceCalendar.component(.month, from: today)
         applyPickedMonth()
     }
 
@@ -299,7 +324,7 @@ struct AttendanceCalendarView: View {
 
     private func logs(on date: Date) -> [AttendanceLogViewState] {
         guard recordFilter != .unrecorded else { return [] }
-        return matchingLogs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        return matchingLogs.filter { referenceCalendar.isDate($0.date, inSameDayAs: date) }
     }
 
     private func count(_ result: GameResult) -> Int {
@@ -423,6 +448,20 @@ struct AttendanceCalendarView: View {
     }
 
     private var viewModeToolbar: some View {
+        // 큰 글자에서는 세 가지 보기 이름이 한 줄에 들어가지 않는다. 글자를 줄여
+        // 잘라내는 대신 가로로 밀어 볼 수 있게 해서, 이름을 온전히 읽을 수 있게 한다.
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    viewModeRow.padding(.horizontal, 2)
+                }
+            } else {
+                viewModeRow
+            }
+        }
+    }
+
+    private var viewModeRow: some View {
         HStack(spacing: VFSpacing.sm) {
             HStack(spacing: VFSpacing.xs) {
                 ForEach(CalendarViewMode.allCases) { mode in
@@ -628,10 +667,16 @@ struct AttendanceCalendarView: View {
     /// DEBUG 픽스처에서만 값이 오고, Release에서는 언제나 nil이라 이 뷰가 나오지 않는다.
     @ViewBuilder
     private var designOnlyStatusBanner: some View {
-        if let title = VFUITestConfiguration.calendarDesignOnlyStatusTitle {
-            VFStatusBadge(title: title, tint: VFColor.gameLive)
-                .accessibilityIdentifier("calendar.designStatus")
+        // 예정·진행 중·연기는 제품에 데이터원이 없다. 그래서 이 조각 전체가 DEBUG에만
+        // 존재한다. Release에서는 `EmptyView`가 되어 그릴 것 자체가 남지 않는다.
+        #if DEBUG
+        if let status = VFUITestConfiguration.calendarDesignOnlyStatus {
+            VFStatusBadge(title: status.title, tint: VFColor.gameLive)
+                // 상태마다 식별자가 달라야 테스트가 셋을 구분할 수 있다.
+                // 공통 접두사 `calendar.designStatus.`로 "아무 상태나" 조회도 된다.
+                .accessibilityIdentifier(status.accessibilityIdentifier)
         }
+        #endif
     }
 
     /// UI 테스트가 픽스처 적용 여부를 화면에서 확인하기 위한 표식.
@@ -639,10 +684,13 @@ struct AttendanceCalendarView: View {
     @ViewBuilder
     private var fixtureScenarioMarker: some View {
         if let identifier = VFUITestConfiguration.activeCalendarScenarioIdentifier {
+            // 조회할 수 있는 요소여야 한다. `accessibilityHidden`을 붙이면 접근성 트리에서
+            // 통째로 빠져 UI 테스트가 영영 찾지 못한다. 대신 읽을 이름을 비워 둔다.
             Color.clear
                 .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier(identifier)
-                .accessibilityHidden(true)
+                .accessibilityLabel(Text(verbatim: ""))
         }
     }
 
@@ -681,6 +729,9 @@ struct AttendanceCalendarView: View {
                 selectedDateEmptyDetail(presentation)
             }
         }
+        // 먼저 담는 요소로 만든 다음 이름을 붙인다. 그냥 VStack에 식별자만 얹으면
+        // SwiftUI가 그 값을 자식들에게 내려 덮어써서, 안쪽 식별자가 모두 사라진다.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar.selectedDetail")
     }
 
@@ -704,6 +755,7 @@ struct AttendanceCalendarView: View {
             RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
                 .stroke(VFColor.hairline, lineWidth: 1)
         )
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar.detailEmpty")
     }
 
@@ -916,6 +968,9 @@ private struct CalendarMonthView: View {
 
     /// 요일 라벨은 기준 달력과 로캘에서 가져온다. 배열을 직접 적어두지 않는다.
     private let weekdays = CalendarMonth.weekdaySymbols()
+    /// 선택과 오늘 판정도 기준 달력에서 한다. 기기 시간대 설정에 흔들리면
+    /// 같은 픽스처가 기기마다 다른 날을 고르게 된다.
+    private let referenceCalendar = CalendarMonth.referenceCalendar()
     private let columns = Array(repeating: GridItem(.flexible(), spacing: VFSpacing.xs), count: 7)
 
     var body: some View {
@@ -935,8 +990,8 @@ private struct CalendarMonthView: View {
                             day: day,
                             logs: logs(on: day.date),
                             viewMode: viewMode,
-                            isSelected: selectedDate.map { Calendar.current.isDate($0, inSameDayAs: day.date) } ?? false,
-                            isToday: Calendar.current.isDateInToday(day.date)
+                            isSelected: selectedDate.map { referenceCalendar.isDate($0, inSameDayAs: day.date) } ?? false,
+                            isToday: referenceCalendar.isDateInToday(day.date)
                         ) {
                             onDateTap(day.date)
                         }
@@ -953,7 +1008,7 @@ private struct CalendarMonthView: View {
     }
 
     private func logs(on date: Date) -> [AttendanceLogViewState] {
-        logs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        logs.filter { referenceCalendar.isDate($0.date, inSameDayAs: date) }
     }
 }
 
@@ -965,13 +1020,25 @@ private struct CalendarDayCell: View {
     let isToday: Bool
     let action: () -> Void
     private let photoService = PhotoAttachmentService()
+    /// 날짜 원이 글자 크기를 따라 커지도록 한다. 위쪽에서 상한을 건다.
+    @ScaledMetric(relativeTo: .subheadline) private var scaledDayDiameter: CGFloat = 32
 
     var body: some View {
         Button(action: action) {
             content
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
+        // 날짜 자체가 정체성이다. 격자 순번이나 한국어 표시 문구를 쓰지 않는다.
+        .accessibilityIdentifier(day.accessibilityIdentifier)
+        .accessibilityLabel(semantics.label)
+        // 결과·선택·오늘·다른 달을 색이 아니라 읽는 값으로도 전달한다.
+        .accessibilityValue(semantics.value)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// 색 없이도 남는 의미. 순수 계산이라 화면 없이 검증할 수 있다.
+    private var semantics: CalendarDaySemantics {
+        CalendarDaySemantics(day: day, events: logs, isSelected: isSelected, isToday: isToday)
     }
 
     @ViewBuilder
@@ -1066,7 +1133,7 @@ private struct CalendarDayCell: View {
                     .clipped()
                 LinearGradient(colors: [.black.opacity(0.58), .clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom)
                 VStack(alignment: .leading) {
-                    Text("\(Calendar.current.component(.day, from: day.date))")
+                    Text("\(day.day)")
                         .font(.system(.caption, design: .rounded).weight(.heavy))
                         .foregroundStyle(.white)
                     Spacer()
@@ -1112,7 +1179,7 @@ private struct CalendarDayCell: View {
 
     /// Pencil `일 원`. 32pt 원 안에 숫자 하나. 선택된 날은 산호색으로 채운다.
     private func dayNumber() -> some View {
-        let isSunday = Calendar.current.component(.weekday, from: day.date) == 1
+        let isSunday = day.isSunday
         let numberColor: Color = {
             if isSelected, viewMode == .basic { return VFColor.bodyOnDark }
             if isSelected { return .white }
@@ -1120,17 +1187,28 @@ private struct CalendarDayCell: View {
             return isSunday ? VFColor.primaryAction : VFColor.bodyPrimary
         }()
 
-        return Text("\(Calendar.current.component(.day, from: day.date))")
+        return Text("\(day.day)")
             .font(Font.system(.subheadline, design: .default).weight(isSelected ? .bold : .regular).monospacedDigit())
             .foregroundStyle(numberColor)
             .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .frame(minWidth: 32, minHeight: 32)
+            // 두 자리 숫자가 줄어들 수 있는 한계까지만 허용한다. 0.7까지 줄이면
+            // 큰 글자에서 "12"가 "…"로 잘려 날짜를 읽을 수 없게 된다.
+            .minimumScaleFactor(0.9)
+            // 달력은 일곱 칸이 가로로 고정된 격자다. 숫자를 끝없이 키우면 두 자리가
+            // 칸에 들어가지 못해 잘린다. 그래서 **날짜 숫자만** 한계를 둔다.
+            // 요약·범례·선택일 상세는 제한 없이 그대로 커진다.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+            .frame(minWidth: numberDiameter, minHeight: numberDiameter)
             .background {
                 if isSelected, viewMode == .basic {
                     Circle().fill(VFColor.primaryAction)
                 }
             }
+    }
+
+    /// 날짜 원의 지름. 글자 크기를 따라 커지되 격자가 감당할 수 있는 선까지만 간다.
+    private var numberDiameter: CGFloat {
+        min(max(scaledDayDiameter, 32), 44)
     }
 
     private var resultDots: some View {
@@ -1189,24 +1267,6 @@ private struct CalendarDayCell: View {
         return log.result.title
     }
 
-    private var accessibilityLabel: String {
-        let dayText = "날짜 \(Calendar.current.component(.day, from: day.date))"
-        var parts = [dayText]
-        if isSelected {
-            parts.append("선택됨")
-        }
-        if logs.count > 1 {
-            parts.append("\(logs.count)개 기록")
-        }
-        if let first = logs.first {
-            parts.append(first.result.title)
-            parts.append(first.matchup)
-        }
-        if hasPhoto {
-            parts.append("사진 있음")
-        }
-        return parts.joined(separator: ", ")
-    }
 }
 
 private struct CalendarResultDot: View {

@@ -53,7 +53,10 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var statisticsState: RemoteDataState = .loading
     @Published private(set) var lastSaveMessage: String?
     @Published private(set) var selectedFeedResultFilter: FeedResultFilter = .all
-    @Published private(set) var selectedCalendarMonth: Date = Date.vfDate(year: 2026, month: 4, day: 1)
+    // 캘린더 픽스처는 시작 달만 정한다. 그 뒤의 이동은 제품 경로 그대로 동작한다.
+    // 매 렌더마다 값을 덮어쓰면 달 이동 자체가 불가능해진다.
+    @Published private(set) var selectedCalendarMonth: Date =
+        VFUITestConfiguration.initialCalendarMonth(Date.vfDate(year: 2026, month: 4, day: 1))
     @Published private(set) var selectedSeason: Int
     @Published private(set) var availableSeasons: [SeasonOption]
     @Published private(set) var userProfile: UserProfileDTO?

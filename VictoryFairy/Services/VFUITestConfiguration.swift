@@ -60,6 +60,14 @@ enum VFUITestConfiguration {
             defaults.set(completed == "1" || completed.lowercased() == "true",
                          forKey: "hasCompletedOnboarding")
         }
+
+        #if DEBUG
+        // 강조색 확인용 캘린더 픽스처는 응원 팀까지 정한다. 명시적인 `-VFUITestTeamID`
+        // 보다 나중에 적용해, 시나리오가 요구한 팀이 실제로 화면에 반영되게 한다.
+        if let fixtureTeamID = calendarFixtureTeamID {
+            defaults.set(fixtureTeamID, forKey: "favoriteTeamID")
+        }
+        #endif
     }
 
     /// 앱이 처음 열 탭. UI 테스트와 화면 캡처가 특정 탭에서 바로 시작하기 위해 쓴다.
@@ -188,8 +196,11 @@ enum VFUITestConfiguration {
         return production
     }
 
-    /// 캘린더가 보여줄 달. 픽스처가 없으면 실제 선택 월을 그대로 돌려준다.
-    static func calendarMonth(_ production: Date) -> Date {
+    /// 캘린더가 **처음** 보여줄 달. 픽스처가 없으면 실제 값을 그대로 돌려준다.
+    ///
+    /// 앱이 시작할 때 한 번만 쓴다. 화면을 그릴 때마다 쓰면 사용자가 달을 옮겨도
+    /// 곧바로 픽스처 값으로 되돌아가, 달 이동이 영원히 막힌다.
+    static func initialCalendarMonth(_ production: Date) -> Date {
         #if DEBUG
         if let fixture = calendarFixture {
             return VFCalendarFixtures.month(for: fixture)
@@ -220,19 +231,20 @@ enum VFUITestConfiguration {
         #endif
     }
 
-    /// 디자인에만 존재하는 경기 상태. 제품 경로에서는 언제나 nil이다.
-    static var calendarDesignOnlyStatusTitle: String? {
-        #if DEBUG
+    #if DEBUG
+    /// 디자인에만 존재하는 경기 상태. 이 프로퍼티 자체가 DEBUG에만 있다.
+    ///
+    /// Release에서는 타입도 프로퍼티도 없으므로 제품이 이 상태를 만들 방법이 없다.
+    /// 화면 쪽에서는 `#if DEBUG` 없이 쓸 수 있도록 아래에 중립 형태를 따로 둔다.
+    static var calendarDesignOnlyStatus: CalendarDesignOnlyStatus? {
         switch calendarFixture {
-        case .scheduledDesignState: return CalendarDesignOnlyStatus.scheduled.title
-        case .liveDesignState: return CalendarDesignOnlyStatus.live.title
-        case .postponedDesignState: return CalendarDesignOnlyStatus.postponed.title
+        case .scheduledDesignState: return .scheduled
+        case .liveDesignState: return .live
+        case .postponedDesignState: return .postponed
         default: return nil
         }
-        #else
-        return nil
-        #endif
     }
+    #endif
 
     /// 픽스처가 요구한 응원 팀. 없으면 저장된 값을 그대로 쓴다.
     static var calendarFixtureTeamID: String? {

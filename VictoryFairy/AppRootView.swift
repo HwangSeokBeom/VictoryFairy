@@ -110,12 +110,15 @@ struct MainTabView: View {
             .accessibilityIdentifier(MainTab.feed.screenIdentifier)
         case .calendar:
             NavigationStack {
-                // UI 테스트 픽스처 이음새. Release 빌드에서는 세 함수가 인자를 그대로
+                // UI 테스트 픽스처 이음새. Release 빌드에서는 두 함수가 인자를 그대로
                 // 돌려주므로 제품 경로에는 아무 영향이 없다.
+                //
+                // 달은 여기서 가로채지 않는다. 시작 달만 `AppDataStore`가 한 번 정하고,
+                // 그 뒤의 이동은 제품 경로 그대로 흐른다.
                 AttendanceCalendarView(
                     logs: VFUITestConfiguration.calendarLogs(appData.calendarLogs),
                     dataState: VFUITestConfiguration.calendarState(appData.calendarState),
-                    month: VFUITestConfiguration.calendarMonth(appData.selectedCalendarMonth)
+                    month: appData.selectedCalendarMonth
                 )
             }
             .accessibilityIdentifier(MainTab.calendar.screenIdentifier)
