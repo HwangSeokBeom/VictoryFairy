@@ -135,10 +135,12 @@ enum VFFeedFixtures {
             caption: "",
             diary: diary,
             tags: [],
-            // 픽스처는 사진 파일을 만들지 않는다. 저장소에 남는 가짜 데이터를 만들지
-            // 않기 위해서다. 따라서 사진 참조도 두지 않는다. `hasPhoto`는 앞으로
-            // 실제 파일을 붙일 때를 위한 자리이며 지금은 항상 빈 배열을 만든다.
-            photoLocalRefs: []
+            // 픽스처는 여전히 사진 **파일**을 만들지 않는다. 대신 메모리에서 그리는
+            // 참조를 둔다(`VFRecordDetailFixtures.inMemoryPhotoPrefix`). 저장소에 흔적이
+            // 남지 않으면서도 사진이 있는 기록을 실제로 그려 볼 수 있다.
+            photoLocalRefs: hasPhoto
+                ? ["\(VFRecordDetailFixtures.inMemoryPhotoPrefix)-feed-\(seed)"]
+                : []
         )
     }
 }

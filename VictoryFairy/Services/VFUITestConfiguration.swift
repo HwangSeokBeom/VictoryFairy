@@ -75,6 +75,13 @@ enum VFUITestConfiguration {
         if let fixtureSeason = statisticsInitialSeason {
             defaults.set(fixtureSeason, forKey: "selectedSeason")
         }
+        if let fixtureTeamID = recordDetailFixtureTeamID {
+            defaults.set(fixtureTeamID, forKey: "favoriteTeamID")
+        }
+        // 일기 서명은 사용자 이름이 있을 때만 나온다. 실제 설정과 같은 자리에 심는다.
+        if recordDetailFixture != nil {
+            defaults.set(VFRecordDetailFixtures.displayName, forKey: "userDisplayName")
+        }
         #endif
     }
 
@@ -392,6 +399,119 @@ enum VFUITestConfiguration {
         #if DEBUG
         guard let fixture = statisticsFixture else { return nil }
         return "statistics.scenario.\(fixture.rawValue)"
+        #else
+        return nil
+        #endif
+    }
+
+    // MARK: - 기록 상세 결정적 픽스처
+
+    /// 기록 상세 UI 테스트가 쓰는 상태 이름.
+    enum RecordDetailFixture: String {
+        /// Pencil 기준 상태: 2026년 4월 12일 잠실 원정 6:3 승.
+        case referenceRecord
+        case withPhoto
+        case withoutPhoto
+        /// 참조는 있는데 파일이 없다.
+        case missingPhotoFile
+        /// 파일은 있는데 이미지로 해석되지 않는다.
+        case failedPhotoDecode
+        case longNote
+        case noNote
+        case missingScore
+        case missingOpponent
+        case missingStadium
+        case unknownStadium
+        case win
+        case loss
+        case draw
+        case cancelled
+        case loading
+        case recoverableError
+        case retrySuccess
+        case deleteConfirmation
+        case deleteSuccess
+        case deleteFailure
+        case longTeamName
+        case longStadiumName
+        case lightTeamAccent
+        case darkTeamAccent
+        case compactReference
+        case accessibilityReference
+    }
+
+    static var recordDetailFixture: RecordDetailFixture? {
+        #if DEBUG
+        guard isActive,
+              let raw = value(for: "-VFUITestRecordDetailFixture", in: ProcessInfo.processInfo.arguments) else {
+            return nil
+        }
+        return RecordDetailFixture(rawValue: raw)
+        #else
+        return nil
+        #endif
+    }
+
+    /// 상세 화면이 보여 줄 기록. 픽스처가 없으면 실제 기록을 그대로 돌려준다.
+    static func recordDetailLog(_ production: AttendanceLogViewState) -> AttendanceLogViewState {
+        #if DEBUG
+        if let fixture = recordDetailFixture {
+            return VFRecordDetailFixtures.log(for: fixture)
+        }
+        #endif
+        return production
+    }
+
+    /// 사진 영역 상태. 픽스처가 없으면 실제로 확인한 상태를 그대로 돌려준다.
+    static func recordDetailMedia(_ production: RecordDetailMedia) -> RecordDetailMedia {
+        #if DEBUG
+        if let fixture = recordDetailFixture {
+            return VFRecordDetailFixtures.media(for: fixture)
+        }
+        #endif
+        return production
+    }
+
+    static func recordDetailState(_ production: RecordDetailDataState) -> RecordDetailDataState {
+        #if DEBUG
+        if let fixture = recordDetailFixture {
+            return VFRecordDetailFixtures.dataState(for: fixture)
+        }
+        #endif
+        return production
+    }
+
+    /// 삭제 결과를 대신 정해 주는 이음새.
+    ///
+    /// 픽스처가 지정한 시나리오에서는 **저장소를 건드리지 않고** 결과만 돌려준다.
+    /// 그래서 UI 테스트가 삭제 실패 경로를 확인해도 실제 기록이 사라지지 않는다.
+    static func recordDetailDeletion(
+        _ production: () async -> RecordDeletionOutcome
+    ) async -> RecordDeletionOutcome {
+        #if DEBUG
+        if let fixture = recordDetailFixture,
+           let scripted = VFRecordDetailFixtures.scriptedDeletion(for: fixture) {
+            return scripted
+        }
+        #endif
+        return await production()
+    }
+
+    /// 픽스처가 요구한 응원 팀. 없으면 저장된 값을 그대로 쓴다.
+    static var recordDetailFixtureTeamID: String? {
+        #if DEBUG
+        guard let fixture = recordDetailFixture else { return nil }
+        return VFRecordDetailFixtures.teamID(for: fixture)
+        #else
+        return nil
+        #endif
+    }
+
+    /// UI 테스트가 "픽스처가 정말 적용됐는지"를 화면에서 확인할 수 있게 하는 표식.
+    static var activeRecordDetailScenarioIdentifier: String? {
+        #if DEBUG
+        guard let fixture = recordDetailFixture else { return nil }
+        return "recordDetail.scenario.\(fixture.rawValue)"
         #else
         return nil
         #endif

@@ -382,11 +382,19 @@ final class AppDataStore: ObservableObject {
         }
     }
 
-    func deleteAttendanceLog(_ log: AttendanceLogViewState) async {
+    /// 기록을 지운다.
+    ///
+    /// 기기 저장소에서 지우지 못했으면 **아무것도 지우지 않고** 실패를 알린다. 예전에는
+    /// 실패를 삼키고 화면에서만 사라지게 해서, 다시 열면 되살아나는 기록을 사용자가
+    /// 지웠다고 믿게 만들었다. 서버 삭제 실패는 다르다 — 기기에서 이미 지웠으므로
+    /// 오프라인 삭제로 보고 성공으로 다룬다.
+    @discardableResult
+    func deleteAttendanceLog(_ log: AttendanceLogViewState) async -> RecordDeletionOutcome {
         do {
             try await localAttendanceLogRepository?.deleteAttendanceLog(id: log.id.uuidString)
         } catch {
-            logAPIFallback(endpoint: "DELETE local attendance-log", fallback: "memory", error: error)
+            logAPIFallback(endpoint: "DELETE local attendance-log", fallback: "none", error: error)
+            return .failed("기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요.")
         }
         removeLog(id: log.id)
 
@@ -399,6 +407,7 @@ final class AppDataStore: ObservableObject {
             logAPIFallback(endpoint: "DELETE /api/v1/attendance-logs/:id", fallback: "localOnly", error: error)
         }
         await refreshStatistics()
+        return .deleted
     }
 
     func createDiaryDraft(request: DiaryDraftRequest) async throws -> DiaryDraftDTO {

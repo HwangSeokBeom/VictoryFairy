@@ -38,6 +38,15 @@ struct AttachmentPhotoView: View {
 
     private func load(for requestedRef: String) async {
         let maxPixel = target.maxPixel
+        #if DEBUG
+        // UI 테스트용 메모리 이미지. 파일을 만들지 않고 그 자리에서 그린다.
+        // 접두사가 맞지 않으면 nil이라 제품이 만든 참조는 절대 이 경로를 타지 않는다.
+        if let generated = VFRecordDetailFixtures.inMemoryImage(for: requestedRef, maxPixel: maxPixel) {
+            image = generated
+            loadedRef = requestedRef
+            return
+        }
+        #endif
         if let cached = service.cachedImage(for: requestedRef, maxPixel: maxPixel) {
             image = cached
             loadedRef = requestedRef

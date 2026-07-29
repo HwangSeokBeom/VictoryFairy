@@ -397,14 +397,6 @@ private extension Array where Element == AttendanceLogViewState {
     }
 }
 
-private extension String {
-    /// 공백만 있는 값은 없는 것으로 본다.
-    var trimmedOrNil: String? {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-}
-
 struct VictoryFairyIndexService {
     func index(wins: Int, losses: Int) -> Int? {
         guard wins + losses > 0 else { return nil }
