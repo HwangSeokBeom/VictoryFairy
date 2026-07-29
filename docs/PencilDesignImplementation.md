@@ -6,7 +6,11 @@ VictoryFairy iOS 앱을 Pencil 원본에 맞춰 다시 그린 작업의 결정 �
 ## 디자인 원본
 
 - 파일: `/Users/hwangseokbeom/Documents/VictoryFairy.pen` (저장소 밖, 추적하지 않음)
-- 열람 방법: Pencil MCP (`get_editor_state`, `get_variables`, `batch_get`, `snapshot_layout`)
+- 열람 방법: Pencil MCP — `get_app_state`(문서·스키마), `execute`의 `GetVariables`/`Get`
+  (변수와 노드 트리, `ctx.bounds`로 배치 확인), `get_screenshot`(시각 확인).
+  `get_editor_state`·`get_variables`·`batch_get`·`snapshot_layout`은 **이 서버에 없는
+  이름이다.** 그 이름으로 부르면 "No handler found for method"가 나고, MCP가 고장난 것으로
+  오인하기 쉽다.
 - 최상위 프레임 **16개**, 재사용 컴포넌트 **30개**, 문서 변수 **40개**
 - `.pen` 파일은 수정하지 않았다.
 
@@ -469,7 +473,7 @@ Pencil 캘린더는 승리 점을 금색(`gold`)으로 그리지만, 금색은 �
 ### 캘린더 — Release 격리 증명
 
 소스의 `#if DEBUG`는 필요하지만 충분하지 않다. 조건이 잘못 걸리거나 파일이 다른 타깃에
-들어가면 소스는 그대로인데 결과물에는 남는다. `scripts/verify_calendar_fixture_exclusion.sh`가
+들어가면 소스는 그대로인데 결과물에는 남는다. `scripts/verify_fixture_exclusion.sh`가
 아카이브 안의 **모든 실행 코드**를 훑어 확인한다. 주 실행 파일만 보면 놓친다 — Debug
 빌드는 대부분의 코드를 `*.debug.dylib`에 두고 주 실행 파일은 40KB 껍데기다.
 
@@ -500,3 +504,266 @@ Debug 번들에서는 실패한다. 한쪽만 확인하면 "아무것도 못 찾
 
 새 흐름에서도 뜻이 통하는 두 개(test10, test13)는 건너뛰지 않고 계속 돌린다. 통째로
 건너뛰면 실제로 지켜지고 있는 것까지 확인을 멈추게 된다.
+
+---
+
+## 시즌 아카이브 — 07_Statistics_SeasonArchive (프레임 단위 구현 완료)
+
+- Pencil 원본 SHA-256 `9b5af6aee3ed8cc72383d4d465dae2b62e75462dc5da3507d22f5f5055bb1a4a`
+- 935,281 바이트 · 최상위 프레임 22개 · 재사용 컴포넌트 49개 · 문서 변수 46개
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 최종 상태 **FRAME_LEVEL_IMPLEMENTATION**
+- 프레임 노드 `N9cSUg`, 393×1197
+
+### Pencil 원본 변화 — STATISTICS_ONLY_DELTA
+
+캘린더 작업 시점의 원본은 `04e9f671…c49874` / 935,197바이트 / 변수 45개였다. 지금은
+`9b5af6ae…5b1a4a` / 935,281바이트 / 변수 46개다. 컴포넌트 수(49)와 최상위 프레임 수(22)는
+그대로이고, 늘어난 것은 **문서 변수 하나와 84바이트**뿐이다.
+
+문서 변수 46개의 값을 `VFDesignSystem`과 하나씩 대조했다. paper·ink·line·navy·butter·
+coral·sage·gold·live·win·night 계열, 반경(10/14/20), 간격(4/8/16/24), 팀 10색까지 전부
+이미 구현된 토큰과 **값이 같다**. 값이 바뀐 변수가 없으므로 완성된 홈·피드·캘린더가
+이번 변화로 다시 칠해질 일이 없다. 시즌 아카이브 프레임이 쓰는 변수도 모두 기존 토큰에
+대응된다. 따라서 이번 변화는 **STATISTICS_ONLY_DELTA**로 분류한다.
+
+프레임이 쓰는 값 가운데 토큰이 없던 것은 리터럴 두 개뿐이라 **덧붙이기만** 했다.
+공유 토큰의 값은 하나도 바꾸지 않았다.
+
+- `bodyOnDarkSecondary` `#8FAEC6` — 남색 커버 위의 보조 글자
+- `chartEmptyMark` `#A59C8C` 25% — 기록이 없는 달의 빈 점
+- `VFTypography.numericDisplay` — Pencil font-mono 48/700 자리. 고정 48pt 대신
+  `largeTitle` 역할이라 Dynamic Type을 그대로 따른다
+
+### 프레임 → 소스 매핑
+
+| Pencil 노드 | 화면 | 실제 데이터원 |
+| --- | --- | --- |
+| `시즌 헤더` / `화면 제목` | `StatisticsView.seasonHeader` | 고른 시즌 |
+| `시즌 부제` | 같은 곳 | 직관 횟수 + 실제 구장 수 |
+| `시즌 선택` | `seasonSelector` + `SeasonPickerSheet` | `AppDataStore.availableSeasons` |
+| `시즌 커버` | `SeasonCoverCard` | 시즌 전적 |
+| `커버 라벨` + 팀 표시 | `SeasonCoverCard.eyebrow` | `UserPreferencesStore.favoriteTeamID` |
+| `커버 문장` | `SeasonHeadline` | 실제 승·패·무·취소 |
+| `승률` `.625` | `SeasonRecord.winRateText` | 승 ÷ 승패 |
+| `커버 전적` | `SeasonRecord.recordText` | 결과별 집계 |
+| `커버 반짝` | `VFIllustrationView(.sparkle)` | 장식 |
+| `사진 콜라주` | — | 구현하지 않음(아래 참고) |
+| `시즌 기록 섹션` | `highlightsSection` | 네 줄 모두 실제 기록 |
+| `가장 많이 간 구장` | `SeasonHighlight.mostVisitedStadium` | 기록에 남은 구장 |
+| `가장 많이 만난 상대` | `.mostFacedOpponent` | `AttendanceMatchup` |
+| `올해의 순간` | `.largestWinMargin`으로 대체 | 실제 점수 |
+| `최다 연승` | `.longestWinStreak` | 승패 순서 |
+| `타임라인 섹션` | `SeasonTrendChart` | 월별 직관 횟수 |
+| `리포트 공유` | `ShareCardPreviewView(seasonWinRateText:)` | 계산된 승률 |
+| — | `SeasonResultDistributionView` | 결과별 집계(추가) |
+| — | `stadiumSection` | 실제 구장 순위(추가) |
+| — | `KBOStandingsView` | 서버 순위표(기존 기능 보존) |
+
+### 계산 소유권
+
+`StatisticsService`는 Foundation만 쓰는 순수 계산 계층으로 남아 있다. 뷰 본문에서
+계산하던 것을 모두 옮겼다.
+
+- 문장 생성 · 합계 · 승률 · 취소 처리 규칙 · 결과 분포 · 월별 흐름 · 구장 정렬과 집계 ·
+  연승 · 최다 점수 차 · 시즌 발견과 정렬 · 차트 요약
+
+화면은 `SeasonArchivePresentation` 하나를 받아 그리기만 한다. `StatisticsViewModel`은
+뷰가 아니므로 화면 없이도 같은 값을 만들 수 있고, 그래서 계산을 전부 단위 테스트로
+검증할 수 있다. DI 프레임워크나 유스케이스 계층은 도입하지 않았다.
+
+### 승률 분모 규칙
+
+**승률 = 승 ÷ (승 + 패).** 무승부와 취소 경기는 분모에 넣지 않는다.
+
+- 이 규칙은 앱이 이미 쓰던 것과 같다(`StatisticsService.summary`의 `decided`,
+  `StatisticsMapper`). 새로 만든 규칙이 아니라 기존 제품 규칙을 명시화했다.
+- 취소는 경기가 열리지 않은 것이고 무승부는 승패가 갈리지 않은 것이라, 둘 다 "이길 수
+  있었던 경기"가 아니다.
+- 승패가 하나도 없으면 0%가 아니라 **값 자체가 없다**(`—`). 0%는 "다 졌다"는 뜻이라
+  거짓말이 된다.
+- 취소·무승부는 **직관 횟수**에는 그대로 들어간다. 간 것은 사실이다.
+- 표기는 야구 관례를 따른다. 소수 셋째 자리, 앞의 0을 뗀 `.714`. VoiceOver는 숫자를
+  그대로 읽으면 알아듣기 어려우므로 "승률 71.4퍼센트, 5승 2패 기준"으로 풀어 읽고,
+  화면에 찍힌 `.714`는 접근성 **값**으로 남겨 자동 검증이 가능하게 했다.
+
+### 의도한 편차
+
+1. **`.625`를 옮기지 않았다.** Pencil은 `8경기 · 5승 2패 1무` 옆에 `.625`를 적어 두었지만
+   자기 전적으로 계산하면 5÷7 = `.714`다. 표본 값이라 규칙대로 다시 계산한다.
+2. **커버 문장을 만들어 쓴다.** "잠실의 기적을 두 눈으로 본 사람"은 사람이 쓴 예시다.
+   그런 문장을 주는 필드가 서버에도 기기에도 없다. 실제 숫자와 실제 구장 이름만으로
+   여덟 갈래의 결정적 문장을 만든다. 같은 기록에서는 언제나 같은 문장이 나온다.
+3. **`올해의 순간`을 `가장 크게 이긴 날`로 바꿨다.** "박병호의 9회 역전 스리런"을 만들려면
+   선수·이닝·타구 데이터가 필요한데 이 앱에는 없다. 지어내지 않고, 실제 점수로 확인할 수
+   있는 최다 점수 차 승리로 **구조가 같은 자리**를 채운다. 점수가 없으면 값을 만들지 않고
+   "점수가 적힌 승리가 아직 없어요"로 남긴다.
+4. **타임라인 기간이 다르다.** Pencil은 3월~9월 일곱 칸을 고정으로 그리지만, 이 앱에는
+   시즌이 언제 시작하고 끝나는지 알려 주는 데이터원이 없다. 없는 기간을 만들어 내지 않고
+   **첫 기록이 있는 달부터 마지막 기록이 있는 달까지**를 그린다. 그 사이의 빈 달은 Pencil과
+   같은 빈 점으로 남아 시즌의 모양이 그대로 보인다.
+5. **사진 콜라주를 넣지 않았다.** Pencil은 Unsplash 사진 세 장을 붙여 두었다. 제품에는
+   시즌 대표 사진을 고르는 규칙도, 기록 사진을 가져오는 경로도 없다(피드 사진 과제와 같은
+   미해결 항목). 남의 사진을 제품에 심지 않고 자리를 비웠다.
+6. **결과 분포와 구장 순위를 더했다.** Pencil 프레임에는 없지만 과제가 요구하는 값이고,
+   둘 다 실제 집계에서 나온다. 도넛 대신 **라벨이 붙은 가로 막대**를 쓴다. 색만으로
+   뜻을 전하지 않도록 승·패·무·취소 네 항목을 0이어도 모두 적는다.
+7. **리그 순위표를 별도 화면으로 옮겼다.** 이전 화면은 `KBO 현재 / 내 직관` 두 구획을
+   탭으로 갈랐다. Pencil 시즌 아카이브는 순수하게 개인 아카이브라 순위표가 없다. 기능을
+   지우는 대신 아카이브 맨 아래 한 줄에서 `KBOStandingsView`로 이어지게 했다.
+8. **`SeasonStatsView`를 지웠다.** 어디서도 열리지 않는 화면인데 `7승 4패 1무`,
+   `잠실 8회`, `KIA 4회` 같은 값이 소스에 박혀 있었다. 제품에 표본 통계가 남아 있을
+   이유가 없다.
+9. **섹션 헤더의 "전체 보기"는 두지 않았다.** Pencil도 비활성으로 그렸고, 구장 목록은
+   상위 몇 개로 자르지 않고 전부 보여주므로 더 볼 것이 없다. 대신 `가장 많이 간 구장`과
+   `가장 많이 만난 상대` 줄이 각각 구장별·상대팀별 통계 화면으로 이어진다. 아무 일도
+   하지 않는 버튼을 화면에 두지 않는다.
+
+### 상태 범위
+
+| 상태 | 화면 | 근거 |
+| --- | --- | --- |
+| 불러오는 중 | `VFLoadingPanel` | `statistics.loading` |
+| 기록 없음 | `VFEmptyStatePanel` | `statistics.empty` |
+| 기록 한 건 | 아카이브 전체 | 문장이 `firstRecord`로 바뀐다 |
+| 표본 부족 | 안내 줄 | 승률을 숨기지 않고 흔들릴 수 있다고 알린다 |
+| 승패 없음 | 승률 `—` | 0%로 쓰지 않는다 |
+| 취소만 | 전용 문장 | "발걸음했지만 경기는 열리지 않았어요" |
+| 구장 없음 | `statistics.stadiumAnalysis.empty` | 구장을 지어내지 않는다 |
+| 점수 없음 | 하이라이트 비활성 | 합계·승률은 그대로 계산된다 |
+| 복구 가능한 오류 | `VFErrorPanel` + 재시도 | 시즌을 잃지 않는다 |
+
+### 결정적 픽스처 경계
+
+`VFStatisticsFixtures`는 파일 전체가 `#if DEBUG`다. 시나리오 **23개**를 갖고 있고,
+날짜와 ID는 모두 고정값이다. `Date.now`·무작위 `UUID`·`Calendar.current`를 쓰지 않고,
+SwiftData에 쓰지 않으며 파일도 만들지 않는다. 사진 참조도 두지 않는다.
+
+- 기준 시즌은 Pencil이 그린 **모양**과 같다. 8경기 · 5승 2패 1무, 3월 3번 / 4월 5번,
+  라이온즈파크 5번, KIA 3번, 4월 3연승. 승률만 규칙대로 `.714`가 된다.
+- 픽스처는 **시작 시즌만** 정한다. 그 뒤의 시즌 선택은 제품 경로(`selectSeason`) 그대로
+  흐른다. 화면을 그릴 때마다 덮어쓰면 시즌을 바꿀 수 없게 된다 — 캘린더에서 겪은 결함이다.
+- 캘린더와 시나리오 이름이 겹치는 것(`loading`, `recoverableError` 등)은 의도한 것이다.
+  화면마다 같은 개념을 가리킨다. 켜는 **실행 인자 키**가 서로 다르고
+  (`-VFUITestCalendarFixture` / `-VFUITestStatisticsFixture`), 각 이음새가 자기 키만
+  읽는다는 것을 테스트가 확인한다.
+
+### 픽스처 활성화 증명
+
+모든 UI 테스트가 첫 단언으로 화면에서 `statistics.scenario.<시나리오>`를 찾는다. 표식이
+없으면 조용히 제품 상태로 돌아간 것이므로 그 자리에서 실패한다. 표식은
+`accessibilityHidden`을 붙이지 않는다 — 붙이면 접근성 트리에서 통째로 빠져 UI 테스트가
+영영 찾지 못한다(캘린더에서 겪은 결함). 거버넌스 테스트가 이 조건을 소스에서 확인한다.
+
+알 수 없는 이름은 어떤 픽스처도 켜지 않는다는 것도 따로 확인한다.
+
+### 이 패스에서 테스트가 잡은 결함
+
+1. **시즌 칩이 "2,026 시즌"으로 읽혔다.** `accessibilityLabel("… \(archive.season) 시즌")`은
+   `LocalizedStringKey`로 해석돼 연도를 **수량**으로 포맷했다. 연도는 수량이 아니므로
+   `Text(verbatim:)`으로 문자 그대로 읽게 고쳤다. 같은 실수를 막는 거버넌스 테스트를 뒀다.
+2. **큰 글자에서 팀 이름이 "삼성 라…"로 잘렸다.** 커버 라벨과 팀 표시를 한 줄에 두어
+   AccessibilityXXXL에서 자리가 모자랐다. 팀 이름은 이 화면이 누구의 시즌인지 말해 주는
+   값이라 줄일 수 없으므로, 좁아지면 아래로 접히도록 `ViewThatFits`를 뒀다.
+   접근성 이름은 잘려도 그대로 남아 **이름으로는 잡히지 않는다.** 그래서 줄바꿈이 실제로
+   일어났는지를 좌표로 확인하는 검사를 따로 뒀다(`testSR18`, `testSR19`).
+
+### 접근성 식별자
+
+한국어 표시 문구를 정체성으로 쓰지 않는다. 읽어 주는 이름과 식별자는 서로 다른 값이다.
+
+`statistics.root` · `.title` · `.subtitle` · `.selectedSeason` · `.season.<연도>` ·
+`.seasonPicker` · `.hero` · `.hero.eyebrow` · `.headline` · `.winRate` ·
+`.totalAttendance` · `.wins` · `.losses` · `.draws` · `.canceled` · `.distribution` ·
+`.distribution.summary` · `.trend` · `.trend.month.<월>` · `.trend.summary` ·
+`.highlights` · `.highlight.<종류>` · `.stadiumAnalysis` · `.stadiumAnalysis.empty` ·
+`.stadium.<구장ID 또는 rank<n>>` · `.team.<팀ID>` · `.loading` · `.empty` ·
+`.insufficientData` · `.error` · `.retry` · `.seasonReport` · `.leagueStandings` ·
+`.scenario.<시나리오>`
+
+등록부에 없는 구장은 순위로 구분한다(`statistics.stadium.rank1`). 한국어 구장 이름을
+식별자로 만들지 않는다.
+
+### 차트 규칙
+
+두 차트 모두 의미 모델에서 값을 받고, 뷰 본문에서 기하를 계산하지 않는다. 비율은
+서비스가 이미 계산해 두고, 화면은 그 비율을 폭으로 옮기기만 한다.
+
+- **결과 분포** — 라벨이 붙은 가로 막대. 승·패·무·취소를 0이어도 모두 적어 색 없이도
+  값이 남는다. 0건이면 막대를 그리지 않고 문장만 남긴다. 한 종류뿐이면 막대 하나가
+  전체 폭을 차지한다.
+- **월별 직관** — Pencil 점 쌓기. 한 칸에 그리는 점은 10개까지고, 넘으면 숫자로 말한다.
+  칸이 여섯 개를 넘거나 접근성 글자 크기이면 **같은 값을 목록으로** 바꾼다. 어느 쪽이든
+  달마다 `statistics.trend.month.<월>` 식별자와 읽어 줄 값이 그대로 남는다.
+- 두 차트 모두 요약 문장을 화면에 함께 띄운다. 차트를 볼 수 없어도 같은 값이 남는다.
+- 그라디언트·글로·의사 3D·무작위 애니메이션은 쓰지 않는다.
+
+### 검증 범위
+
+- 단위·거버넌스: `StatisticsTests`(38) · `StatisticsFixtureGovernanceTests`(32)
+- UI: `StatisticsUITests`(42) — 픽스처 활성화와 화면 구조, 시즌 선택, 핵심 수치,
+  상태 9종, 차트, 팀 아이덴티티 10구단 전수, 구장 아이덴티티 9구장 전수, 탐색
+- 반응형: `StatisticsResponsiveUITests`(19) — 좁은 폭 8개(iPhone SE 3세대) +
+  AccessibilityXXXL 11개
+- 캡처 도구: `StatisticsCaptureUITests`(28)
+
+좁은 폭 검사는 375pt급 기기에서만 뜻이 있으므로, 넓은 기기에서 돌면 통과로 위장하지 않고
+건너뛴다고 명시적으로 알린다. 큰 글자 검사는 월 제목이 아니라 **시즌 제목 높이**를 재서
+적용 여부를 먼저 확인한다.
+
+### Release 격리 증명
+
+`scripts/verify_calendar_fixture_exclusion.sh`는 이번에 두 화면을 함께 보도록
+`scripts/verify_fixture_exclusion.sh`로 이름을 바꾸고 시즌 아카이브 항목을 더했다.
+
+- **없을 것**: `VFStatisticsFixtures`, `StatisticsFixture`, 시나리오 이름 12개,
+  `-VFUITestStatisticsFixture`, UUID 접두사 `57A7DA7A`, 표식 접두사 `statistics.scenario.`
+- **있을 것**: `SeasonArchivePresentation`, `statistics.selectedSeason`,
+  `statistics.stadiumAnalysis`, `statistics.distribution`, `SeasonCoverCard`
+
+`insufficientData`는 검사 목록에서 뺐다. 제품 식별자 `statistics.insufficientData`와 글자가
+겹쳐, 픽스처가 완전히 빠진 아카이브에서도 걸린다. 제품에서 정당하게 나올 수 있는 토큰은
+이 검사에 쓸 수 없다 — 거짓 실패만 만든다. 실제로 첫 실행에서 이 항목이 걸려 알아냈다.
+
+게이트는 양쪽으로 확인했다. Release 아카이브에서 통과(0건)하고, 픽스처가 실제로 들어 있는
+Debug 번들에서 실패(38건)한다. 한쪽만 확인하면 "아무것도 못 찾는 검사"와 구분되지 않는다.
+
+### 검증 근거 (실행 결과)
+
+- 단위 테스트: **229개 통과, 실패 0** (`VictoryFairyTests`, iPhone 17 Pro)
+  - 이 중 시즌 아카이브 몫은 `StatisticsTests` 38개 + `StatisticsFixtureGovernanceTests` 32개
+- UI 테스트: **208개 실행, 실패 0, 건너뜀 28** (`VictoryFairyUITests`, iPhone 17 Pro)
+  - 건너뛴 28개 = 캘린더 좁은 폭 7 + 시즌 좁은 폭 8 + 온보딩 13
+  - 좁은 폭 15개는 넓은 기기에서 뜻이 없어 스스로 건너뛴다. 통과로 위장하지 않는다.
+- 좁은 폭·큰 글자 실기기 검증: **iPhone SE 3세대(375pt)에서 19개 전부 실행, 건너뜀 0, 실패 0**
+- 캡처: 28개 상태 × 2기기(iPhone 17 Pro / iPhone SE 3세대) = **56장**
+- Debug 빌드 성공 · Release 아카이브 성공
+- `verify_app_icon.sh` 통과 · `verify_release_readiness.sh` 통과
+- `verify_fixture_exclusion.sh`: Release 아카이브 통과(0건) / Debug 번들 실패(38건)
+
+### Release 아카이브 근거
+
+- 스킴 `VictoryFairy-Production`, 구성 Release, 결과 **ARCHIVE SUCCEEDED**
+- 번들 식별자 `com.hwangseokbeom.victoryfairy`, 마케팅 버전 1.1.0, 빌드 번호 1 (변동 없음)
+- `Assets.car`에 AppIcon 세 렌디션(default / UIAppearanceDark / ISAppearanceTintable) 포함
+- `LaunchMark`, `LaunchBackground`(라이트·다크) 포함, `UILaunchScreen` 키 유지
+- 테스트 번들 미포함, 아이콘·알파 경고 없음
+- 서명 설정은 손대지 않았다(`CODE_SIGN_STYLE = Automatic`, `DEVELOPMENT_TEAM` 그대로).
+  다만 이 아카이브는 `CODE_SIGNING_ALLOWED=NO`로 만든 **미서명** 결과물이므로,
+  App Store 배포 서명이 검증됐다고 말할 수 없다.
+
+### 온보딩 건너뛴 검사 — 이번 실행 결과
+
+`OnboardingUITests` 15개 가운데 **2개 통과, 13개 건너뜀**. 건너뛴 13개는 재설계 이전
+흐름의 `onboarding.overview.next` 단계를 찾는다. 앞선 패스에서 정정한 분류 그대로이며,
+이번 작업이 온보딩을 건드리지 않았음을 이 숫자가 함께 보여 준다.
+
+### 남은 것
+
+- **사진 콜라주** — Pencil `사진 콜라주` 자리는 비어 있다. 시즌 대표 사진을 고르는 규칙과
+  기록 사진을 읽는 경로가 없다. 피드의 사진 과제와 같은 뿌리다.
+- **`MetricCard`·`StatRankingRow`** — 이전 통계 화면만 쓰던 공용 컴포넌트라 지금은 참조가
+  없다. 공용 컴포넌트 라이브러리의 일부라 지우지 않았고, 정리는 별도 작업으로 남긴다.
+- **다크 모드** — 원본에 다크 변형이 없다는 기존 과제 그대로다. 시즌 커버는 이미 야간
+  표면을 쓰지만, 화면 전체의 다크 팔레트는 여전히 없다.
+- **`AttendanceLogViewState.ourScore`** — 이름이 "우리 팀 점수"지만 실제로는 응원 팀 점수다.
+  API 호환을 위해 그대로 두었고, 최다 점수 차 계산도 이 의미를 그대로 따른다.
