@@ -497,7 +497,7 @@ final class CalendarUITests: XCTestCase {
         let app = launchVerified("selectedRecord")
         XCTAssertTrue(waits(node(app, "calendar.detailRecord")))
         node(app, "calendar.detailRecord").tap()
-        XCTAssertTrue(waits(text(app, containing: "삼성 vs LG"), 10), "기록 상세로 가지 못했다")
+        XCTAssertTrue(waits(node(app, "recordDetail.root"), 10), "기록 상세로 가지 못했다")
 
         let back = app.navigationBars.buttons.element(boundBy: 0)
         if back.exists { back.tap() } else { app.swipeRight() }
@@ -522,6 +522,6 @@ final class CalendarUITests: XCTestCase {
         let more = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "자세히")).firstMatch
         XCTAssertTrue(waits(more), "Pencil의 '자세히'가 동작하지 않는다")
         more.tap()
-        XCTAssertTrue(waits(text(app, containing: "삼성 vs LG"), 10), "자세히가 상세로 가지 않는다")
+        XCTAssertTrue(waits(node(app, "recordDetail.root"), 10), "자세히가 상세로 가지 않는다")
     }
 }

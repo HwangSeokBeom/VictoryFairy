@@ -207,13 +207,33 @@ final class FeedTests: XCTestCase {
         XCTAssertEqual(Set(first).count, first.count, "픽스처 ID가 중복된다")
     }
 
-    /// 픽스처는 사진 파일을 만들지 않으므로 저장소에 흔적을 남기지 않는다.
-    func testFixturesDoNotReferencePhotoFiles() {
+    /// 픽스처는 사진 **파일**을 만들지 않는다.
+    ///
+    /// 사진이 있는 기록도 그려 볼 수 있어야 하므로 참조 자체는 둘 수 있다. 다만 그 참조는
+    /// 반드시 메모리에서 그리는 종류여야 한다. 실제 파일 경로를 가리키면 저장소에 없는
+    /// 파일을 가리키게 되고, 그 순간 픽스처가 흔적을 남기기 시작한다.
+    func testFixturePhotoReferencesAreDrawnInMemoryNotStored() {
         for fixture in [VFUITestConfiguration.FeedFixture.populated, .multiMonth, .longContent] {
             for entry in VFFeedFixtures.logs(for: fixture) {
-                XCTAssertTrue(entry.photoLocalRefs.isEmpty, "픽스처가 없는 사진 파일을 가리킨다")
+                for ref in entry.photoLocalRefs {
+                    XCTAssertTrue(
+                        ref.hasPrefix(VFRecordDetailFixtures.inMemoryPhotoPrefix),
+                        "픽스처가 저장소의 사진 파일을 가리킨다: \(ref)"
+                    )
+                    XCTAssertNotNil(
+                        VFRecordDetailFixtures.inMemoryImage(for: ref, maxPixel: 320),
+                        "메모리 사진을 그릴 수 없다: \(ref)"
+                    )
+                }
             }
         }
+    }
+
+    /// 사진이 있는 기록과 없는 기록이 모두 있어야 두 상태를 다 확인할 수 있다.
+    func testPopulatedFixtureHasBothPhotoAndPhotolessRecords() {
+        let logs = VFFeedFixtures.logs(for: .populated)
+        XCTAssertTrue(logs.contains { !$0.photoLocalRefs.isEmpty }, "사진 있는 기록이 없다")
+        XCTAssertTrue(logs.contains { $0.photoLocalRefs.isEmpty }, "사진 없는 기록이 없다")
     }
 
     /// 픽스처가 실제로 여러 달과 같은 날 기록을 담아야 그룹 검증이 의미를 갖는다.

@@ -131,9 +131,10 @@ final class CalendarCaptureUITests: XCTestCase {
         let card = node(app, "calendar.detailRecord")
         XCTAssertTrue(card.waitForExistence(timeout: 12))
         card.tap()
+        // 상세 화면은 매치업 원문 대신 두 팀을 각각 보여 준다. 문구가 아니라
+        // 화면 정체성으로 도착을 확인한다.
         XCTAssertTrue(
-            app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "삼성 vs LG"))
-                .firstMatch.waitForExistence(timeout: 12),
+            node(app, "recordDetail.root").waitForExistence(timeout: 12),
             "기록 상세로 가지 못했다"
         )
         capture(app, "27-record-detail-destination")
