@@ -65,6 +65,7 @@ enum MainTab: String, Hashable, CaseIterable {
 struct MainTabView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var appData: AppDataStore
+    @EnvironmentObject private var preferences: UserPreferencesStore
     // UI 테스트가 특정 탭에서 바로 시작할 수 있게 한다.
     // Release에서는 `initialTabRawValue`가 항상 nil이라 언제나 홈에서 시작한다.
     @State private var selectedTab: MainTab =
@@ -124,7 +125,26 @@ struct MainTabView: View {
             .accessibilityIdentifier(MainTab.calendar.screenIdentifier)
         case .statistics:
             NavigationStack {
-                StatisticsView(viewModel: StatisticsViewModel(state: appData.statistics, dataState: appData.statisticsState))
+                // UI 테스트 픽스처 이음새. Release 빌드에서는 세 함수가 인자를 그대로
+                // 돌려주므로 제품 경로에는 아무 영향이 없다.
+                //
+                // 시즌은 여기서 가로채지 않는다. 시작 시즌만 `VFUITestConfiguration`이
+                // 한 번 심고, 그 뒤의 선택은 제품 경로 그대로 흐른다.
+                StatisticsView(viewModel: StatisticsViewModel(
+                    logs: VFUITestConfiguration.statisticsLogs(
+                        appData.feedLogs,
+                        season: appData.selectedSeason
+                    ),
+                    season: appData.selectedSeason,
+                    seasonOptions: VFUITestConfiguration.statisticsSeasons(
+                        appData.availableSeasons.map {
+                            SeasonArchiveOption(season: $0.season, hasRecords: $0.hasRecords)
+                        }
+                    ),
+                    favoriteTeam: appData.team(id: preferences.favoriteTeamID),
+                    dataState: VFUITestConfiguration.statisticsState(appData.statisticsState),
+                    leagueStandings: appData.statistics
+                ))
             }
             .accessibilityIdentifier(MainTab.statistics.screenIdentifier)
         case .my:

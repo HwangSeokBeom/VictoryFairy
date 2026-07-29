@@ -540,6 +540,8 @@ struct VFErrorPanel: View {
     var title: String = "잠시 우천 중단이에요"
     var message: String
     var retryTitle: String = "다시 시도"
+    /// 다시 시도 버튼에 붙일 식별자. 패널과 버튼을 따로 확인해야 하는 화면이 쓴다.
+    var retryAccessibilityIdentifier: String?
     var onRetry: (() -> Void)?
 
     var body: some View {
@@ -579,6 +581,7 @@ struct VFErrorPanel: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(retryAccessibilityIdentifier ?? "")
             }
         }
         .padding(.vertical, VFSpacing.xl)

@@ -67,6 +67,14 @@ enum VFUITestConfiguration {
         if let fixtureTeamID = calendarFixtureTeamID {
             defaults.set(fixtureTeamID, forKey: "favoriteTeamID")
         }
+        if let fixtureTeamID = statisticsFixtureTeamID {
+            defaults.set(fixtureTeamID, forKey: "favoriteTeamID")
+        }
+        // 시즌 아카이브 픽스처는 시작 시즌만 심는다. 그 뒤의 시즌 선택은 제품 경로
+        // 그대로 흐른다. 화면을 그릴 때마다 덮어쓰면 시즌을 바꿀 수 없게 된다.
+        if let fixtureSeason = statisticsInitialSeason {
+            defaults.set(fixtureSeason, forKey: "selectedSeason")
+        }
         #endif
     }
 
@@ -262,6 +270,128 @@ enum VFUITestConfiguration {
         #if DEBUG
         guard let fixture = calendarFixture else { return nil }
         return "calendar.scenario.\(fixture.rawValue)"
+        #else
+        return nil
+        #endif
+    }
+
+    // MARK: - 시즌 아카이브 결정적 픽스처
+
+    /// 시즌 아카이브 UI 테스트가 쓰는 상태 이름.
+    enum StatisticsFixture: String {
+        /// Pencil 기준 상태: 8경기 · 5승 2패 1무.
+        case referenceSeason
+        /// 여러 시즌을 고를 수 있는 상태.
+        case multipleSeasons
+        /// 지난 시즌이 이미 골라진 상태.
+        case previousSeason
+        /// 이 시즌 기록 없음.
+        case empty
+        /// 기록 한 건.
+        case oneRecord
+        /// 승패 표본이 적은 상태.
+        case insufficientData
+        /// 구장이 적히지 않은 기록.
+        case noStadium
+        /// 점수가 적히지 않은 기록.
+        case missingScore
+        case winOnly
+        case lossOnly
+        case drawOnly
+        case cancelledOnly
+        case mixedResults
+        /// 불러오는 중.
+        case loading
+        /// 복구 가능한 오류.
+        case recoverableError
+        /// 다시 불러오기에 성공한 뒤.
+        case retrySuccess
+        case longTeamName
+        case longStadiumName
+        case lightTeamAccent
+        case darkTeamAccent
+        case compactReference
+        case accessibilityReference
+        /// 정식 구장 아홉 곳이 모두 한 화면에 나오는 상태.
+        case allStadiums
+    }
+
+    static var statisticsFixture: StatisticsFixture? {
+        #if DEBUG
+        guard isActive,
+              let raw = value(for: "-VFUITestStatisticsFixture", in: ProcessInfo.processInfo.arguments) else {
+            return nil
+        }
+        return StatisticsFixture(rawValue: raw)
+        #else
+        return nil
+        #endif
+    }
+
+    /// 시즌 아카이브가 집계할 기록. 픽스처가 없으면 실제 데이터를 그대로 돌려준다.
+    ///
+    /// 고른 시즌을 함께 받는다. 시즌을 바꿨을 때 값이 실제로 달라져야, 선택이 화면까지
+    /// 이어졌는지 확인할 수 있다.
+    static func statisticsLogs(
+        _ production: [AttendanceLogViewState],
+        season: Int
+    ) -> [AttendanceLogViewState] {
+        #if DEBUG
+        if let fixture = statisticsFixture {
+            return VFStatisticsFixtures.logs(for: fixture, season: season)
+        }
+        #endif
+        return production
+    }
+
+    /// 고를 수 있는 시즌 목록. 픽스처가 없으면 실제 목록을 그대로 돌려준다.
+    static func statisticsSeasons(_ production: [SeasonArchiveOption]) -> [SeasonArchiveOption] {
+        #if DEBUG
+        if let fixture = statisticsFixture {
+            return VFStatisticsFixtures.seasons(for: fixture)
+        }
+        #endif
+        return production
+    }
+
+    static func statisticsState(_ production: RemoteDataState) -> RemoteDataState {
+        #if DEBUG
+        switch statisticsFixture {
+        case .recoverableError: return .error("연결이 원활하지 않아요. 네트워크를 확인하고 다시 시도해 주세요.")
+        case .loading: return .loading
+        case .some: return .loaded
+        case nil: break
+        }
+        #endif
+        return production
+    }
+
+    /// 픽스처가 요구한 시작 시즌. 없으면 저장된 값을 그대로 쓴다.
+    static var statisticsInitialSeason: Int? {
+        #if DEBUG
+        guard let fixture = statisticsFixture else { return nil }
+        return VFStatisticsFixtures.initialSeason(for: fixture)
+        #else
+        return nil
+        #endif
+    }
+
+    /// 픽스처가 요구한 응원 팀. 없으면 저장된 값을 그대로 쓴다.
+    static var statisticsFixtureTeamID: String? {
+        #if DEBUG
+        guard let fixture = statisticsFixture else { return nil }
+        return VFStatisticsFixtures.teamID(for: fixture)
+        #else
+        return nil
+        #endif
+    }
+
+    /// UI 테스트가 "픽스처가 정말 적용됐는지"를 화면에서 확인할 수 있게 하는 표식.
+    /// 조용히 제품 상태로 돌아가 버리는 일을 잡아내기 위한 것이다.
+    static var activeStatisticsScenarioIdentifier: String? {
+        #if DEBUG
+        guard let fixture = statisticsFixture else { return nil }
+        return "statistics.scenario.\(fixture.rawValue)"
         #else
         return nil
         #endif

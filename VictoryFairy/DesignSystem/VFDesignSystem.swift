@@ -34,6 +34,14 @@ enum VFColor {
     static let nightHairline = Color(hex: "#2B3652")
     /// 야간 표면 위의 흐린 보조 아이콘·기호.
     static let nightTertiary = Color(hex: "#5E6B8A")
+    /// 야간 표면 위의 보조 글자. Pencil `시즌 커버`의 라벨 색(`#8FAEC6`).
+    /// `nightTertiary`보다 밝아 남색 위에서 본문 옆 설명으로 읽힌다.
+    static let bodyOnDarkSecondary = Color(hex: "#8FAEC6")
+
+    // 차트 — Pencil 타임라인이 쓰는 값.
+    /// 기록이 없는 달의 빈 점. Pencil `#A59C8C40`.
+    /// 있음/없음을 색 하나로만 전하지 않으므로, 라벨과 함께 쓴다.
+    static let chartEmptyMark = Color(hex: "#A59C8C").opacity(0.25)
 
     // 홈 히어로 — Pencil `MatchupCard_Expanded`의 남색 그라디언트.
     static let heroGradientTop = Color(hex: "#1B2A4C")
@@ -192,6 +200,9 @@ enum VFTypography {
     static let button = Font.system(.callout, design: .default).weight(.bold)
     /// 숫자 강조(날짜·스코어). Pencil font-mono 26/700.
     static let numericEmphasis = Font.system(.title, design: .default).weight(.bold).monospacedDigit()
+    /// 화면에서 가장 큰 숫자(시즌 승률). Pencil `시즌 커버`의 font-mono 48/700.
+    /// 고정 48pt 대신 `largeTitle` 역할을 써서 Dynamic Type을 그대로 따른다.
+    static let numericDisplay = Font.system(.largeTitle, design: .default).weight(.bold).monospacedDigit()
     /// 스코어처럼 자리수가 흔들리면 안 되는 작은 숫자. Pencil 13/600.
     static let numericSupporting = Font.system(.footnote, design: .default).weight(.semibold).monospacedDigit()
     /// 부제·캡션. 최신 Pencil에서 손글씨 글꼴이 사라져 본문과 같은 산세리프를 쓴다.

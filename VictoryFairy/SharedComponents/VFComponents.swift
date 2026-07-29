@@ -67,14 +67,16 @@ struct HeaderIconButton: View {
 
 struct SeasonPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let seasons: [SeasonOption]
+    let seasons: [SeasonArchiveOption]
     let selectedSeason: Int
     let onSelect: (Int) -> Void
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 0) {
+                // 시즌 목록은 길어야 열 몇 줄이다. 지연 생성하면 아래쪽 시즌이 아직
+                // 만들어지지 않아 UI 테스트가 고를 수 없다.
+                VStack(spacing: 0) {
                     ForEach(seasons) { option in
                         Button {
                             onSelect(option.season)
@@ -105,10 +107,15 @@ struct SeasonPickerSheet: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier(option.accessibilityIdentifier)
+                        .accessibilityLabel(
+                            option.season == selectedSeason ? "\(option.label), 선택됨" : option.label
+                        )
                         .accessibilityAddTraits(option.season == selectedSeason ? [.isButton, .isSelected] : .isButton)
                     }
                 }
             }
+            .accessibilityIdentifier("statistics.seasonPicker")
             .navigationTitle("시즌 선택")
             .navigationBarTitleDisplayMode(.inline)
             .vfScreenBackground()

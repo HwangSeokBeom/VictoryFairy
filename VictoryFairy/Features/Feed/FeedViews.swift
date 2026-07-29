@@ -119,7 +119,9 @@ struct FeedView: View {
         }
         .sheet(isPresented: $isShowingSeasonPicker) {
             SeasonPickerSheet(
-                seasons: appData.availableSeasons,
+                seasons: appData.availableSeasons.map {
+                    SeasonArchiveOption(season: $0.season, hasRecords: $0.hasRecords)
+                },
                 selectedSeason: appData.selectedSeason
             ) { season in
                 Task {
