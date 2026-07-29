@@ -5,7 +5,7 @@
 # 실수로 다른 타깃에 들어가면 소스는 그대로인데 결과물에는 남는다. 그래서 실제로
 # 만들어진 실행 파일을 훑는다.
 #
-# 현재 검사 대상: 캘린더 픽스처, 시즌 아카이브 픽스처.
+# 현재 검사 대상: 캘린더 픽스처, 시즌 아카이브 픽스처, 기록 상세 픽스처.
 #
 # 사용법:
 #   scripts/verify_fixture_exclusion.sh [<앱 경로 또는 .xcarchive 경로>]
@@ -113,6 +113,8 @@ absent "CalendarDesignOnlyStatus"  "디자인 전용 상태 타입이 없다"
 absent "CalendarFixture"           "캘린더 시나리오 타입이 없다"
 absent "VFStatisticsFixtures"      "시즌 픽스처 타입이 없다"
 absent "StatisticsFixture"         "시즌 시나리오 타입이 없다"
+absent "VFRecordDetailFixtures"    "기록 상세 픽스처 타입이 없다"
+absent "RecordDetailFixture"       "기록 상세 시나리오 타입이 없다"
 
 # --- 2. 시나리오 이름 -------------------------------------------------------
 #
@@ -147,19 +149,44 @@ do
   absent "$scenario" "시나리오 '$scenario'가 없다"
 done
 
+echo
+echo "── 시나리오 이름 (기록 상세)"
+#
+# 다른 화면과 겹치지 않고, 제품 코드에서도 나올 수 없는 이름으로만 확인한다.
+# `withPhoto`·`withoutPhoto`는 뺐다 — 캘린더의 제품 필터(`CalendarPhotoFilter`)가
+# 같은 이름을 쓰므로 픽스처가 완전히 빠진 아카이브에서도 걸린다.
+for scenario in \
+  referenceRecord missingPhotoFile failedPhotoDecode longNote noNote \
+  missingOpponent missingStadium unknownStadium \
+  deleteConfirmation deleteSuccess deleteFailure
+do
+  absent "$scenario" "시나리오 '$scenario'가 없다"
+done
+
 # --- 3. 실행 인자 키 --------------------------------------------------------
 
 echo
 echo "── 실행 인자"
-absent "-VFUITestCalendarFixture"   "캘린더 픽스처 실행 인자가 없다"
-absent "-VFUITestStatisticsFixture" "시즌 픽스처 실행 인자가 없다"
+absent "-VFUITestCalendarFixture"     "캘린더 픽스처 실행 인자가 없다"
+absent "-VFUITestStatisticsFixture"   "시즌 픽스처 실행 인자가 없다"
+absent "-VFUITestRecordDetailFixture" "기록 상세 픽스처 실행 인자가 없다"
 
-# --- 4. 고정 ID 접두사 ------------------------------------------------------
+# --- 4. 고정 ID 접두사와 테스트 전용 미디어 ---------------------------------
 
 echo
 echo "── 픽스처 식별자"
 absent "CA1E0DA0" "캘린더 픽스처 UUID 접두사가 없다"
 absent "57A7DA7A" "시즌 픽스처 UUID 접두사가 없다"
+absent "D37A11ED" "기록 상세 픽스처 UUID 접두사가 없다"
+
+echo
+echo "── 테스트 전용 사진"
+#
+# 사진은 번들 리소스가 아니라 메모리에서 그린다. 그래서 확인할 것은 파일이 아니라
+# 그 참조 문자열과 그리는 코드가 배포본에 남지 않았는지다.
+absent "vf-uitest-inmemory-photo"   "메모리 사진 참조 접두사가 없다"
+absent "vf-uitest-missing-photo"    "파일 없음 확인용 참조가 없다"
+absent "vf-uitest-undecodable-photo" "디코딩 실패 확인용 참조가 없다"
 
 # --- 5. 화면 표식과 디자인 전용 문구 ----------------------------------------
 
@@ -167,6 +194,7 @@ echo
 echo "── 화면 표식"
 absent "calendar.scenario." "캘린더 픽스처 표식 접두사가 없다"
 absent "statistics.scenario." "시즌 픽스처 표식 접두사가 없다"
+absent "recordDetail.scenario." "기록 상세 픽스처 표식 접두사가 없다"
 absent "calendar.designStatus." "디자인 전용 상태 식별자가 없다"
 absent "경기 예정" "디자인 전용 문구(경기 예정)가 없다"
 absent "우천 연기" "디자인 전용 문구(우천 연기)가 없다"
@@ -200,12 +228,17 @@ present "statistics.selectedSeason" "시즌 선택이 들어 있다"
 present "statistics.stadiumAnalysis" "구장 분석이 들어 있다"
 present "statistics.distribution"  "결과 분포가 들어 있다"
 present "SeasonCoverCard"          "시즌 커버가 들어 있다"
+present "RecordDetailPresentation" "기록 상세 매핑이 들어 있다"
+present "recordDetail.scoreboard"  "스코어보드가 들어 있다"
+present "recordDetail.stadium"     "구장 영역이 들어 있다"
+present "RecordDetailMediaView"    "사진 영역이 들어 있다"
+present "AttendancePostDetailView" "기록 상세 화면이 들어 있다"
 
 # --- 결과 ------------------------------------------------------------------
 
 echo
 if [[ $failures -eq 0 ]]; then
-  echo "${GREEN}통과: 캘린더·시즌 픽스처가 배포 바이너리에 없고, 두 제품 화면은 들어 있다.${RESET}"
+  echo "${GREEN}통과: 캘린더·시즌·기록 상세 픽스처와 테스트 전용 사진이 배포 바이너리에 없고, 세 제품 화면은 들어 있다.${RESET}"
   exit 0
 else
   echo "${RED}실패: $failures건.${RESET}"
