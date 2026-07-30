@@ -18,7 +18,15 @@ struct OnboardingView: View {
         .background(backgroundColor.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.2), value: viewModel.stepIndex)
         .onAppear(perform: configureForStoredState)
-        .accessibilityIdentifier("onboarding.root")
+        // 여기에 `onboarding.root` 식별자를 두지 않는다.
+        //
+        // 이 VStack과 단계 컨테이너는 화면 전체를 채우는 같은 크기의 컨테이너라
+        // 접근성 트리에서 하나로 합쳐지고, 그때 바깥 식별자가 이긴다. 그래서
+        // 루트에 식별자를 붙이면 `onboarding.welcome` 같은 단계 식별자가 통째로
+        // 사라진다(측정으로 확인했다).
+        //
+        // 온보딩 루트는 언제나 다섯 단계 중 하나다. 단계 식별자가 곧 루트 식별자
+        // 역할을 하고, 어느 단계인지까지 알려주므로 더 정확하다.
     }
 
     /// 저장된 값에 맞춰 시작 지점을 다시 잡는다.
@@ -87,6 +95,9 @@ private struct OnboardingWelcomeView: View {
         }
         .padding(.horizontal, VFSpacing.lg)
         .padding(.bottom, VFSpacing.xl)
+        // 이 컨테이너는 접근성 요소로 남아 있어야 한다. 요소가 아니면 SwiftUI가
+        // 위에서 내려온 식별자를 자식마다 덮어써 단계 식별자와 버튼 식별자가 모두
+        // 사라진다.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.welcome.accessibilityIdentifier)
     }
@@ -105,53 +116,63 @@ private struct OnboardingOverviewView: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: VFSpacing.xl) {
-            VStack(alignment: .leading, spacing: VFSpacing.xs) {
-                Text("이렇게 쓰면 돼요")
-                    .font(VFTypography.display)
-                    .foregroundStyle(VFColor.bodyPrimary)
-                Text("30초면 준비가 끝나요")
-                    .font(VFTypography.supporting)
-                    .foregroundStyle(VFColor.bodySecondary)
-            }
-            .padding(.top, VFSpacing.xl)
-
-            VStack(spacing: VFSpacing.sm) {
-                ForEach(highlights, id: \.title) { item in
-                    HStack(spacing: VFSpacing.sm) {
-                        VFIllustrationView(item.illustration, height: 34)
-                            .frame(width: 44)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.title)
-                                .font(VFTypography.cardTitle)
-                                .foregroundStyle(VFColor.bodyPrimary)
-                            Text(item.detail)
-                                .font(VFTypography.supporting)
-                                .foregroundStyle(VFColor.bodySecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer(minLength: 0)
+        // 소개 내용은 스크롤에 싣고 "다음"은 아래에 고정한다. 예전에는 한 덩어리
+        // VStack이라 AccessibilityXXXL에서 버튼이 화면 밖(y≈942 / 화면 874)으로
+        // 밀려나 스크롤도 되지 않았다 — 다음 단계로 갈 방법이 없었다.
+        VStack(alignment: .leading, spacing: VFSpacing.md) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: VFSpacing.xl) {
+                    VStack(alignment: .leading, spacing: VFSpacing.xs) {
+                        Text("이렇게 쓰면 돼요")
+                            .font(VFTypography.display)
+                            .foregroundStyle(VFColor.bodyPrimary)
+                        Text("30초면 준비가 끝나요")
+                            .font(VFTypography.supporting)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
-                    .padding(VFSpacing.sm)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(VFColor.elevatedSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                            .stroke(VFColor.hairline, lineWidth: VFStroke.hairline)
-                    )
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(item.title), \(item.detail)")
-                }
-            }
+                    .padding(.top, VFSpacing.xl)
 
-            Spacer(minLength: VFSpacing.md)
+                    VStack(spacing: VFSpacing.sm) {
+                        ForEach(highlights, id: \.title) { item in
+                            HStack(spacing: VFSpacing.sm) {
+                                VFIllustrationView(item.illustration, height: 34)
+                                    .frame(width: 44)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title)
+                                        .font(VFTypography.cardTitle)
+                                        .foregroundStyle(VFColor.bodyPrimary)
+                                    Text(item.detail)
+                                        .font(VFTypography.supporting)
+                                        .foregroundStyle(VFColor.bodySecondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(VFSpacing.sm)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(VFColor.elevatedSurface)
+                            .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
+                                    .stroke(VFColor.hairline, lineWidth: VFStroke.hairline)
+                            )
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("\(item.title), \(item.detail)")
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollBounceBehavior(.basedOnSize)
 
             VFPrimaryButton(title: "다음", action: onContinue)
                 .accessibilityIdentifier("onboarding.overview.next")
         }
         .padding(.horizontal, VFSpacing.lg)
         .padding(.bottom, VFSpacing.xl)
+        // 이 컨테이너는 접근성 요소로 남아 있어야 한다. 요소가 아니면 SwiftUI가
+        // 위에서 내려온 식별자를 자식마다 덮어써 단계 식별자와 버튼 식별자가 모두
+        // 사라진다.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.overview.accessibilityIdentifier)
     }
@@ -187,6 +208,9 @@ private struct OnboardingTeamStepView: View {
                 }
             }
         }
+        // 이 컨테이너는 접근성 요소로 남아 있어야 한다. 요소가 아니면 SwiftUI가
+        // 위에서 내려온 식별자를 자식마다 덮어써 단계 식별자와 버튼 식별자가 모두
+        // 사라진다.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.selectTeam.accessibilityIdentifier)
     }
@@ -277,6 +301,9 @@ private struct OnboardingStadiumStepView: View {
                 }
             }
         }
+        // 이 컨테이너는 접근성 요소로 남아 있어야 한다. 요소가 아니면 SwiftUI가
+        // 위에서 내려온 식별자를 자식마다 덮어써 단계 식별자와 버튼 식별자가 모두
+        // 사라진다.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.selectStadium.accessibilityIdentifier)
     }
@@ -363,44 +390,76 @@ private struct OnboardingCompleteView: View {
     private var stadium: KBOStadium? { KBOStadiumSeed.stadium(id: viewModel.selectedStadiumID) }
 
     var body: some View {
-        VStack(spacing: VFSpacing.xl) {
-            Spacer()
+        // 완료 내용은 스크롤에 싣고 CTA는 아래에 고정한다. 96px 페어리 두 개가
+        // 들어오면서 AccessibilityXXXL에서 세로가 모자랄 수 있어, 큰 글자에서도
+        // "승리요정 시작하기"에 반드시 닿을 수 있게 한다.
+        VStack(spacing: VFSpacing.md) {
+            ScrollView {
+                VStack(spacing: VFSpacing.xl) {
+                    Spacer(minLength: VFSpacing.xl)
 
-            VFBrandMark(height: 80)
+                    VFBrandMark(height: 80)
 
-            VStack(spacing: VFSpacing.sm) {
-                Text("준비됐어요")
-                    .font(Font.system(.title, design: .default).weight(.heavy))
-                    .foregroundStyle(VFColor.bodyOnDark)
+                    // Pencil `Onboarding_05_Complete`의 두 페어리.
+                    //
+                    // 원본은 `선택 확인` 안에 삼성 팀 페어리를, 프레임에 성공 페어리를 그려 두었다.
+                    // 삼성은 원본 표본이므로 옮기지 않는다 — **실제로 고른 팀**으로 그린다.
+                    // 팀을 아직 모르면 중립 페어리가 된다.
+                    //
+                    // 둘 다 VoiceOver에서는 숨긴다. 아래 "준비됐어요"와 팀·구장 이름이 이미
+                    // 완료와 선택을 말하고 있어서, 페어리까지 읽으면 같은 말을 두 번 한다.
+                    HStack(spacing: VFSpacing.lg) {
+                        VFTeamFairy(teamID: viewModel.selectedTeamID)
+                            .frame(
+                                width: VFTeamFairySize.regular.canvas,
+                                height: VFTeamFairySize.regular.canvas
+                            )
+                            .accessibilityIdentifier("onboarding.complete.teamFairy")
+                            .accessibilityHidden(true)
 
-                if let team, let stadium {
-                    Text("\(team.name) · \(stadium.name)")
-                        .font(VFTypography.body)
-                        .foregroundStyle(VFColor.bodyOnDark.opacity(0.8))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                        VFFairyGlyph(.success)
+                            .frame(width: VFFairySize.regular.canvas, height: VFFairySize.regular.canvas)
+                            .accessibilityIdentifier("onboarding.complete.successFairy")
+                            .accessibilityHidden(true)
+                    }
+
+                    VStack(spacing: VFSpacing.sm) {
+                        Text("준비됐어요")
+                            .font(Font.system(.title, design: .default).weight(.heavy))
+                            .foregroundStyle(VFColor.bodyOnDark)
+
+                        if let team, let stadium {
+                            Text("\(team.name) · \(stadium.name)")
+                                .font(VFTypography.body)
+                                .foregroundStyle(VFColor.bodyOnDark.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Text("설정에서 언제든 바꿀 수 있어요")
+                            .font(VFTypography.metadata)
+                            .foregroundStyle(VFColor.bodyOnDark.opacity(0.55))
+                    }
+
+                    if let message = viewModel.saveErrorMessage {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle")
+                            Text(message)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .font(VFTypography.supporting)
+                        .foregroundStyle(VFColor.statusError)
+                        .padding(VFSpacing.sm)
+                        .background(VFColor.statusError.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
+                        .accessibilityIdentifier("onboarding.complete.error")
+                    }
+
+                    Spacer(minLength: VFSpacing.md)
                 }
-
-                Text("설정에서 언제든 바꿀 수 있어요")
-                    .font(VFTypography.metadata)
-                    .foregroundStyle(VFColor.bodyOnDark.opacity(0.55))
+                .frame(maxWidth: .infinity)
             }
-
-            if let message = viewModel.saveErrorMessage {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.circle")
-                    Text(message)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .font(VFTypography.supporting)
-                .foregroundStyle(VFColor.statusError)
-                .padding(VFSpacing.sm)
-                .background(VFColor.statusError.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
-                .accessibilityIdentifier("onboarding.complete.error")
-            }
-
-            Spacer()
+            .scrollBounceBehavior(.basedOnSize)
 
             VFPrimaryButton(title: "승리요정 시작하기") {
                 viewModel.complete(preferences: preferences)
@@ -414,6 +473,9 @@ private struct OnboardingCompleteView: View {
         }
         .padding(.horizontal, VFSpacing.lg)
         .padding(.bottom, VFSpacing.md)
+        // 이 컨테이너는 접근성 요소로 남아 있어야 한다. 요소가 아니면 SwiftUI가
+        // 위에서 내려온 식별자를 자식마다 덮어써 단계 식별자와 버튼 식별자가 모두
+        // 사라진다.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(OnboardingStep.complete.accessibilityIdentifier)
     }

@@ -372,7 +372,9 @@ struct StatisticsView: View {
         VFEmptyStatePanel(
             title: "\(archive.title) 기록이 아직 없어요",
             message: emptySeasonMessage,
-            illustration: .pennant
+            illustration: .pennant,
+            // Pencil `09_States > 빈 시즌`의 48px 페어리.
+            fairy: .emptySeason
         )
         .accessibilityIdentifier(StatisticsAccessibilityID.empty)
     }
@@ -427,6 +429,8 @@ struct SeasonCoverCard: View {
 
             coverRecord
 
+            // Pencil `커버 반짝`은 커버 왼쪽 아래에 그대로 남는다. 페어리가 이 자리를
+            // 대신하지 않는다 — 원본은 둘을 **함께** 둔다.
             VFIllustrationView(.sparkle, height: 22)
                 .accessibilityHidden(true)
         }
@@ -439,8 +443,32 @@ struct SeasonCoverCard: View {
             RoundedRectangle(cornerRadius: VFRadius.panel, style: .continuous)
                 .stroke(VFColor.inkOutline, lineWidth: 1.4)
         )
+        // Pencil `시즌 시그니처 페어리`는 커버 오른쪽 위 모서리에 얹힌다
+        // (커버 361×246 안에서 x=297 y=12, 즉 오른쪽 16 · 위 12). 커버 라벨은
+        // x=20에서 135폭이라 겹치지 않는다.
+        .overlay(alignment: .topTrailing) {
+            seasonSignatureFairy
+                .padding(.trailing, VFSpacing.md)
+                .padding(.top, 12)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(StatisticsAccessibilityID.hero)
+    }
+
+    /// Pencil `시즌 시그니처 페어리` — `Fairy48_Victory` 48×48.
+    ///
+    /// 원본이 이 자리를 **시그니처**라고 이름 붙였다. 같은 컴포넌트를 쓰는 캘린더 쪽은
+    /// `선택일 승리 페어리`라고 부르는 것과 대비된다. 즉 이것은 그 시즌이 이겼다는
+    /// 신호가 아니라 시즌 커버에 찍는 브랜드 표식이다.
+    ///
+    /// 그래서 결과에 따라 바꾸지 않고, VoiceOver에서는 숨긴다. 지는 시즌에 "승리"라고
+    /// 읽어 주면 계산된 전적과 정면으로 어긋난다. 실제 성적은 헤드라인·승률·전적이
+    /// 이미 말하고 있다.
+    private var seasonSignatureFairy: some View {
+        VFFairyGlyph(.victory, size: .compact)
+            .frame(width: VFFairySize.compact.canvas, height: VFFairySize.compact.canvas)
+            .accessibilityIdentifier(StatisticsAccessibilityID.seasonCoverFairy)
+            .accessibilityHidden(true)
     }
 
     /// Pencil `커버 라벨`과 응원 팀 표시.

@@ -259,6 +259,9 @@ struct FeedView: View {
                 ? "첫 직관의 기억부터 차곡차곡 모아드릴게요.\n사진 한 장이면 충분해요."
                 : "다른 결과를 선택하거나 새 직관 기록을 남겨보세요.",
             illustration: viewModel.selectedResultFilter == .all ? .glove : .baseball,
+            // Pencil `09_States`는 `빈 기록`에만 페어리를 둔다. 필터 결과가 0건인
+            // `검색 없음`은 돋보기 아이콘 그대로이므로 페어리를 붙이지 않는다.
+            fairy: viewModel.selectedResultFilter == .all ? .emptyRecord : nil,
             actionTitle: "첫 기록 남기기"
         ) {
             isShowingLogEditor = true

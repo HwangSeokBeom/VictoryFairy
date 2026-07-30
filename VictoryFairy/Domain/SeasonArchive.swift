@@ -452,6 +452,8 @@ enum StatisticsAccessibilityID {
     static let selectedSeason = "statistics.selectedSeason"
     static let hero = "statistics.hero"
     static let heroEyebrow = "statistics.hero.eyebrow"
+    /// Pencil `시즌 시그니처 페어리`. 브랜드 표식이라 장식으로 두고 읽어 주지 않는다.
+    static let seasonCoverFairy = "statistics.seasonCover.fairy"
     static let headline = "statistics.headline"
     static let winRate = "statistics.winRate"
     static let totalAttendance = "statistics.totalAttendance"

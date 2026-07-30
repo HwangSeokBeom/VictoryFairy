@@ -126,6 +126,22 @@ private enum CalendarViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// Pencil `선택일 승리 페어리` 자리의 결과 → 페어리 매핑.
+///
+/// 뷰 안에 두면 밖에서 확인할 수 없어 따로 뺐다. 이 자리는 **선택한 기록의 결과**를
+/// 나타내므로 승리 페어리는 오직 승리에만 쓴다. 시즌 커버의 `시즌 시그니처 페어리`는
+/// 이름 그대로 상수 브랜드 표식이라 이 매핑을 쓰지 않는다.
+enum CalendarResultFairy {
+    static func kind(for result: GameResult) -> VFFairyKind {
+        switch result {
+        case .win: .victory
+        case .loss: .loss
+        case .draw: .draw
+        case .canceled: .cancelled
+        }
+    }
+}
+
 struct AttendanceCalendarView: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -718,6 +734,12 @@ struct AttendanceCalendarView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("calendar.detailRecord")
 
+                // Pencil `선택일 승리 페어리`. 원본 표본이 승리 기록이라 승리 페어리로
+                // 그려져 있지만, 이름이 말하듯 이 자리는 **그 기록의 결과**를 나타낸다.
+                // (시즌 커버 쪽은 같은 컴포넌트를 `시그니처`라고 부른다 — 그쪽은 상수다.)
+                // 그래서 결과에 따라 바꾼다. 진 날에 승리 페어리를 띄우면 거짓말이 된다.
+                selectedResultFairy(for: record.result)
+
                 // 같은 날 기록이 더 있으면 개수를 숨기지 않고 알린다.
                 if presentation.eventCount > 1 {
                     Text("이 날 기록 \(presentation.eventCount)개")
@@ -733,6 +755,27 @@ struct AttendanceCalendarView: View {
         // SwiftUI가 그 값을 자식들에게 내려 덮어써서, 안쪽 식별자가 모두 사라진다.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar.selectedDetail")
+    }
+
+    /// Pencil `선택일 승리 페어리` — `Fairy48_Victory` 48×48 자리.
+    ///
+    /// 원본은 승리 표본 하나만 그려 두었지만 이 자리는 결과 정체성이다. 결과마다
+    /// 다른 페어리를 쓰고, 결과를 모르면 아무것도 그리지 않는다. 없는 결과를
+    /// 승리로 채우지 않는다.
+    ///
+    /// VoiceOver로는 읽지 않는다. 바로 위 기록 카드가 이미 승·패·무를 글자로 말하고
+    /// 있어서, 페어리까지 읽으면 같은 결과를 두 번 듣게 된다. 색에만 기대지 않는다는
+    /// 조건은 그 글자가 이미 충족한다.
+    @ViewBuilder
+    private func selectedResultFairy(for result: GameResult) -> some View {
+        let kind = CalendarResultFairy.kind(for: result)
+        HStack {
+            Spacer(minLength: 0)
+            VFFairyGlyph(kind, size: .compact)
+                .frame(width: VFFairySize.compact.canvas, height: VFFairySize.compact.canvas)
+                .accessibilityIdentifier("calendar.selectedDate.fairy")
+                .accessibilityHidden(true)
+        }
     }
 
     /// 고른 날에 기록이 없을 때. 다른 구장이나 경기를 지어내지 않고 기록 추가만 권한다.
