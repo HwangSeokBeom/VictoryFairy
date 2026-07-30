@@ -775,8 +775,13 @@ final class StadiumFairyContractTests: XCTestCase {
 
     // MARK: - 43~45. 이번 패스의 경계
 
-    /// 이번 패스는 공유 컴포넌트만 만든다. 화면 배치는 다음 패스의 몫이다.
-    func testNoProductionScreenOrSharedComponentUsesStadiumFairyYet() throws {
+    /// 구장 페어리는 **어느 제품 화면에도 놓이지 않는다** — Pencil이 그렇게 그렸다.
+    ///
+    /// 배치 패스에서 원본을 다시 훑어 확인했다. `StadiumFairy_Badge` · `_Row` ·
+    /// `StadiumFairy48_Generic`은 구장 페어리 시스템 보드와 검증 보드 안에서만 쓰이고,
+    /// 홈·피드·캘린더·시즌 아카이브·기록 상세·온보딩·09_States 어디에도 인스턴스가 없다.
+    /// 그래서 이번 배치 패스도 제품 화면에 구장 페어리를 놓지 않았다.
+    func testStadiumFairyHasNoProductionPlacementBecausePencilAuthorsNone() throws {
         var offenders: [String] = []
         for folder in ["Features", "SharedComponents"] {
             let root = Self.appSourceRoot.appendingPathComponent(folder)
@@ -785,13 +790,16 @@ final class StadiumFairyContractTests: XCTestCase {
             }
             for case let url as URL in enumerator where url.pathExtension == "swift" {
                 let body = stripComments(try String(contentsOf: url, encoding: .utf8))
-                for symbol in ["VFStadiumFairy", "VFStadiumFairyBadge", "VFStadiumFairyRow",
-                               "VFTeamFairy", "VFFairyGlyph"] {
-                    if body.contains(symbol) { offenders.append("\(url.lastPathComponent):\(symbol)") }
+                for symbol in ["VFStadiumFairy(", "VFStadiumFairyBadge(", "VFStadiumFairyRow("]
+                where body.contains(symbol) {
+                    offenders.append("\(url.lastPathComponent):\(symbol)")
                 }
             }
         }
-        XCTAssertTrue(offenders.isEmpty, "공유 컴포넌트 패스에서는 화면에 놓지 않는다. 놓인 곳: \(offenders)")
+        XCTAssertTrue(
+            offenders.isEmpty,
+            "Pencil이 제품 화면에 구장 페어리를 놓지 않았는데 코드가 놓았다: \(offenders)"
+        )
     }
 
     /// 팀 페어리는 이번 패스에서 바뀌지 않았다.

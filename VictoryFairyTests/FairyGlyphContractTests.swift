@@ -644,27 +644,30 @@ final class FairyGlyphContractTests: XCTestCase {
 
     // MARK: - 23~30. 이번 패스의 경계
 
-    /// 이번 패스는 기반만 만든다. 화면 배치는 다음 패스의 몫이다.
-    /// 이 검사는 배치가 시작되면 실패하므로, 그때 의식적으로 고쳐야 한다.
-    func testNoProductionScreenUsesTheFairySystemYet() throws {
-        let featureRoot = Self.appSourceRoot.appendingPathComponent("Features")
-        let sharedRoot = Self.appSourceRoot.appendingPathComponent("SharedComponents")
-        var offenders: [String] = []
-        for root in [featureRoot, sharedRoot] {
-            guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+    /// 기반 글리프는 **Pencil이 지정한 자리에만** 나타나야 한다.
+    ///
+    /// 앞 패스에서는 "아직 어디에도 없다"를 확인했다. 배치 패스가 실제로 놓았으므로
+    /// 이제는 허용 목록으로 묶는다. 검사 강도는 오히려 올라갔다 — 허용되지 않은
+    /// 파일에 하나라도 번지면 실패한다.
+    func testFairyGlyphAppearsOnlyInAuthorisedPlacements() throws {
+        let authorised: Set<String> = [
+            "VFCoreComponents.swift",   // 09_States 빈 기록 · 빈 시즌 · 오류
+            "OnboardingView.swift",     // Onboarding_05_Complete 완료 성공 페어리
+            "CalendarViews.swift",      // 선택일 결과 페어리
+            "StatisticsViews.swift"     // 시즌 시그니처 페어리
+        ]
+        var found: Set<String> = []
+        for folder in ["Features", "SharedComponents"] {
+            let root = Self.appSourceRoot.appendingPathComponent(folder)
+            guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
                 continue
             }
-            for case let url as URL in enumerator where url.pathExtension == "swift" {
+            for case let url as URL in e where url.pathExtension == "swift" {
                 let body = stripComments(try String(contentsOf: url, encoding: .utf8))
-                if body.contains("VFFairyGlyph") || body.contains("VFFairyColor") {
-                    offenders.append(url.lastPathComponent)
-                }
+                if body.contains("VFFairyGlyph(") { found.insert(url.lastPathComponent) }
             }
         }
-        XCTAssertTrue(
-            offenders.isEmpty,
-            "기반 패스에서는 화면에 페어리를 놓지 않는다. 놓인 곳: \(offenders)"
-        )
+        XCTAssertEqual(found, authorised, "기반 글리프가 허용되지 않은 곳에 번졌거나 빠졌다")
     }
 
     /// 완성된 다섯 화면의 정체성 식별자가 그대로 남아 있어야 한다.

@@ -346,7 +346,14 @@ final class LaunchMarkContractTests: XCTestCase {
     /// 별도 사본을 두면 런치 화면과 앱 안이 갈라진다.
     func testSharedBrandMarkReusesTheLaunchAssetRatherThanACopy() throws {
         let body = stripComments(try source("SharedComponents/VFStadiumComponents.swift"))
-        XCTAssertTrue(body.contains("Image(\"LaunchMark\")"), "공유 브랜드 마크가 런치 자산을 쓰지 않는다")
+        // 자산 이름을 그대로 라벨로 삼지 않도록 `Image(decorative:)`로 만든다.
+        // 어느 쪽이든 **같은 런치 자산**을 쓰는지가 이 검사의 핵심이다.
+        XCTAssertTrue(
+            body.contains("Image(decorative: \"LaunchMark\")") || body.contains("Image(\"LaunchMark\")"),
+            "공유 브랜드 마크가 런치 자산을 쓰지 않는다"
+        )
+        XCTAssertEqual(body.components(separatedBy: "\"LaunchMark\"").count - 1, 1,
+                       "런치 자산 참조는 한 곳이어야 한다")
         XCTAssertFalse(body.contains("BrandMarkQuartet"), "브랜드 마크 사본을 따로 두면 안 된다")
     }
 
@@ -434,21 +441,22 @@ final class LaunchMarkContractTests: XCTestCase {
         XCTAssertEqual(VFFairyIconPolicy.maximumFairiesPerScreen, 3)
     }
 
-    func testNoProductionScreenWasEdited() throws {
-        var offenders: [String] = []
-        for folder in ["Features", "SharedComponents"] {
-            let root = Self.appSourceRoot.appendingPathComponent(folder)
-            guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
-                continue
-            }
-            for case let url as URL in e where url.pathExtension == "swift" {
-                let body = stripComments(try String(contentsOf: url, encoding: .utf8))
-                for symbol in ["VFStadiumFairy", "VFTeamFairy", "VFFairyGlyph"] where body.contains(symbol) {
-                    offenders.append("\(url.lastPathComponent):\(symbol)")
-                }
+    /// 기록 상세와 피드는 개정 원본에 페어리 배치가 **없다.**
+    ///
+    /// 앞 패스에서는 "어느 화면에도 페어리가 없다"를 확인했지만, 배치 패스가 원본이
+    /// 지정한 자리에 놓았다. 그래도 이 두 화면은 여전히 비어 있어야 한다 — 공유
+    /// 컴포넌트를 함께 쓴다는 이유로 번지면 프레임이 원본과 어긋난다.
+    func testRecordDetailAndFeedReceiveNoFairyPlacement() throws {
+        for file in ["Features/RecordDetail/RecordDetailViews.swift",
+                     "Features/Feed/FeedViews.swift"] {
+            let body = stripComments(try source(file))
+            for symbol in ["VFFairyGlyph(", "VFTeamFairy(", "VFStadiumFairy("] {
+                XCTAssertFalse(
+                    body.contains(symbol),
+                    "\(file)에 \(symbol)이 들어갔다 — 원본에는 이 화면의 페어리 배치가 없다"
+                )
             }
         }
-        XCTAssertTrue(offenders.isEmpty, "런치 패스에서 화면이 바뀌었다: \(offenders)")
     }
 
     func testCompletedScreensRemainInPlace() throws {

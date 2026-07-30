@@ -668,31 +668,41 @@ final class TeamFairyContractTests: XCTestCase {
 
     // MARK: - 36~43. 이번 패스의 경계
 
-    /// 이번 패스는 공유 컴포넌트만 만든다. 화면 배치는 다음 패스의 몫이다.
-    /// 배치가 시작되면 이 검사가 실패하므로 그때 의식적으로 고쳐야 한다.
-    func testNoProductionScreenOrSharedComponentUsesTeamFairyYet() throws {
-        var offenders: [String] = []
+    /// 팀 페어리는 **Pencil이 지정한 두 자리에만** 나타나야 한다.
+    ///
+    /// 앞 패스에서는 "아직 놓지 않았다"를 확인했다. 배치 패스가 놓았으므로 이제는
+    /// 허용 목록으로 묶는다. 허용되지 않은 화면에 번지면 실패한다.
+    func testTeamFairyAppearsOnlyInAuthorisedPlacements() throws {
+        let authorised: Set<String> = [
+            "VFHomeComponents.swift",  // TeamIdentityHeader 팀 페어리
+            "OnboardingView.swift"     // Onboarding_05_Complete 선택 팀 페어리
+        ]
+        var found: Set<String> = []
         for folder in ["Features", "SharedComponents"] {
             let root = Self.appSourceRoot.appendingPathComponent(folder)
-            guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+            guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
                 continue
             }
-            for case let url as URL in enumerator where url.pathExtension == "swift" {
+            for case let url as URL in e where url.pathExtension == "swift" {
                 let body = stripComments(try String(contentsOf: url, encoding: .utf8))
-                for symbol in ["VFTeamFairy", "VFTeamFairyTrait", "VFTeamFairyPalette", "VFFairyGlyph"] {
-                    if body.contains(symbol) { offenders.append("\(url.lastPathComponent):\(symbol)") }
-                }
+                if body.contains("VFTeamFairy(") { found.insert(url.lastPathComponent) }
             }
         }
-        XCTAssertTrue(offenders.isEmpty, "공유 컴포넌트 패스에서는 화면에 놓지 않는다. 놓인 곳: \(offenders)")
+        XCTAssertEqual(found, authorised, "팀 페어리가 허용되지 않은 곳에 번졌거나 빠졌다")
     }
 
-    /// `VFTeamIdentityHeader`는 다음 패스가 손댄다. 지금은 그대로여야 한다.
-    func testTeamIdentityHeaderIsUntouched() throws {
+    /// `VFTeamIdentityHeader`가 이제 팀 페어리를 쓴다. 예전 약칭 원은 사라졌다.
+    func testTeamIdentityHeaderUsesTeamFairy48() throws {
         let text = try source("SharedComponents/VFHomeComponents.swift")
-        XCTAssertTrue(text.contains("home.teamIdentity"), "홈 팀 아이덴티티 식별자가 사라졌다")
-        XCTAssertTrue(text.contains("teamSymbol"), "팀 심볼이 사라졌다 — 교체는 다음 패스다")
-        XCTAssertFalse(stripComments(text).contains("VFTeamFairy"), "이번 패스에서 헤더를 바꾸면 안 된다")
+        let body = stripComments(text)
+        XCTAssertTrue(body.contains("VFTeamFairy(teamID: team.id, size: .compact)"),
+                      "헤더가 팀 페어리 48을 쓰지 않는다")
+        XCTAssertFalse(body.contains("team.badgeInitial"), "예전 약칭 표기가 남아 있다")
+        // 팀 이름과 정체성 식별자는 그대로여야 한다.
+        XCTAssertTrue(text.contains("home.teamIdentity"), "팀 아이덴티티 식별자가 사라졌다")
+        XCTAssertTrue(text.contains("home.teamFairy"), "팀 페어리 식별자가 없다")
+        // 페어리는 장식이다. 헤더가 이미 팀 이름을 읽어 준다.
+        XCTAssertTrue(body.contains("accessibilityHidden(true)"), "팀 페어리가 숨겨지지 않았다")
     }
 
     func testCompletedScreensRemainInPlace() throws {

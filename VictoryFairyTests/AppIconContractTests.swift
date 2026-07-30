@@ -80,6 +80,37 @@ final class AppIconContractTests: XCTestCase {
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
+    /// 주석을 걷어낸 소스. 화면 주석에 페어리 이름이 설명으로 등장할 수 있어,
+    /// 그대로 훑으면 거짓 판정이 난다.
+    private func stripComments(_ text: String) -> String {
+        var output = ""
+        let characters = Array(text)
+        var index = 0
+        var inLine = false, inBlock = false, inString = false
+        while index < characters.count {
+            let c = characters[index]
+            let next: Character? = index + 1 < characters.count ? characters[index + 1] : nil
+            if inLine {
+                if c == "\n" { inLine = false; output.append(c) }
+                index += 1; continue
+            }
+            if inBlock {
+                if c == "*", next == "/" { inBlock = false; index += 2; continue }
+                index += 1; continue
+            }
+            if inString {
+                if c == "\\" { index += 2; continue }
+                if c == "\"" { inString = false }
+                output.append(c); index += 1; continue
+            }
+            if c == "/", next == "/" { inLine = true; index += 2; continue }
+            if c == "/", next == "*" { inBlock = true; index += 2; continue }
+            if c == "\"" { inString = true }
+            output.append(c); index += 1
+        }
+        return output
+    }
+
     // MARK: - 픽셀 읽기
 
     private struct Bitmap {
@@ -530,21 +561,22 @@ final class AppIconContractTests: XCTestCase {
         XCTAssertNil(VFStadiumFairyIdentity.identity(forRecordedStadiumNamed: nil))
     }
 
-    func testNoProductionScreenWasEdited() throws {
-        var offenders: [String] = []
-        for folder in ["Features", "SharedComponents"] {
-            let root = Self.appSourceRoot.appendingPathComponent(folder)
-            guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
-                continue
-            }
-            for case let url as URL in e where url.pathExtension == "swift" {
-                let body = try String(contentsOf: url, encoding: .utf8)
-                for symbol in ["VFStadiumFairy", "VFTeamFairy", "VFFairyGlyph"] where body.contains(symbol) {
-                    offenders.append("\(url.lastPathComponent):\(symbol)")
-                }
+    /// 기록 상세와 피드는 개정 원본에 페어리 배치가 **없다.**
+    ///
+    /// 앞 패스에서는 "어느 화면에도 페어리가 없다"를 확인했지만, 배치 패스가 원본이
+    /// 지정한 자리에 놓았다. 그래도 이 두 화면은 여전히 비어 있어야 한다 — 공유
+    /// 컴포넌트를 함께 쓴다는 이유로 번지면 프레임이 원본과 어긋난다.
+    func testRecordDetailAndFeedReceiveNoFairyPlacement() throws {
+        for file in ["Features/RecordDetail/RecordDetailViews.swift",
+                     "Features/Feed/FeedViews.swift"] {
+            let body = stripComments(try source(file))
+            for symbol in ["VFFairyGlyph(", "VFTeamFairy(", "VFStadiumFairy("] {
+                XCTAssertFalse(
+                    body.contains(symbol),
+                    "\(file)에 \(symbol)이 들어갔다 — 원본에는 이 화면의 페어리 배치가 없다"
+                )
             }
         }
-        XCTAssertTrue(offenders.isEmpty, "아이콘 패스에서 화면이 바뀌었다: \(offenders)")
     }
 
     func testCompletedScreensRemainInPlace() throws {
