@@ -357,6 +357,39 @@ enum VFFairyGeometry {
     static let bodyInsetBottom: CGFloat = 16
 }
 
+// MARK: - 색 이음새
+
+/// 기본 글리프의 색만 부르는 쪽이 바꿀 수 있게 하는 최소 이음새.
+///
+/// 기하는 그대로 두고 칠만 다르게 하는 파생 컴포넌트가 Pencil에 실제로 있다 —
+/// `StadiumFairy_Unknown`은 `FairyGlyph_Stadium`과 같은 몸통·얼굴에 몸 색만
+/// 중립으로 바꾼 것이고, `StadiumFairy48_Mono`는 같은 기하를 잉크·종이색으로
+/// 뒤집은 것이다. 그런 파생을 위해 몸통을 다시 그리지 않아도 되도록 열어 둔다.
+///
+/// 지정하지 않은 값은 종류와 외형이 정한 색을 그대로 쓴다. 기본 글리프 스스로는
+/// 이 값을 만들지 않으므로, `kind.spec(for:)`의 의미는 바뀌지 않는다.
+struct VFFairyPaletteOverride: Equatable {
+    var body: Color?
+    var face: Color?
+    var diamond: Color?
+
+    init(body: Color? = nil, face: Color? = nil, diamond: Color? = nil) {
+        self.body = body
+        self.face = face
+        self.diamond = diamond
+    }
+
+    func applied(to spec: VFFairySpec) -> VFFairySpec {
+        VFFairySpec(
+            body: body ?? spec.body,
+            face: face ?? spec.face,
+            eyes: spec.eyes,
+            mouth: spec.mouth,
+            accessory: spec.accessory
+        )
+    }
+}
+
 // MARK: - 뷰
 
 /// Victory Fairy 기본 글리프 하나를 그린다.
@@ -372,25 +405,35 @@ struct VFFairyGlyph: View {
     var appearance: VFFairyAppearance
     /// VoiceOver가 읽을 문장. 비우면 장식으로 보고 숨긴다.
     var accessibilityLabel: String?
+    /// 기하는 그대로 두고 칠만 바꾸는 파생 컴포넌트를 위한 이음새.
+    var paletteOverride: VFFairyPaletteOverride?
 
     init(
         _ kind: VFFairyKind,
         size: VFFairySize = .regular,
         appearance: VFFairyAppearance = .onLightSurface,
-        accessibilityLabel: String? = nil
+        accessibilityLabel: String? = nil,
+        paletteOverride: VFFairyPaletteOverride? = nil
     ) {
         self.kind = kind
         self.size = size
         self.appearance = appearance
         self.accessibilityLabel = accessibilityLabel
+        self.paletteOverride = paletteOverride
     }
 
-    private var spec: VFFairySpec { kind.spec(for: appearance) }
+    var spec: VFFairySpec {
+        let base = kind.spec(for: appearance)
+        guard let paletteOverride else { return base }
+        return paletteOverride.applied(to: base)
+    }
+
     private var scale: CGFloat { size.scale }
 
     /// 모노크롬에서는 다이아몬드도 한 톤으로 눕는다(Pencil 아이콘 Monochrome 규칙).
     private var diamondFill: Color {
-        appearance == .monochrome ? VFColor.subtleSurface : VFColor.attentionAccent
+        if let diamond = paletteOverride?.diamond { return diamond }
+        return appearance == .monochrome ? VFColor.subtleSurface : VFColor.attentionAccent
     }
 
     /// 곁들임은 언제나 몸과 같은 색이다.
