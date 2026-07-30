@@ -1860,3 +1860,222 @@ App Store 배포 서명을 검증했다고 말할 수 없다.
 `pass/shared-fairy-placements` — `VFTeamIdentityHeader`의 팀 심볼을 `TeamFairy48`로,
 빈/오류 패널에 상태 페어리를, 그리고 기존 구장 컴포넌트를 구장 페어리로 옮긴다.
 화면 배치는 아직 시작하지 않았다.
+
+## 개정 Pencil — 완료 화면 페어리 배치
+
+### 원본 확인
+
+- SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`
+- 1,882,899 bytes · mtime 2026-07-30 11:51:46 +0900
+- 앞선 패스와 해시·크기가 같다. 내용이 바뀌지 않았다.
+
+읽은 방법은 `get_app_state`와 `execute`의 `Get`(방문자 · `ctx.bounds`)뿐이다.
+`get_editor_state` · `get_variables` · `batch_get` · `snapshot_layout`은 쓰지 않았다.
+
+### 배치 노드 — 이름으로 다시 찾은 결과
+
+문서 전체에서 이름에 "페어리/Fairy"가 들어간 노드는 564개다. 그중 **제품 화면에
+실제로 놓인 인스턴스**는 아홉 개뿐이고, 나머지는 시스템 보드·검증 보드의 견본이다.
+
+- `HdPbE` `팀 페어리` — `03_Shared_Components / TeamIdentityHeader`, 컴포넌트 `TeamFairy48`,
+  48×48, 팀 레일(4×44) 오른쪽 x=32, 팀 텍스트는 x=92에서 시작한다.
+- `YHevI` `선택 팀 페어리` — `04_Onboarding / Onboarding_05_Complete / 선택 확인`,
+  컴포넌트 `TeamFairy_Samsung`(원본 표본), 96×96.
+- `H3Vdn5` `완료 성공 페어리` — `Onboarding_05_Complete`, 컴포넌트 `FairyGlyph_Success`,
+  96×96, 프레임 안 x=148 y=162.
+- `MvVQp` `선택일 승리 페어리` — `06_Calendar_Month_GameSelected / 캘린더 콘텐츠 /
+  선택일 미리보기`, 컴포넌트 `Fairy48_Victory`, 48×48, x=311 y=-12.
+- `RCWPd` `시즌 시그니처 페어리` — `07_Statistics_SeasonArchive / 시즌 콘텐츠 / 시즌 커버`,
+  컴포넌트 `Fairy48_Victory`, 48×48, x=297 y=12.
+- `k6E0mo` `빈 기록 페어리` — `09_States / 열 A / 빈 기록`, `FairyGlyph_Empty`, 96×96.
+- `qjpbO` `시즌 전 페어리` — `09_States / 열 A / 빈 시즌`, `Fairy48_Empty`, 48×48.
+- `r7Eyoc` `오류 페어리` — `09_States / 열 B / 오류`, `Fairy48_Error`, 48×48.
+- `dsu6v` `선택 팀 페어리` — `08_TeamSelector / 온보딩 콘텐츠 / 선택 팀 프리뷰`,
+  `TeamFairy48`. **이번 패스 범위 밖**이라 놓지 않았다(Team Selector 미착수).
+
+### TeamIdentityHeader 이관
+
+`VFTeamIdentityHeader`의 팀 심볼을 이니셜 뱃지에서 `TeamFairy48`로 옮겼다.
+
+- `VFTeamFairy(teamID: team.id, size: .compact)` — canonical 팀 ID가 정체성을 정한다.
+- 열 개 구단 모두 서로 다른 특징(trait)으로 떨어진다. 중립으로 새는 팀이 없다.
+- 팀 조회·이동·팀 이름은 헤더가 그대로 갖는다. 페어리는 그리기만 한다.
+- 헤더가 `children: .ignore`로 팀 이름을 한 번만 읽어 주고, 페어리는 숨긴다.
+  같은 팀을 두 번 말하지 않는다.
+- 홈은 이 공용 헤더 하나만 물려받는다. 홈 소스에는 페어리 호출이 없다.
+
+중립 상태는 정직하게 남는다 — 팀 ID가 없거나 등록부에 없으면 `.neutral`이고,
+`VFTeamFairy.pairing == .requiresTeamName` 계약도 그대로다.
+
+### 구장 페어리 — 공용 배치 없음
+
+`VFStadiumFairy` · `VFStadiumFairyBadge` · `VFStadiumFairyRow`는 어떤 제품 화면에도
+넣지 않았다. 원본이 이 컴포넌트들을 구장 페어리 시스템 보드와 검증 보드 안에서만
+쓰기 때문이다. 일괄 치환은 하지 않았고, 화면별 판정은 다음과 같다.
+
+- 기록 상세의 구장 표현 — `KEEP_LEGACY_GLYPH_FOR_CURRENT_FRAME`
+- 홈 경기 스트립 · 구장 뱃지 · 구장 히어로 — `KEEP_LEGACY_GLYPH_FOR_CURRENT_FRAME`
+- 온보딩 구장 카드 — `KEEP_LEGACY_GLYPH_FOR_CURRENT_FRAME`
+- 09_States 구장 바텀시트 — 이번 패스 범위 밖
+
+기록에 적힌 구장이 언제나 권위를 갖는다. 주 관람 구장·팀 홈 구장·마지막 구장·
+제네릭 구장 어느 것도 기록 구장의 대체가 되지 않는다. 이름이 비면 "구장 없음"이고
+등록부에 없으면 "미지정"이다. 둘은 계속 다른 상태다.
+
+### 기존 `VFStadiumGlyph` 상태 — STILL_REQUIRED
+
+실사용처가 남아 있다. `VFStadiumGlyph` · `VFStadiumBadge` · `VFStadiumHero`는 홈·
+캘린더·기록 상세·온보딩이 계속 쓴다. 참조가 0이 아니므로 지우지 않는다. Pencil의
+`VenueGlyph_*` 컴포넌트도 그대로 둔다(문서는 읽기 전용이다).
+
+### 온보딩 완료 배치
+
+`VFBrandMark` 아래에 두 페어리를 나란히 놓았다.
+
+- 선택 팀 페어리 — `VFTeamFairy(teamID: viewModel.selectedTeamID)` 96×96.
+  원본은 삼성 표본을 그려 두었지만 **고른 팀**으로 그린다. 아직 모르면 중립이다.
+- 완료 성공 페어리 — `VFFairyGlyph(.success)` 96×96.
+
+둘 다 장식으로 숨긴다. "준비됐어요"와 팀·구장 이름이 이미 완료와 선택을 말한다.
+완료 제목·요약·CTA·오류 문구·이전으로 버튼은 그대로다. 다섯 단계 구조, 탭바 없음,
+저장 동작, 홈 전환도 그대로다.
+
+### 온보딩 건너뛴 테스트 재진단
+
+앞선 설명("소개 단계가 사라졌다", "`onboarding.overview.next`가 없다")은 틀렸다.
+그 가드를 걷어내고 실제로 돌려 보니 **건너뛰기가 아니라 실패**였고, 원인은 두 개였다.
+
+1. `FIXTURE_ACTIVATION_DEFECT` — `-VFUITestReset`이 실제로 지우지 못했다.
+   시뮬레이터에는 앱 컨테이너 밖(`<device>/data/Library/Preferences/<bundle>.plist`)에
+   같은 번들 ID의 값이 남아 있었다(`favoriteTeamID=kia-tigers`,
+   `hasCompletedOnboarding=false`, 2026-07-28 12:05 기록). 샌드박스 안에서 하는
+   `removeObject`는 앱 자신의 도메인만 지우므로 이 값이 계속 살아남아, "첫 실행"이
+   구장 보완 단계로 시작했다. 앱을 지우고 다시 설치해도 그대로였고, 그 plist를
+   지운 뒤 시뮬레이터를 재시동하고 나서야 환영 화면이 나왔다.
+   → `VFUITestConfiguration.maskResidualValues(in:)`을 더했다. 지운 뒤에도 값이 보이면
+   앱 도메인에 "비어 있음"에 해당하는 값을 직접 써서 아래 도메인을 가린다.
+   `UserPreferencesStore`는 빈 문자열을 값 없음으로 읽는다.
+   증거: 그 잔재를 일부러 다시 심고(`simctl spawn defaults write`) 돌렸을 때
+   `test01`·`test09`가 통과한다.
+
+2. `IDENTIFIER_DEFECT` — 다섯 단계 컨테이너 식별자가 접근성 트리에 없었다.
+   `OnboardingView`의 바깥 VStack이 `onboarding.root` 식별자를 갖고 있었고, 화면을
+   가득 채우는 두 컨테이너가 하나로 합쳐지면서 바깥 식별자가 이겼다. 실제 트리에
+   `onboarding.welcome`이 아예 없었다(접근성 스냅샷으로 확인).
+   `.accessibilityElement(children: .contain)`을 떼면 이번에는 `onboarding.root`가
+   자식마다 덮어써 `onboarding.welcome.start`까지 사라졌다(역시 스냅샷으로 확인).
+   → 단계 컨테이너의 `children: .contain`은 그대로 두고, 아무도 참조하지 않던
+   `onboarding.root` 식별자를 걷어냈다. 온보딩 루트는 언제나 다섯 단계 중 하나이므로
+   단계 식별자가 루트 식별자 역할을 하고, 어느 단계인지까지 알려준다.
+
+3. `FLOW_STATE_DEFECT` — 보완 단계에 도달할 수 없었다.
+   `AppRootView`가 `hasCompletedOnboarding` 하나만 보고 갈림길을 정해서, 완료 표시가
+   있지만 팀이나 구장이 빠졌거나 유효하지 않은 기존 설치본이 곧장 홈으로 들어갔다.
+   `onboardingEntry`가 이미 그 경우를 `repairTeam`·`repairStadium`으로 나눠 두고
+   `UserPreferencesStore` 단위 테스트가 그 뜻을 못박고 있는데, 화면이 그 값을 쓰지
+   않았다. → `AppRootView`가 `onboardingEntry == .completed`로 판단하도록 고쳤다.
+   완료 플래그는 프로필 동기화 DTO에도 실리므로 `migrateOnboardingIfSatisfied()`를
+   루트의 `.task`에서 계속 승격한다.
+
+세 원인 모두 해결한 뒤 온보딩 UI 15개가 **모두 통과**한다(실행 15 · 성공 15 ·
+실패 0 · 건너뜀 0). 어떤 단정도 약하게 만들지 않았고, 실패를 건너뛰기로 바꾸지 않았다.
+
+### 캘린더 배치 — 결과 정체성
+
+원본 노드 이름이 `선택일 승리 페어리`다. 시즌 커버 쪽이 같은 컴포넌트를
+`시즌 시그니처 페어리`라고 부르는 것과 대비된다. 즉 이 자리는 **선택한 기록의 결과**를
+가리키는 `RESULT_IDENTITY`이고, 원본이 승리 표본을 그려 둔 것뿐이다.
+
+`CalendarResultFairy.kind(for:)`가 결과를 페어리로 옮긴다 —
+승 → `.victory`, 패 → `.loss`, 무 → `.draw`, 취소 → `.cancelled`. 네 결과가 서로
+다른 페어리를 쓴다. 기록이 없는 날에는 아무것도 그리지 않는다. 지거나 비긴 날에
+승리 페어리를 띄우지 않는다.
+
+날짜 칸에는 페어리를 넣지 않았다. 달 이동·날짜 선택·기록 순서·탭바·좁은 폭·
+큰 글자 배치는 그대로다. 선택일 컨테이너는 `children: .contain`으로 담는 요소를
+먼저 만든 다음 이름을 붙여서, 안쪽 식별자
+(`calendar.detailHeader` · `calendar.detailRecord` · `calendar.detailEventCount` ·
+`calendar.detailEmpty` · `calendar.detailAddRecord`)가 모두 살아 있다.
+
+### 시즌 아카이브 배치 — 브랜드 시그니처
+
+`시즌 시그니처 페어리`는 이름 그대로 상수 브랜드 표식이다. 결과에 따라 바꾸지
+않고 VoiceOver에서 숨긴다. 지는 시즌에 "승리"라고 읽어 주면 계산된 전적과 정면으로
+어긋난다. 실제 성적은 헤드라인·승률·전적이 이미 말한다.
+
+커버 오른쪽 위 모서리에 얹는다(원본 361×246 안에서 x=297 y=12 → 오른쪽 16 · 위 12).
+`커버 반짝`은 왼쪽 아래에 그대로 남는다. 페어리가 반짝을 대체하지 않는다.
+계산·헤드라인·승률·팀 정체성·타임라인·구장 분석은 손대지 않았다.
+
+### 공용 상태 패널 슬롯
+
+`VFEmptyStatePanel`과 `VFErrorPanel`에 **선택적인 의미 슬롯** `VFStatePanelFairy`를
+더했다. 두 번째 상태 패널 틀을 만들지 않았다.
+
+- `빈 기록` → `.emptyRecord` = `FairyGlyph_Empty` 96
+- `빈 시즌` → `.emptySeason` = `Fairy48_Empty` 48
+- `오류` → `.error` = `Fairy48_Error` 48
+
+슬롯은 없음 · 장식 · 호출부가 준 라벨을 가진 의미 요소를 모두 표현한다. 기능별
+문구를 일반 패널에 박아 넣지 않았다.
+
+### 페어리를 두지 않은 상태
+
+원본 `09_States`를 다시 훑어 확인했다. 페어리가 있는 프레임은 `빈 기록` ·
+`빈 시즌` · `오류` 세 개뿐이다. 다음은 원본에 없으므로 코드에도 없다 —
+`검색 없음`(돋보기 아이콘 그대로) · `로딩` · `입력 오류 필드` · `삭제 다이얼로그` ·
+`토스트` · `구장 바텀시트` · `추억 카드`. 피드의 필터 결과 0건도 `검색 없음`에
+해당하므로 페어리 자리를 비워 둔다.
+
+### 화면당 페어리 밀도
+
+- 홈 1(공용 헤더) · 온보딩 완료 2 · 캘린더 1 · 시즌 아카이브 1 · 상태 패널 1
+- 모두 `VFFairyIconPolicy.maximumFairiesPerScreen`(3) 이하다.
+- 카드마다·날짜 칸마다 얼굴을 넣지 않았다.
+- 네이티브 유틸리티(뒤로·닫기·편집·삭제·설정·꺾쇠·더보기·재시도·카메라·사진
+  선택·달 이동·선택 체크·파괴적 동작)는 모두 네이티브 그대로다.
+
+### 접근성 소유권
+
+새로 놓은 페어리는 전부 장식이라 `accessibilityHidden(true)`다. 식별자를 먼저
+붙이고 그 다음에 감춘다 — 순서를 바꾸면(감춘 뒤 식별자) SwiftUI가 이름만 있고 읽을
+것은 없는 요소를 새로 만든다.
+
+측정해 보니 감춘 뒤에도 식별자를 가진 요소가 XCUITest 트리에는 남는다. 다만
+**라벨이 비어 있어서 VoiceOver가 읽어 줄 것이 없다**. 그래서 UI 테스트는 "없다"가
+아니라 "자리에 있고 말은 없다"로 확인한다 — `home.teamFairy` ·
+`calendar.selectedDate.fairy` · `statistics.seasonCover.fairy` · `state.empty.fairy` ·
+`state.emptySeason.fairy` · `state.error.fairy` · `brand.mark`. 스크롤 컨테이너 안에
+있는 온보딩 완료 화면의 두 페어리와 브랜드 마크는 요소로 올라오지 않아, 배치 자체는
+계약 테스트와 화면 캡처로 확인하고 UI 테스트는 "말하지 않는다"만 못박는다.
+
+작업 중 발견해 고친 접근성 결함 두 개:
+
+- **브랜드 마크가 자산 이름을 읽었다.** `Image("LaunchMark")`는 자산 이름을 그대로
+  라벨로 삼아 VoiceOver가 "LaunchMark"라고 읽었다(`accessibilityHidden(true)`가
+  붙어 있어도 그랬다). `Image(decorative: "LaunchMark")`로 바꿔 라벨 자체를 없앴다.
+  같은 런치 자산을 그대로 쓰므로 사본은 생기지 않는다.
+- **AccessibilityXXXL에서 온보딩 소개의 "다음"이 화면 밖으로 나갔다.** 한 덩어리
+  VStack이라 버튼이 y≈942(화면 874)로 밀렸고 스크롤도 되지 않아 다음 단계로 갈
+  방법이 없었다. 내용을 `ScrollView`에 싣고 버튼을 아래에 고정했다. 완료 화면도
+  96px 페어리 두 개가 들어오면서 같은 위험이 있어 같은 구조로 바꿨다.
+
+읽는 순서는 제목 → 설명 → 동작이다. 다시 시도와 빈 상태 CTA는 네이티브 버튼으로
+남고, 페어리 자체에는 어떤 동작도 걸지 않았다. 페어리 열거 이름·컴포넌트 이름·
+픽스처 이름·자산 이름은 VoiceOver에 닿지 않는다.
+
+### 의도한 차이
+
+- **캘린더 결과 페어리 위치.** 원본은 x=311 y=-12에 놓아 `더보기`(자세히) 컨트롤
+  (x=309 y=2 52×19)을 덮고, Pencil 자신이 그 노드를 `partially clipped`로 표시한다.
+  그대로 옮기면 네이티브 컨트롤을 가리게 되므로, 같은 오른쪽 정렬을 유지하되 기록
+  카드 아래에 둔다. 잘리지 않고 아무 컨트롤도 가리지 않는다.
+- **온보딩 완료의 선택 팀 페어리.** 원본은 `TeamFairy_Samsung` 인스턴스다. 표본을
+  옮기지 않고 고른 팀으로 그린다.
+- **`onboarding.root` 식별자 제거.** 위의 재진단 참조.
+
+### 다크 표면
+
+이번 패스는 프로젝트 전체 다크 모드 이관이 아니다. 이미 구현된 페어리의 밝음/어두움
+동작과 기존 화면 표면만 쓴다. 온보딩 완료(야간 표면)와 시즌 커버(`deepAccent`)에서
+새 배치가 읽히는지 확인했다. 프로젝트 전체 다크 외형은 남은 과제로 둔다.
