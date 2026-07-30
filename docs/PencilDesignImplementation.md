@@ -2079,3 +2079,199 @@ App Store 배포 서명을 검증했다고 말할 수 없다.
 이번 패스는 프로젝트 전체 다크 모드 이관이 아니다. 이미 구현된 페어리의 밝음/어두움
 동작과 기존 화면 표면만 쓴다. 온보딩 완료(야간 표면)와 시즌 커버(`deepAccent`)에서
 새 배치가 읽히는지 확인했다. 프로젝트 전체 다크 외형은 남은 과제로 둔다.
+
+## 개정 Pencil — Record Create 단계 모델 기반
+
+### 원본 확인
+
+- SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`
+- 1,882,899 bytes · mtime 2026-07-30 11:51:46 +0900
+- 앞선 패스와 해시·크기가 같다.
+
+읽은 방법은 `get_app_state`와 `execute`의 `Get`(방문자 · `ctx.bounds` ·
+`resolveInstances`)뿐이다. 지원하지 않는 메서드는 부르지 않았고 문서도 고치지 않았다.
+
+### 세 프레임
+
+- `m34WD` `08_RecordCreate_Step1` 393×822 — "어떤 경기였나요? / 필수만 적어도 충분해요".
+  경기 날짜 · 구장 · 우리 팀 · 상대 팀 · 스코어(5:3 승) · `다음 · 그날의 디테일` ·
+  **`여기까지만 저장할게요`**.
+- `Dotbx` `08_RecordCreate_Step2` 393×832 — "그날의 디테일을 더해볼까요? / 모두
+  건너뛰어도 괜찮아요". 좌석 · 함께한 사람 · **날씨** · **먹은 것** ·
+  **응원 준비물** · `다음 · 나의 이야기` · `이 단계는 건너뛸게요`.
+- `z0G0P` `08_RecordCreate_Step3` 393×904 — "오늘의 이야기를 남겨주세요 / 사진 한
+  장과 짧은 한마디면 충분해요". 사진 · 가장 기억에 남는 순간 · 오늘의 기분 ·
+  **별점** · 짧은 일기(**`0 / 500`**) · `기록 완성하기`.
+
+세 프레임 모두 내비바에 **`임시저장`**이 있고, `09_States`에는
+`임시저장했어요 · 이어서 쓸 수 있어요` 토스트가 있다. `09_States`의 다이얼로그는
+삭제 확인 하나뿐이고, 저장 실패나 미저장 이탈 다이얼로그는 없다.
+`11_Developer_Handoff`에는 Record Create 스펙이 없다(온보딩 스펙만 있다).
+
+이 패스는 세 프레임의 **보이는 배치를 만들지 않는다**. 필드 소유와 구조만 가져온다.
+
+### 정정 — 현재 편집기는 단계형이 아니었다
+
+이전 문서가 단계형 편집기가 이미 있는 것처럼 읽힐 여지를 남겼다. 실제 코드는
+`LogEditorView` 하나짜리 **한 장짜리 스크롤 폼**이고, 진행 표시·다음·이전·건너뛰기·
+임시저장 어느 것도 없다. 세 단계 마법사는 아직 만들지 않았다.
+
+### 현재 상태 소유 지도
+
+감사 시점의 `LogEditorView`가 들고 있던 값과 이번 분류다.
+
+DRAFT_DOMAIN_FIELD — 정본 초안으로 옮겼다
+`date` · `favoriteTeam` · `opponentTeam` · `stadium` · `result` · `ourScore` ·
+`opponentScore` · `seat` · `companion` · `shortMemo` · `diary` · `selectedMood` ·
+`selectedHighlight` · `appliedKBOHighlightTags` · `photoLocalRefs` · `gameSource` ·
+`linkedKBOGameID` · `officialRecordURL`.
+
+각 값의 소유·기본값·생성/수정 동작은 아래 표 대신 규칙으로 적는다 — 생성에서는
+날짜만 진입점이 정하고 나머지는 비어 있으며, 수정에서는 전부 기록에서 온다.
+변경은 초안을 통해서만 일어나고, 검증은 `RecordEditorValidation`이, 저장은
+`AppDataStore`가 갖는다. 취소는 초안을 버릴 뿐 원본을 건드리지 않는다. 열여덟 값
+모두 뒤에 올 단계 이동에서 살아남아야 하므로 초안에 속한다.
+
+EDITOR_TRANSIENT_STATE — 초안 밖에 그대로 둔다
+`selectedTone`(AI 말투 · 저장되지 않음) · `isSaving` · `saveMessage` ·
+`validationMessage` · `didStartInitialAIPreflight`.
+
+PRESENTATION_STATE — 시트·알림 표시
+`isShowingTicketOCR` · `isShowingAIPreflight` · `isShowingAIDraft` ·
+`isShowingAIDraftApplyChoice` · `isShowingPhotoAnalysisSelection` ·
+`isShowingPhotoAnalysisResult` · `isShowingKBOCandidateSelection` ·
+`isShowingDiaryOverwriteConfirmation` · `safariRoute`.
+
+ASYNC_OPERATION_STATE
+`isGeneratingAIDraft` · `isProcessingPhotos` · `isAnalyzingPhotos` ·
+`kboLookupState`.
+
+EXTERNAL_FLOW_STATE
+`aiDraft` · `photoAnalysis` · `kboCandidates` · `kboLookupSource` ·
+`kboLookupSourceLabel` · `kboLookupSourceDisclosure` ·
+`pendingDraftTextToApply` · `pendingDiaryOverwriteCandidate` ·
+`selectedPhotoItems`(PhotosPicker 이음새).
+
+DERIVED_STATE
+`saveTags`(초안으로 옮김) · `shouldShowScoreWarning`(검증으로 옮김) ·
+`opponentTeamNames` · `currentFavoriteTeamID` · `sanitizedCompanionType`.
+
+UNSUPPORTED_PENCIL_FIELD — 넣지 않았다
+날씨 · 먹은 것 · 응원 준비물 · 별점 · 500자 제한 · 임시저장.
+
+DEPRECATED_OR_UNUSED — 걷어냈다
+`LogEditorViewModel`의 지어낸 기본값(한화 이글스 · KIA 타이거즈 · 잠실야구장 ·
+3:9 패 · `defaultShortMemo` · 좌석 "1루 네이비석 204블록" · 동행 "친구").
+
+### 정본 초안
+
+`RecordEditorDraft`(`Features/LogEditor/RecordEditorDraft.swift`). SwiftUI를 끌어오지
+않고, 색을 모르며, `Equatable`이고, 저장을 하지 않는다. 새로 만들기와 수정하기가
+같은 타입을 쓴다. 제품 `LogEditorView`가 실제로 이 초안 하나만 들고 동작한다.
+
+### 생성·수정 모드
+
+`RecordEditorMode`는 `create(initialDate:)`와 `edit(recordID:)` 둘이다.
+생성은 정체성을 만들지 않고, 캘린더가 준 날짜만 받는다. 수정은 원래 기록의 ID를
+그대로 들고 있고 저장도 그 ID로 간다. 취소는 원본을 건드리지 않는다.
+
+### 단계 정체성과 순서
+
+`RecordCreateStep`은 `game` · `details` · `memory` 셋뿐이다. 자리는 1·2·3,
+이전/다음이 결정적이며, 접근성 제목은 Pencil 진행 표시와 같은 `경기` ·
+`그날의 디테일` · `나의 이야기`다. **현재 단계는 저장하지 않는다** — SwiftData·
+백엔드·사용자 설정 어디에도 없다. 보이는 진행 표시·다음·이전·건너뛰기·부분 저장·
+완료 화면은 하나도 만들지 않았다.
+
+### 지원 필드 소유
+
+- 1단계 경기 — 날짜 · 구장 · 응원팀 · 상대팀 · 결과 · 응원팀 점수 · 상대팀 점수 ·
+  연결된 경기
+- 2단계 그날의 디테일 — 좌석 · 동행 유형
+- 3단계 나의 이야기 — 사진 · 한 줄 메모 · 분위기 · 하이라이트 · 직관 다이어리
+
+Pencil의 `가장 기억에 남는 순간`은 지금의 `한 줄 메모`에, `오늘의 기분`은 지금의
+`분위기` 태그에 해당한다. `caption`은 편집기가 만들지 않는 파생값이라 초안에
+넣지 않았다.
+
+### 미결 Pencil 전용 항목
+
+- 1단계 — `여기까지만 저장할게요`(부분 저장)
+- 2단계 — 날씨 · 먹은 것 · 응원 준비물, 그리고 좌석·동행만 남을 때 2단계가 따로
+  필요한지
+- 3단계 — 별점 · `0 / 500` 일기 길이 제한
+- 전 단계 — 내비바 `임시저장`
+
+어느 것도 도메인·DTO·검증에 넣지 않았다. 런타임 타입으로 만들면 아무도 쓰지 않는
+죽은 코드가 되므로 계약 테스트와 이 문서로만 못박는다.
+
+### 초기화 · 왕복 · 사진 · 검증 · 더티
+
+초기화는 `RecordEditorDraft.make(mode:existingRecord:…)` 하나뿐이다. 섹션이 각자
+기본값을 정하지 않는다. 생성은 상대팀·구장·결과·점수·좌석·메모를 비운 채 시작하고,
+응원팀만 사용자 설정에서 채운다(지금 편집기도 이미 하던 일이다). 여는 것만으로
+UUID를 만들지 않고 아무것도 저장하지 않는다.
+
+왕복은 `init(record:…)`과 `makeSaveInput()` 두 방향이다. 없는 점수는 계속 없고,
+취소 경기는 점수를 지어내지 않으며, 등록부에 없는 구장 이름도 그대로 남고, 없는
+상대팀을 추론하지 않는다. 일기의 줄바꿈과 이모지는 글자 그대로 오간다.
+
+사진은 `RecordEditorPhotoDraft`가 원본 목록과 현재 목록을 함께 들고 있어
+`none` · `existingUnchanged` · `newSelection` · `replacedExisting` ·
+`removedExisting`을 구분한다. 피커 취소나 디코딩 실패는 초안을 건드리지 않고,
+지우기만이 명시적 의도다. 저장 매체는 기존 `PhotoAttachmentService` 그대로다.
+
+검증은 `RecordEditorValidation`이 갖는다. SwiftUI를 끌어오지 않고 뷰가 아니며,
+막는 값·경고·첫 번째로 막힌 값·단계별 묶음을 돌려준다. 요구 조건은 지금과 같은
+넷(응원팀·상대팀·구장·결과)이고, 500자 제한이나 미지원 항목은 넣지 않았다.
+
+더티 비교는 초안이 `Equatable`이므로 값 비교 하나다. 시트·로딩·오류가 초안에 없기
+때문에 일시적 상태는 섞이지 않는다. 저장에 성공하면 그 초안이 새 기준이 된다.
+
+### 저장 경계
+
+저장 주체는 계속 `AppDataStore.saveAttendanceLog` / `updateAttendanceLog`다.
+초안은 스스로 저장하지 않고 `makeSaveInput()`으로 값만 넘긴다. API 엔드포인트·DTO·
+SwiftData 스키마·삭제·동기화는 하나도 바꾸지 않았다. 부분 저장은 만들지 않았다.
+
+### 편집기 진입점
+
+제품 호출부는 여덟 곳이다(미리보기 제외).
+
+- `HomeView.swift:61` — `LogEditorView()`
+- `HomeView.swift:81` — `LogEditorView(editingLog:startsAIPreflightOnAppear: true)`
+- `HomeView.swift:83` — `LogEditorView()`(최근 기록이 없을 때의 AI 진입)
+- `FeedViews.swift:117` — `LogEditorView()`
+- `CalendarViews.swift:231` — `LogEditorView(initialDate:)`
+- `RecordDetailViews.swift:100` — `LogEditorView(editingLog:)`
+- `StatisticsViews.swift:1068` · `StatisticsViews.swift:1121` — `LogEditorView()`
+
+앞선 감사가 "여섯 경로"라고 적었지만, 다시 세어 보니 시즌 아카이브의 구장·상대팀
+통계 화면 두 곳이 더 있다. 생성자 모양은 그대로 두어 여덟 곳 모두 고치지 않았다.
+
+### 유지된 기능
+
+티켓 OCR · 사진 분석 · AI 다이어리 초안(사전 고지 포함) · KBO 경기 추천과 후보
+선택 · 출처 고지 · 공식 기록 링크 · 사진 첨부는 모두 그대로 있다. 실패 경로도
+그대로다 — 실패는 안내 문구만 바꾸고 초안을 비우지 않는다.
+
+### 현재 폼 유지
+
+섹션 순서(필수 정보 → 사진 → 선택 정보 → 저장), 컨트롤, 시트, 다이얼로그, 내비게이션
+제목, 저장·취소 동작을 그대로 두었다. 보이는 단계 이동은 없다.
+
+### 의도한 차이
+
+- **지어낸 기본값 제거.** 새 기록이 한화 이글스 · KIA 타이거즈 · 잠실야구장 ·
+  3:9 패로 시작하던 것을 없앴다. Pencil 표본을 제품 기본값으로 두면 사용자가
+  손대지 않은 값이 사실처럼 저장된다.
+- **결과는 고르기 전까지 비어 있다.** 그래서 저장 전에 "경기 결과를 선택해 주세요"가
+  뜬다. 저장 버튼 자체의 활성 조건은 바뀌지 않았다(예전에도 항상 눌리고, 검증이
+  막았다).
+- **없는 점수는 계속 없다.** 예전 수정 경로는 `ourScore ?? 0`으로 0을 저장했다.
+
+### 다음 패스
+
+`Record Create Step 1 Frame Implementation` — `08_RecordCreate_Step1`의 보이는
+배치를 만든다. Step 2·Step 3의 제품 결정과 화면은 그 뒤다. 이 패스는 어떤 Record
+Create 프레임도 프레임 단위 완료로 표시하지 않는다.
