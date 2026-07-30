@@ -479,13 +479,17 @@ final class AppIconContractTests: XCTestCase {
         let url = Self.appSourceRoot
             .appendingPathComponent("Assets.xcassets/LaunchMark.imageset/LaunchMark.pdf")
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "LaunchMark.pdf가 사라졌다")
-        // 런치 마크는 이번 패스의 범위가 아니다. 아직 V-Wing 그대로여야 한다.
-        // 쿼텟 교체는 다음 패스(`pass/launch-mark-quartet`)의 몫이고, 그때 이 해시가
-        // 바뀌면서 이 검사도 함께 갱신돼야 한다.
+        // 앞 패스에서는 여기에 V-Wing 해시가 박혀 있었고, 쿼텟 교체 때 함께 갱신하라고
+        // 적어 두었다. `pass/launch-mark-quartet`이 실제로 교체했으므로 그대로 갱신한다.
+        // 검사 강도는 그대로다 — AppIcon 작업이 런치 자산을 건드리지 않는지 여전히 본다.
+        // 런치 자체의 계약은 `LaunchMarkContractTests`가 자세히 맡는다.
         XCTAssertEqual(
-            try sha256(url), "2b60eeb3fc21148e5273a014ecf89b2666781183e3897a209ba4049ae5ce3528",
-            "LaunchMark가 바뀌었다면 이번 패스의 범위를 벗어난 것이다"
+            try sha256(url), "7b73585aa1538d03f68461a34bdcefa89fdc6319997175cf41efb94e76f366df",
+            "LaunchMark가 기대한 쿼텟 마크가 아니다"
         )
+        let dark = Self.appSourceRoot
+            .appendingPathComponent("Assets.xcassets/LaunchMark.imageset/LaunchMark-Dark.pdf")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dark.path), "다크 런치 마크가 없다")
     }
 
     func testLaunchBackgroundRemainsUnchanged() {
