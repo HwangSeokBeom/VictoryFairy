@@ -110,6 +110,50 @@ enum VFColor {
     static let disabled = Color(hex: "#8B909E")
 }
 
+// MARK: - Victory Fairy 색
+
+/// 개정 Pencil이 새로 들여온 `fairy*` 문서 변수 12개.
+///
+/// 이 가운데 일곱은 이미 있는 토큰과 **같은 값**이다. 같은 값을 다시 적어 두면
+/// 나중에 한쪽만 바뀌어 조용히 어긋나므로, 새 리터럴을 만들지 않고 기존 토큰을
+/// 그대로 가리킨다. 나머지 다섯만 원본에 처음 등장한 값이라 리터럴로 적는다.
+///
+/// 이 파일의 기존 값은 하나도 바뀌지 않았다. 페어리 토큰은 전부 덧붙이기다.
+enum VFFairyColor {
+
+    // MARK: 새로 생긴 값 5개 — Pencil에 처음 등장한다
+
+    /// Pencil `fairyMemory`. 추억/기록 회상 페어리의 몸.
+    static let memory = Color(hex: "#9D93C8")
+    /// Pencil `fairyMemorySurface`. 추억 페어리를 얹는 옅은 배경.
+    static let memorySurface = Color(hex: "#EDEAF5")
+    /// Pencil `fairyConcern`. 오류 페어리의 몸. 경고색(`live`)보다 차분하다.
+    static let concern = Color(hex: "#B95F55")
+    /// Pencil `fairyFaceOnDark`. 어두운 몸 위에 올리는 눈·입·안테나 줄기.
+    /// 본문용 `VFColor.bodyOnDark`(#F6F5F0)와 값이 다르므로 서로 대체하지 않는다.
+    static let faceOnDark = Color(hex: "#F6F3EA")
+    /// Pencil `fairyIconBgDark`. 앱 아이콘 Dark 렌디션의 바탕.
+    /// 이번 패스는 토큰만 들여오고 아이콘 아트워크는 바꾸지 않는다.
+    static let iconBackgroundDark = Color(hex: "#070C16")
+
+    // MARK: 기존 토큰을 가리키는 별칭 7개 — 값을 복제하지 않는다
+
+    /// Pencil `fairyVictory` = `gold`/`coral`/`butter`.
+    static let victory = VFColor.primaryAction
+    /// Pencil `fairyTeam` = `sky`.
+    static let team = VFColor.infoAccent
+    /// Pencil `fairyStadium` = `sage`.
+    static let stadium = VFColor.supportAccent
+    /// Pencil `fairyLive` = `live`/`stamp-red`.
+    static let live = VFColor.gameLive
+    /// Pencil `fairyNeutral` = `ink-faint`.
+    static let neutral = VFColor.bodyTertiary
+    /// Pencil `fairyFaceOnLight` = `ink`.
+    static let faceOnLight = VFColor.bodyPrimary
+    /// Pencil `fairyIconBg` = `night`/`navy`.
+    static let iconBackground = VFColor.nightSurface
+}
+
 // MARK: - 간격
 
 enum VFSpacing {
