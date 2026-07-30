@@ -11,10 +11,16 @@ struct VFBrandMark: View {
     var height: CGFloat = 80
 
     var body: some View {
-        Image("LaunchMark")
+        // `Image(decorative:)`로 만든다. 그냥 `Image("LaunchMark")`는 자산 이름을
+        // 그대로 라벨로 삼아 VoiceOver가 "LaunchMark"라고 읽는다(측정으로 확인했다).
+        // 자산 이름은 사용자에게 아무 뜻도 없다.
+        Image(decorative: "LaunchMark")
             .resizable()
             .scaledToFit()
             .frame(height: height)
+            // 자동 검증이 "브랜드 마크가 그대로 있다"를 확인할 자리. 장식이라
+            // 읽어 주지는 않는다.
+            .accessibilityIdentifier("brand.mark")
             .accessibilityHidden(true)
     }
 }

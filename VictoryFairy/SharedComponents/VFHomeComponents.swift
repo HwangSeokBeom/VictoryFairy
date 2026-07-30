@@ -95,16 +95,18 @@ struct VFTeamIdentityHeader: View {
             .accessibilityHidden(true)
     }
 
+    /// Pencil `TeamIdentityHeader`의 `팀 페어리` — `TeamFairy48` 48×48.
+    ///
+    /// 예전에는 팀 약칭을 원 안에 넣었지만, 개정 원본은 이 자리에 팀 페어리를 둔다.
+    /// 팀 정체성은 페어리 하나에 기대지 않는다 — 레일·팀 이름·"응원 중" 칩이 함께
+    /// 말하고, 페어리는 그 위에 얹는 브랜드 표식이다.
+    ///
+    /// VoiceOver에서는 숨긴다. 이 헤더가 이미 팀 이름을 한 번 읽어 주므로,
+    /// 페어리까지 읽으면 같은 팀을 두 번 말하게 된다.
     private var teamSymbol: some View {
-        Text(team.badgeInitial)
-            .font(Font.system(size: team.badgeInitial.count > 1 ? 14 : 20, weight: .heavy))
-            .foregroundStyle(accent.vfOnDarkVariant)
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            .frame(width: 46, height: 46)
-            .background(accent.opacity(0.12))
-            .clipShape(Circle())
-            .overlay(Circle().stroke(accent, lineWidth: 2))
+        VFTeamFairy(teamID: team.id, size: .compact)
+            .frame(width: VFTeamFairySize.compact.canvas, height: VFTeamFairySize.compact.canvas)
+            .accessibilityIdentifier("home.teamFairy")
             .accessibilityHidden(true)
     }
 

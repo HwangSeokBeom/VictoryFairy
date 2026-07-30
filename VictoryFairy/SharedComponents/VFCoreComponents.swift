@@ -424,17 +424,69 @@ struct VFTapeStrip: View {
 
 // MARK: - 상태 패널
 
+/// 상태 패널 맨 위에 올릴 페어리.
+///
+/// 개정 Pencil `09_States`가 **지정한 자리에만** 쓴다. 세 상태만 페어리를 갖는다 —
+/// 빈 기록(`FairyGlyph_Empty` 96), 빈 시즌(`Fairy48_Empty` 48), 오류(`Fairy48_Error` 48).
+/// 로딩·검색 없음·입력 오류·토스트는 원본에 페어리가 없으므로 두지 않는다.
+///
+/// 라벨을 주지 않으면 장식으로 보고 숨긴다. 곁의 제목이 이미 상태를 말하는 자리에서는
+/// 그렇게 써야 VoiceOver가 같은 말을 두 번 하지 않는다.
+struct VFStatePanelFairy: Equatable {
+    let kind: VFFairyKind
+    let size: VFFairySize
+    /// VoiceOver가 읽을 문장. 비우면 장식으로 보고 숨긴다.
+    var accessibilityLabel: String?
+    /// 자동 검증이 이 자리를 찾을 때 쓰는 식별자.
+    var accessibilityIdentifier: String?
+
+    /// Pencil `09_States > 빈 기록`. 96px 글리프.
+    static let emptyRecord = VFStatePanelFairy(
+        kind: .empty, size: .regular, accessibilityIdentifier: "state.empty.fairy"
+    )
+    /// Pencil `09_States > 빈 시즌`. 48px 축소본.
+    static let emptySeason = VFStatePanelFairy(
+        kind: .empty, size: .compact, accessibilityIdentifier: "state.emptySeason.fairy"
+    )
+    /// Pencil `09_States > 오류`. 48px 축소본.
+    static let error = VFStatePanelFairy(
+        kind: .error, size: .compact, accessibilityIdentifier: "state.error.fairy"
+    )
+}
+
+/// 상태 패널 머리의 그림. 페어리가 지정되면 페어리를, 아니면 기존 일러스트를 그린다.
+private struct VFStatePanelHeadline: View {
+    let fairy: VFStatePanelFairy?
+    let illustration: VFIllustration
+    var illustrationHeight: CGFloat
+
+    var body: some View {
+        if let fairy {
+            VFFairyGlyph(fairy.kind, size: fairy.size, accessibilityLabel: fairy.accessibilityLabel)
+                .frame(width: fairy.size.canvas, height: fairy.size.canvas)
+                .accessibilityIdentifier(fairy.accessibilityIdentifier ?? "")
+                // 라벨이 없으면 장식이다. 식별자를 붙인 뒤 다시 감춰야 접근성
+                // 트리에 이름만 있고 읽을 것은 없는 빈 정거장이 남지 않는다.
+                .accessibilityHidden(fairy.accessibilityLabel == nil)
+        } else {
+            VFIllustrationView(illustration, height: illustrationHeight)
+        }
+    }
+}
+
 /// Pencil `상태와 피드백` 열 A의 빈 상태 패널.
 struct VFEmptyStatePanel: View {
     let title: String
     let message: String
     var illustration: VFIllustration = .glove
+    /// Pencil이 이 상태에 페어리를 두었을 때만 채운다. 기본은 기존 일러스트다.
+    var fairy: VFStatePanelFairy?
     var actionTitle: String?
     var action: (() -> Void)?
 
     var body: some View {
         VStack(spacing: VFSpacing.md) {
-            VFIllustrationView(illustration, height: 56)
+            VFStatePanelHeadline(fairy: fairy, illustration: illustration, illustrationHeight: 56)
 
             Text(title)
                 .font(VFTypography.sectionTitle)
@@ -542,11 +594,15 @@ struct VFErrorPanel: View {
     var retryTitle: String = "다시 시도"
     /// 다시 시도 버튼에 붙일 식별자. 패널과 버튼을 따로 확인해야 하는 화면이 쓴다.
     var retryAccessibilityIdentifier: String?
+    /// Pencil `09_States > 오류`가 이 자리에 오류 페어리를 둔다.
+    /// 이 패널의 기본 제목이 곧 그 상태이므로 기본값으로 둔다. `nil`을 주면 예전
+    /// 비구름 일러스트로 돌아간다.
+    var fairy: VFStatePanelFairy? = .error
     var onRetry: (() -> Void)?
 
     var body: some View {
         VStack(spacing: VFSpacing.sm) {
-            VFIllustrationView(.rainCloud, height: 52)
+            VFStatePanelHeadline(fairy: fairy, illustration: .rainCloud, illustrationHeight: 52)
 
             Text(title)
                 .font(VFTypography.sectionTitle)
