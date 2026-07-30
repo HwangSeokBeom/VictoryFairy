@@ -1692,3 +1692,171 @@ SHA-256 `2b60eeb3fc21148e5273a014ecf89b2666781183e3897a209ba4049ae5ce3528`로 �
 `pass/launch-mark-quartet` — `LaunchScreen_Light` / `LaunchScreen_Dark`의
 `런치 마크 쿼텟`을 `LaunchMark.pdf`로 옮긴다. 그 보드의 `SplashMark_OnDark`에 아직
 V-Wing이 남아 있어, 온다크 스플래시 마크가 최신인지 먼저 확인해야 한다.
+
+---
+
+## 개정 Pencil — LaunchMark 쿼텟 교체
+
+원본은 앞 절과 같다 — SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, 1,882,899바이트,
+수정 시각 2026-07-30 11:51:46 +0900. 해시와 크기가 같으므로 내용은 그대로다.
+
+### 읽은 보드
+
+`01_Launch_and_Splash` (`r4MPjp`) — 자식 넷.
+
+- `SplashMark_시트` (`PiKOI`) — 핸드오프 시트. 안에 `마크 프리뷰`가 있고
+  라이트 칸은 `프리뷰 마크 쿼텟` (`HOAkt`, 140×140, 자식 25), 다크 칸은
+  `SplashMark_OnDark` (`nPZGr`, 140×128.3, **자식 3**)
+- `LaunchScreen_Light` (`wI81v`) 300×650, 배경 `$paper`, 안에 `런치 마크 쿼텟`
+  (`i00UgJ`, 76×76, 자식 25)
+- `LaunchScreen_Dark` (`XSoYU`) 300×650, 배경 `$night`, 안에 `런치 마크 쿼텟`
+  (`ATfKL`, 76×76, 자식 25)
+- `BrandSplash_Optional` (`nYDh8`) — 스스로 "선택적 브랜드 전환"이라고 적어 둔
+  선택 사항. 런치 화면이 아니다
+
+### 소스 충돌 해소 — LAUNCHMARK_SOURCE_RESOLVED
+
+- **CURRENT_PRODUCTION_SOURCE** — `LaunchScreen_Light > 런치 마크 쿼텟` (`i00UgJ`)
+- **CURRENT_APPEARANCE_VARIANT** — `LaunchScreen_Dark > 런치 마크 쿼텟` (`ATfKL`)
+- **VALIDATION_ONLY** — `프리뷰 마크 쿼텟` (`HOAkt`). 140×140 핸드오프 프리뷰
+- **SUPERSEDED_VWING_SOURCE** — `SplashMark_OnDark` (`nPZGr`). 자식이 셋뿐이고
+  그 셋이 `V`(금색 그라디언트) · `Ball` · `Seams`다. 물러난 V-Wing이며 쓰지 않는다
+- **LEGACY_REFERENCE** — `00_Cover_and_Direction`의 "승리 부적(V-윙) 아이덴티티" 문구
+- **SHARED_MARK_SOURCE** — `BrandMark_FairyQuartet` (`nl01N`). 같은 쿼텟 계열이지만
+  150×150이라 런치 규격이 아니다
+
+BLOCKING_CONFLICT는 없다. 다크 스플래시 마크 하나가 낡았다고 해서 쿼텟이 흔들리지
+않는다 — 실제 런치 화면 프레임 **둘 다** 쿼텟을 쓰고, 앞 패스에서 검증한 AppIcon도
+쿼텟이다. 물러난 V-Wing은 `SplashMark_OnDark` 한 곳에만 남아 있다.
+
+### 크기는 추론하지 않았다 — 핸드오프가 못박는다
+
+`11_Developer_Handoff`가 스플래시 항목에서 직접 적는다.
+
+> • SplashMark — SVG/PDF 단일 스케일 · transparent · 벡터 · 텍스트 없음
+> • LaunchScreen_Light/Dark — 배경 토큰 + **76pt 마크만** · 마케팅 카피 금지
+
+그래서 마크는 **76pt**다. 물러난 V-Wing은 100×92.1pt였는데, Pencil 프레임 비율
+(76/300 = 25.3%)을 실기 폭에 맞춰 키운 값으로 보인다. 이번에는 비율을 추론하지 않고
+핸드오프가 적어 둔 76pt를 그대로 썼다.
+
+이 핸드오프 보드는 AppIcon 익스포트 이름에 대해서는 낡았지만(앞 절 참고) **런치
+스펙에 대해서는 현행**이다. `LaunchScreen_Light/Dark`라는 현재 프레임 이름을 쓰고
+76pt가 실제 노드와 정확히 맞는다. 보드 전체를 한 덩어리로 낡았다고 보지 않고
+항목별로 판단했다.
+
+### 라이트/다크 계약 — APPEARANCE_SPECIFIC_MARKS
+
+두 런치 마크를 자식 단위로 비교했더니 **25개 중 13개가 다르다.** 다른 것은 정확히
+네거티브 스페이스 다이아몬드와 모든 얼굴 자국이며, 그 칠이 배경색으로 도려내져 있다 —
+라이트는 `$paper`, 다크는 `$night`. 나머지 12개(네 몸통·줄기·다이아몬드)는 같다.
+
+즉 이 마크는 투명 도려내기가 아니라 **배경색 도려내기**로 그려졌다. 하나의 자산을
+공유하면 어느 한쪽 배경에서 다이아몬드와 얼굴이 어긋난다. 그래서 두 소스를 각각
+내보내고 자산 카탈로그 외형으로 매핑했다.
+
+투명 도려내기로 "고쳐서" 하나로 합칠 수도 있었지만 그것은 원본을 다시 그리는 것이라
+하지 않았다. Pencil이 라이트와 다크를 **각각 완성된 소스로** 그려 두었으므로 그대로 쓴다.
+
+### 내보낸 파일
+
+- `LaunchMark.pdf` ← `i00UgJ` (라이트)
+  SHA-256 `7b73585aa1538d03f68461a34bdcefa89fdc6319997175cf41efb94e76f366df`
+- `LaunchMark-Dark.pdf` ← `ATfKL` (다크)
+  SHA-256 `3961018e70d79755433e84f5c361de8b25ee2947c63f421e4b88ec2742a0935e`
+
+물러난 V-Wing 런치 마크 SHA-256
+`2b60eeb3fc21148e5273a014ecf89b2666781183e3897a209ba4049ae5ce3528` —
+스크립트와 테스트의 금지 목록에 남겼다.
+
+### 벡터 PDF 증거
+
+두 파일 모두 확인했다.
+
+- 페이지 **1개**, `/Count 1`
+- MediaBox `[0 0 76 76]`, CropBox 없음(MediaBox와 동일)
+- `/Subtype /Image` **0개** — 전면 래스터 없음
+- `/Type /Font` · `/BaseFont` **0개**, 텍스트 연산자(`BT`/`Tj`/`TJ`) **0개**
+- 벡터 연산자 m=41 · l=95 · c=412 · fill=34 — 자식 25개 쿼텟에 맞는 양
+- 자산 카탈로그 `preserves-vector-representation: true` 유지
+
+컴파일된 `Assets.car`에서 `LaunchMark`가 **Image와 Vector 두 타입으로** 들어 있는 것을
+확인했다. 확장자만 보고 벡터라고 말하지 않았다.
+
+### 중앙 네거티브 스페이스와 광학 중심
+
+렌더해서 쟀다. 두 마크의 경계 상자와 중심이 픽셀 단위로 같고(bbox (26,32)-(582,560),
+중심 304,296), 라이트는 중앙이 `$paper`, 다크는 `$night`로 뚫려 있다. 실기 콜드런치
+캡처에서도 마크 중심이 화면의 (50.0%, 49.8%)에 온다.
+
+### 자산 카탈로그
+
+`LaunchMark.imageset`에 두 항목을 두고 기본/`luminosity: dark`로 매핑했다.
+`preserves-vector-representation`과 `template-rendering-intent: original`은 그대로다.
+이미지 세트 이름 `LaunchMark`도 그대로라 `UILaunchScreen` 참조를 바꾸지 않았다.
+
+### LaunchBackground — UNCHANGED_AND_CURRENT
+
+건드리지 않았다. 현재 값이 Pencil 런치 프레임과 이미 정확히 맞는다 —
+라이트 `#F4F4F2`(`$paper`), 다크 `#0E1526`(`$night`). 테스트가 네 채널을 직접 확인한다.
+
+### 네이티브 런치 소유권 — 그리고 이 패스가 발견한 것
+
+`UILaunchScreen`이 `UIImageName: LaunchMark` · `UIColorName: LaunchBackground`로
+런치 화면을 소유한다. 인위적 지연도, 전체 화면 스플래시 뷰도 없다.
+
+새 게이트를 처음 돌렸을 때 "런타임이 런치 자산을 그린다"고 걸렸다. 확인해 보니
+`VFBrandMark`(`SharedComponents/VFStadiumComponents.swift:10`)가 `Image("LaunchMark")`를
+쓰고 있었고, 스스로 **"런치 화면과 앱 안이 어긋나지 않게 한다"**고 적어 두었다.
+온보딩 두 곳(`OnboardingView.swift:72`, `:369`)에서 실제 콘텐츠로 쓰인다.
+
+이것은 가짜 스플래시가 아니라 **의도된 공유**다. 그래서 규칙을 "런치 자산 참조 금지"에서
+**"문서화된 공유 브랜드 마크 한 곳으로 제한"**으로 좁혔다. 앱 진입점(`VictoryFairyApp`,
+`AppRootView`)이 런치 자산을 그리는 것과 전체 화면 스플래시 뷰 타입은 여전히 금지한다.
+
+**따라온 결과를 분명히 적는다.** 런치 자산을 바꾸었으므로 온보딩 안의 브랜드 마크도
+V-Wing에서 쿼텟으로 함께 바뀐다. 화면 소스는 한 줄도 고치지 않았고, 이것은 그 컴포넌트가
+존재하는 이유 그대로다 — 오히려 런치는 쿼텟인데 온보딩만 V-Wing으로 남는 쪽이 결함이다.
+
+### 콜드런치 증거
+
+`simctl launch --wait-for-debugger`로 프로세스를 main() 전에 붙잡아 **네이티브 런치
+화면이 화면에 떠 있는 동안** 캡처했다. 웜런치도, 앱 루트가 뜬 뒤의 화면도 아니다.
+각 회차마다 앱을 지우고 다시 설치해 콜드 상태를 만들었다.
+
+- iPhone 17 Pro (iOS 26.3) · 라이트 · 클린 설치 — 쿼텟, 배경 `paper`,
+  마크 중심 (49.9%, 49.9%)
+- iPhone 17 Pro (iOS 26.3) · 다크 · 클린 설치 — 쿼텟, 배경 `night`,
+  마크 중심 (50.0%, 49.8%)
+- VF-CalendarCompact-SE3 (iOS 26.3, 375pt) · 라이트 · 클린 설치 — 쿼텟, 잘림 없음
+- VF-CalendarCompact-SE3 (iOS 26.3, 375pt) · 다크 · 클린 설치 — 쿼텟, 잘림 없음
+
+반복 실행으로 스냅샷 캐시도 확인했다. 라이트는 콜드와 반복 캡처가 **바이트 단위로
+동일**하고, 다크는 상태 표시줄 밴드에서만 0.017% 다르며 **마크 밴드는 차이 0**이다.
+낡은 V-Wing 스냅샷이 남아 있지 않다.
+
+앱 루트 전환도 확인했다. 런치 뒤 온보딩 화면이 정상으로 뜨고, 런치 이미지가 오버레이로
+남지 않으며, 배경 소유권이 어긋나서 생기는 흰/검은 번쩍임이 없다.
+
+### AppIcon 회귀
+
+이번 패스에서 AppIcon은 손대지 않았다. 세 해시가 그대로다 —
+Default `43323e1a…`, Dark `6fde4d72…`, Tinted `ed4672b6…`. `verify_app_icon.sh`가
+통과하고 `AppIconContractTests`도 통과한다. 아카이브에도 쿼텟 아이콘이 그대로 있다.
+
+### 이번 패스에서 건드리지 않은 것
+
+화면 소스, 페어리·팀 페어리·구장 페어리 시스템, AppIcon 자산과 스크립트, 픽스처,
+도메인, 저장소, API. 번들 식별자 · 마케팅 버전 1.1.0 · 빌드 번호 · 서명 설정도 그대로다.
+
+### 서명 한계
+
+아카이브는 `CODE_SIGNING_ALLOWED=NO`로 만든 **미서명** 결과물이다. 구조는 확인했지만
+App Store 배포 서명을 검증했다고 말할 수 없다.
+
+### 다음 패스
+
+`pass/shared-fairy-placements` — `VFTeamIdentityHeader`의 팀 심볼을 `TeamFairy48`로,
+빈/오류 패널에 상태 페어리를, 그리고 기존 구장 컴포넌트를 구장 페어리로 옮긴다.
+화면 배치는 아직 시작하지 않았다.
