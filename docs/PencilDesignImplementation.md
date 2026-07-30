@@ -1324,3 +1324,205 @@ LaunchMark 자산, 픽스처, 아카이브 스크립트 모두 그대로다. 화
 `pass/stadium-fairies` — 9구장 + 제네릭/미지정, 그리고 48px·모노·뱃지·선택 상태·
 컴팩트 행 변형. 구장 페어리에는 팀과 달리 Pencil이 그린 선택 변형
 (`StadiumFairy_Badge_Selected`, 골드 링 + 체크)이 있다.
+
+---
+
+## 개정 Pencil — Stadium Fairy (9구장 + 제네릭 + 미지정)
+
+원본은 앞 절과 같다 — SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, 1,882,899바이트.
+이번 패스 시작 시각 기준 수정 시각은 2026-07-30 11:51:46 +0900으로, 앞 패스가 적어 둔
+09:36:28과 다르다. **해시와 크기는 완전히 같으므로 내용은 한 바이트도 바뀌지 않았고**,
+파일이 한 번 다시 저장되기만 했다.
+
+### 읽은 보드
+
+`02_StadiumFairy_System` (`uefu4`) — "Stadium Fairy — 9개 구장 · 잉크 라인 디테일 +
+구장별 특징 (항상 구장명과 병기)". 컴포넌트 16개가 모두 이 보드에 있다.
+
+### 컴포넌트
+
+`StadiumFairy_Jamsil` `D0fWH` · `StadiumFairy_Gocheok` `hi9mL` ·
+`StadiumFairy_SSG` `jPJTN` · `StadiumFairy_KT` `il6qe` · `StadiumFairy_Hanwha` `yO5zn` ·
+`StadiumFairy_LionsPark` `puaOA` · `StadiumFairy_Sajik` `wiGab` · `StadiumFairy_NC` `ZnHfv` ·
+`StadiumFairy_KIA` `c6Kbml` · `StadiumFairy_Generic` `BycI7` · `StadiumFairy_Unknown` `UVb5T`
+— 모두 96×96. `StadiumFairy48_Generic` `dtk9c` · `StadiumFairy48_Mono` `J7wOGT` — 48×48.
+`StadiumFairy_Badge` `XbcZ8` 136×60 · `StadiumFairy_Badge_Selected` `ZQic0` 160×60 ·
+`StadiumFairy_Row` `y8upqi` 300×64.
+
+### 팀 페어리와 다른 점 — 기본 글리프를 그대로 쓴다
+
+팀 페어리는 크림 바디에 얼굴이 2pt 아래라 자기 치수를 따로 가졌다. 구장 페어리는
+**`FairyGlyph_Stadium`과 몸통·안테나·눈·입이 완전히 같다** — 같은 경로, 같은 좌표,
+같은 선 두께(2.016 / 2.6 / 1.1), 눈도 y=41이다. 그래서 몸통을 다시 그리지 않고
+`VFFairyGlyph(.stadium)`을 합성하고, 그 위에 구장 특징만 얹는다. 테스트가 몸통·안테나
+경로 문자열이 구장 파일에 다시 나타나지 않는지 확인한다.
+
+### 구장 등록부 소유권
+
+구장 목록·이름·짧은 이름·별칭은 `KBOStadiumSeed`가 소유한다. 구장 페어리 소스에는
+두 번째 등록부도, 한국어 구장 이름도, 짧은 이름도 없다(테스트가 확인한다).
+canonical ID 아홉 개: `jamsil` · `gocheok` · `incheon-ssg` · `suwon-kt` ·
+`daejeon-hanwha` · `daegu-lions` · `gwangju-kia` · `sajik` · `changwon-nc`.
+
+### 아홉 구장 특징
+
+모두 잉크 선 한두 개다. 건축물의 초상이 아니라 "그 장소"를 가리키는 표식이다.
+
+- `jamsil` → 조명탑 둘 (22,2,9,17) · (37,-2,9,19), 선 2.4. 구조적
+- `gocheok` → 돔 아크 (16,2,42,12), 선 2.8. 구조적
+- `incheon-ssg` → 전광판 기둥 + 보드 (26,4,16,14) · (26,4,16,9). 구조적
+- `suwon-kt` → 페넌트 깃대 + 깃발 (26,1,3,16) · (28,2,12,8). 장식적
+- `daejeon-hanwha` → 외야 담장 커브 (26,84,44,8), 선 2.6. 구조적
+- `daegu-lions` → 직선 지붕 (16,4,38,12), 선 2.6. 구조적
+- `gwangju-kia` → 관중석 단 (28,83,20,11), 선 2.6. 구조적
+- `sajik` → 파도 라인 (26,84,44,8), 선 2.6. 장식적
+- `changwon-nc` → 스카이라인 노치 (16,3,36,13), 선 2.4. 구조적
+
+머리 쪽에 오는 것과 발치에 오는 것이 갈린다. 외야 담장·파도·관중석 단·홈플레이트만
+몸 아래에 놓인다. 잠실 오른쪽 조명탑만 캔버스 위로 넘어간다(원본 y = −2).
+
+### 제네릭
+
+`StadiumFairy_Generic`은 구장색 몸에 **홈플레이트 베이스** (41,84,14,12)를 붙인다.
+야구 공통 모티프이지 특정 구장이 아니다. 아홉 구장 어느 것의 대역도 아니고 기본 구장을
+뜻하지도 않는다 — 테스트가 제네릭 특징이 아홉 구장 어느 것과도 같지 않은지 확인한다.
+
+### 미지정
+
+`StadiumFairy_Unknown`은 **중립색 몸에 구장 특징이 없다.** 값은 있는데 등록부가 풀지
+못하는 경우다. 이름은 기록에 적힌 그대로 부르는 쪽이 보여 준다. 다른 구장으로 바꾸지
+않는다 — "잠실"처럼 canonical 이름의 일부여도 정확히 일치하지 않으면 미지정이다.
+
+Pencil은 물음표를 그리지 않았으므로 우리도 그리지 않았다.
+
+### 구장 없음 — 미지정과 다르다
+
+`identity(forRecordedStadiumNamed:)`는 값이 없거나 공백뿐이면 **`nil`을 돌려준다.**
+그리면 안 되는 상태라 그릴 정체성 자체를 만들지 않는다. 앱이 이미 쓰는 구분과 같다 —
+`RecordDetailStadium.accessibilityIdentifierSuffix`가 `missing` / `unknown` /
+구장 ID로 나누는 그 경계다.
+
+해석 함수는 **기록에 적힌 값 말고 아무것도 보지 않는다.** 응원 팀의 홈 구장이나
+사용자의 주 관람 구장으로 되돌아가는 경로를 아예 만들지 않았고, 소스에
+`recommendedStadium` · `primaryStadium` · `favoriteTeam` · `homeTeamIDs`가 없다는 것을
+테스트가 확인한다.
+
+### 선택과 미선택
+
+팀 페어리와 달리 구장에는 Pencil이 **선택 변형을 그려 두었다** —
+`StadiumFairy_Badge_Selected`. 다만 바뀌는 것은 페어리가 아니라 **뱃지**다:
+`$fairyVictory` 2pt 테두리가 생기고 네이티브 체크 아이콘 16px이 붙는다. 페어리 그림은
+그대로다. 그래서 `VFStadiumFairy`에는 선택 매개변수가 아예 없고, 뱃지와 행만 그것을
+가진다(테스트가 타입 경계로 확인한다).
+
+색만으로 알리지 않는다 — 체크는 형태이므로 색을 지워도 남는다.
+
+### StadiumFairy48
+
+Pencil이 그린 48px은 **`_Generic`과 `_Mono` 둘뿐이다. 구장별 48px 원본이 없다.**
+그래서 작은 크기에서는 구장 특징이 사라지고 홈플레이트만 남으며, 아홉 구장이 똑같아진다.
+구장을 구분하는 것은 언제나 곁의 글자다.
+
+기하는 기본 글리프의 48px과 정확히 같다(몸통 8.5,8,31.5,32 선 1.2 · 눈 4×4 · 입 선 1.8).
+팀 페어리와 달리 입 viewBox도 96px과 같은 `[41,55,14,7]`로, 좁히지 않았다.
+홈플레이트만 다르다 — 96px은 옅은 면에 잉크 외곽선, 48px은 몸 색으로 채우고 외곽선을 뺀다.
+
+미지정만 48px에서도 특징이 없다. 색이 같아지는 모노크롬에서 제네릭과 갈리는 유일한
+형태 신호라 그렇게 두었다(원본에 `StadiumFairy48_Unknown`이 없어 파생한 결정이다).
+
+### 뱃지와 컴팩트 행
+
+`StadiumFairy_Badge` — 패딩 6/12/6/8, 간격 8, `$sage-pale` 바탕, 반경 12, 이름 13pt
+`$sage`. 선택되면 `$fairyVictory` 2pt 테두리와 체크 16px이 더해진다.
+
+`StadiumFairy_Row` — 폭 300, 패딩 8/14/8/10, 간격 10, `$surface` 바탕에 `$line` 1pt
+테두리, 반경 12. 안쪽 텍스트는 세로 간격 1로 이름 14pt `$ink`와 도시 12pt `$ink-faint`,
+오른쪽에 네이티브 chevron 16px.
+
+둘 다 `StadiumFairy48_Generic`을 품는다 — 구장이 무엇이든 48px 제네릭이다. 이름이
+정체성을 말한다는 규칙이 컴포넌트 구조에 그대로 들어 있다.
+
+이름과 보조 문구는 **부르는 쪽이 준다.** 두 컴포넌트는 구장을 찾지도, 이름을 지어내지도,
+탭을 받지도 않는다. 행은 최소 44pt 높이를 지키고 긴 이름은 줄바꿈으로 늘어난다.
+Pencil 13pt·14pt 자리는 고정 크기 대신 `footnote`·`subheadline` 역할을 써서 Dynamic
+Type을 따른다.
+
+### 라이트 · 다크 · 모노크롬
+
+라이트와 다크는 같은 아트워크다. 모노크롬은 앞선 두 시스템과 **다르다** —
+Pencil `StadiumFairy48_Mono`는 회색으로 눕히는 것이 아니라 **잉크 몸에 종이색 얼굴로
+뒤집는다.** 다이아몬드만 금색으로 남는다. 우리 규칙을 밀어붙이지 않고 원본을 그대로
+따랐다.
+
+### 색 소유권
+
+구장색은 `VFFairyColor.stadium`(= `sage`) 하나다. **아홉 구장에 아홉 색을 만들지
+않았다** — Pencil도 그러지 않는다. 구장은 색이 아니라 특징과 곁의 이름으로 갈린다.
+미지정만 `VFFairyColor.neutral`을 쓴다. 팀 색·결과 색·브랜드 색은 건드리지 않았다.
+
+### 대비 — 원본 쪽 발견 하나
+
+- 아홉 구장과 제네릭: 얼굴 대비 **4.69:1** (`$fairyFaceOnDark` on `$fairyStadium`)
+- 모노크롬: **16.27:1**
+- 구장 특징 잉크 선: 어느 몸 위에서든 3:1 이상 (미지정 위에서 5.62:1)
+- **미지정: 얼굴 대비 2.88:1** — 비-텍스트 기준 3:1에 0.12 모자란다
+
+마지막 값은 우리가 잘못 옮긴 것이 아니라 **Pencil 원본이 그렇다**
+(`$fairyNeutral` #8B909E 몸 + `$fairyFaceOnDark` #F6F3EA 얼굴). 원본을 마음대로 다시
+칠하지 않고 그대로 두었고, 대신 값을 테스트에 못박아 더 나빠지면 실패하게 했다.
+미지정 페어리는 혼자 뜻을 전하지 않고 "등록되지 않은 구장"과 기록에 적힌 이름이 반드시
+곁에 있으므로 정보 접근을 막지는 않는다. 디자인 쪽에서 판단할 항목으로 남긴다.
+
+### 접근성
+
+읽어 줄 문장은 부르는 쪽이 준다. 라벨이 없으면 장식으로 보고 숨긴다 — 뱃지와 행 안에서는
+곁의 글자가 이미 구장을 말하므로 그렇게 써야 같은 구장을 두 번 읽지 않는다. 뱃지와 행은
+`accessibilityElement(children: .combine)`으로 하나로 읽고, 네이티브 체크와 chevron은
+장식이라 숨긴다. `VFStadiumFairy.pairing`은 기반의 `requiresStadiumName`을 따른다.
+
+구장 ID·특징 이름·컴포넌트 이름은 VoiceOver로 새어 나가지 않는다.
+
+### 기본 글리프에 더한 이음새 하나
+
+`VFFairyPaletteOverride` — 기하는 그대로 두고 칠만 바꾸는 최소 이음새다. Pencil에
+그런 파생이 실제로 있어서 열었다: `StadiumFairy_Unknown`은 기본 글리프와 같은 몸통에
+몸 색만 중립이고, `StadiumFairy48_Mono`는 같은 기하를 잉크·종이로 뒤집는다.
+지정하지 않으면 종류와 외형이 정한 색 그대로이므로 `kind.spec(for:)`의 의미는 바뀌지
+않는다. 기존 46개 기반 검사가 그대로 통과하는 것으로 확인했다.
+
+### 레거시 VenueGlyph 분류
+
+- Pencil `VenueGlyph_*` 9종 — 문서 안에서 **인스턴스가 0개**다. 새 구장 페어리가
+  대신하지만 이번 패스는 `.pen`을 건드리지 않는다
+- Swift `VFStadiumGlyph` (`SharedComponents/VFStadiumComponents.swift:30`) —
+  **USED_IN_PRODUCTION**. `VFStadiumBadge`, `VFStadiumHero`, 그리고
+  `OnboardingView.swift:302`가 실제로 쓴다. 지우지 않았다
+- `VFStadiumBadge` · `VFStadiumHero` — USED_IN_PRODUCTION. 새 `VFStadiumFairyBadge`와
+  이름이 다르므로 충돌하지 않는다
+- 분류: **SAFE_TO_DEPRECATE_LATER**. 교체는 공유 배치 패스의 몫이고, 그전에 지우면
+  온보딩 구장 선택이 빈다
+
+### 이번 패스에서 건드리지 않은 것
+
+홈·피드·캘린더·시즌 아카이브·기록 상세·기록 작성·마이·온보딩·팀 선택기,
+그리고 현재 제품이 쓰는 구장 컴포넌트(`VFStadiumGlyph`·`VFStadiumBadge`·
+`VFStadiumHero`) 모두 그대로다. AppIcon·LaunchMark·픽스처·아카이브 스크립트도 그대로다.
+화면과 공용 컴포넌트가 아직 구장 페어리를 쓰지 않는다는 것을 테스트가 확인한다.
+
+`project.pbxproj`는 새 테스트 파일 등록 하나만 더했다.
+
+### 이 패스에서 검사가 잡은 것
+
+1. 프리뷰의 미등록 구장 예시가 "부산 사직 보조구장"이었다. canonical 짧은 이름 "사직"을
+   품고 있어 "그리기 소스에 구장 이름을 두지 않는다" 검사가 걸었다. 겹치지 않는 이름으로
+   바꿨다.
+2. 미지정 얼굴 대비 2.88:1을 4.5:1 일괄 기준이 걸었다. 확인해 보니 원본 값이라,
+   기준을 낮춰 덮는 대신 아홉 구장·제네릭과 미지정을 나눠 검사하고 원본 값을 못박았다.
+
+### 다음 패스
+
+`pass/appicon-victory-fairies` — 네 페어리 쿼텟 앱 아이콘. 다만 Monochrome을 네 번째
+렌디션으로 낼지, `SplashMark_OnDark`에 남은 V-Wing이 최신인지 두 가지 결정이 아직
+열려 있다. 그 두 가지가 정해지기 전이라면 `pass/shared-component-placements`를 먼저
+해도 된다.
