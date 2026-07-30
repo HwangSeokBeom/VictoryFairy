@@ -1526,3 +1526,169 @@ Pencil `StadiumFairy48_Mono`는 회색으로 눕히는 것이 아니라 **잉크
 렌디션으로 낼지, `SplashMark_OnDark`에 남은 V-Wing이 최신인지 두 가지 결정이 아직
 열려 있다. 그 두 가지가 정해지기 전이라면 `pass/shared-component-placements`를 먼저
 해도 된다.
+
+---
+
+## 개정 Pencil — AppIcon 네 페어리 쿼텟 교체
+
+원본은 앞 절과 같다 — SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, 1,882,899바이트.
+수정 시각은 2026-07-30 11:51:46 +0900이며, 해시와 크기가 같으므로 내용은 그대로다.
+
+### 두 보드가 경쟁하던 문제 — 해소
+
+앱 아이콘 1024 프레임을 가진 보드가 둘이었다. 직접 읽어 정리했다.
+
+- **CURRENT — `01_AppIcon_VictoryFairies` (`XjIUP`)**
+  프레임에 **배경 fill이 들어 있고**(Default `$fairyIconBg`, Dark `$fairyIconBgDark`,
+  Tinted `#000000`), 자식이 25개로 얼굴 레이어까지 갖췄다. 같은 보드의
+  `AppIcon_VictoryFairies_ExportHandoff`가 **"플랫 1024 소스는
+  AppIcon_VictoryFairies_Default_1024 프레임"**이라고 못박는다. 이것이 production 소스다.
+- **SUPERSEDED — `01_Brand_and_AppIcon` (`a8seWk`)**
+  `AppIcon_Any_1024` (`Xiqhl`) 등 세 프레임을 갖고 있지만 **프레임 fill이 없고**
+  자식이 1개(래퍼 프레임)뿐이다. 이름 규칙(`Any`)과 레이어 수가 새 보드와 어긋난다.
+- **VALIDATION_ONLY — `10_Fairy_Validation` (`vnsGp`)**
+  어피어런스 네 셀과 소형 사이즈 재검증. 산출물이 아니라 검증 보드다.
+- **LEGACY_REFERENCE — `11_Developer_Handoff` (`xpL8P`)**
+  아직 `AppIcon_Any_1024` · "5개 레이어"를 적고 있다. 새 보드의 핸드오프 문구와
+  충돌하므로 낡은 쪽으로 본다. Pencil은 이번 패스에서 고치지 않았다.
+
+BLOCKING_CONFLICT는 없다. 세 production 렌디션이 하나의 보드에서 모호함 없이 나온다.
+상태: **APPICON_SOURCE_RESOLVED**.
+
+### Monochrome 역할 — ICON_COMPOSER_LAYER_REFERENCE
+
+`AppIcon_VictoryFairies_Monochrome` (`VR6X3`)는 **카탈로그 렌디션이 아니다.**
+
+- 자식이 13개뿐이다. 네 페어리(몸·줄기·다이아 ×4 = 12) + 네거티브 스페이스이며
+  **얼굴 레이어가 통째로 없다.** 다른 세 프레임은 25개다
+- 핸드오프의 Icon Composer 레이어 목록(Background / Fairy_Victory / Fairy_Team /
+  Fairy_Stadium / Fairy_Memory / BaseballDiamond_NegativeSpace / FacialMarks)에서
+  **FacialMarks만 뺀 모습**과 정확히 일치한다
+- Tinted는 `AppIcon_VictoryFairies_Tinted_1024`로 **따로 그려져 있다.** 얼굴이 있고
+  흰색 알파 계단(FF / D1 / B3 / 94)을 쓴다. Monochrome은 그 소스가 아니다
+- iOS 앱 아이콘 자산 카탈로그가 지원하는 외형 슬롯은 기본 · `luminosity:dark` ·
+  `luminosity:tinted` **셋뿐이다.** 네 번째 파일을 넣을 자리가 없다
+
+따라서 Monochrome은 단일 톤 레이어 참고용으로 분류하고 **파일로 내보내지 않았다.**
+검증 캡처로만 확인했다.
+
+### 물러난 아이콘
+
+교체 전 실려 있던 V-Wing 세대의 SHA-256을 남긴다.
+
+- Default `323baf6d55a97e75ff0b68d125ce2d53ed7174e4da8aa26850c47eb8b75f6507`
+- Dark `9bac8cda2f812b082a07d43adddce2b5c3455321557a3da0c02a0fc4fedc9a50`
+- Tinted `80e31400b494f67d72e25ae35e61c141882afaa45891a0d26ea8dbb798a26fca`
+
+그 이전 산호색 세대 `64be923a2f82c4b3a46d2ccfd040a145ed95bd1bb8f76872ac3fba0a08c0b17e`도
+함께 금지 목록에 남긴다. 셋 다 1024×1024 · 알파 없음이었다.
+
+### 새 production 렌디션
+
+Pencil 노드에서 `export_nodes` scale 1로 내보낸 뒤 알파 채널만 제거했다.
+
+- `AppIcon-1024.png` ← `AppIcon_VictoryFairies_Default_1024` (`ZCOI9`)
+  SHA-256 `43323e1a2948fc7e14c8aa4f0f4ad85da3606a410a5a609c582f79d134c0c9b8`
+- `AppIcon-1024-Dark.png` ← `AppIcon_VictoryFairies_Dark_1024` (`NHBAs`)
+  SHA-256 `6fde4d723d04def12e96d59da04824f603e2b53c00947364dd79c65c8c4a370d`
+- `AppIcon-1024-Tinted.png` ← `AppIcon_VictoryFairies_Tinted_1024` (`nN1Mw`)
+  SHA-256 `ed4672b6bfc7070d668cda0c2c73ae375def52174bf5fb5b247c904e82d32692`
+
+세 파일 모두 1024×1024 · `hasAlpha: no` · PNG. `Contents.json`은 파일 이름과 외형
+매핑이 그대로라 **바꾸지 않았다.**
+
+Dark는 Default의 복사본이 아니다. 배경만 `#0E1526` → `#070C16`으로 갈리며, Pencil이
+의도적으로 그렇게 그렸다. 세 해시가 서로 다른 것을 스크립트가 확인한다.
+
+### 내보내기와 알파
+
+Pencil 내보내기는 알파 채널을 붙이지만 **실제로는 완전 불투명**이었다 —
+`alphaMin=255`, 비-불투명 픽셀 0개. macOS에 PIL·Quartz·ImageMagick이 없고 `sips`는
+알파를 지우지 못해, 순수 파이썬 PNG 디코더/인코더로 채널만 떼어 RGB로 다시 썼다.
+**RGB 픽셀은 한 개도 바뀌지 않았다**(세 파일 모두 differing px = 0).
+
+### 전체 출혈과 라운드 코너
+
+- 네 코너 픽셀이 모두 배경색과 정확히 일치한다 (Default `(14,21,38)`,
+  Dark `(7,12,22)`, Tinted `(0,0,0)`)
+- 가장자리를 훑어 배경이 아닌 픽셀 **0개**
+- 알파가 없으므로 투명 여백도, 투명하게 깎인 코너도 있을 수 없다
+
+라운드 코너를 굽지 않았고 세이프 마진을 따로 넣지도 않았다. 핸드오프 규칙
+"라운드 코너 미적용(시스템 마스크)"과 "외부 그림자 없음"을 그대로 지킨다.
+
+### 소형 크기
+
+1024 / 120 / 60 / 40 / 29 / 20 / 16에서 세 렌디션을 모두 측정하고 눈으로 봤다.
+
+- 모든 크기에서 네 페어리 몸 색이 남는다 (4/4)
+- 모든 크기에서 중앙 네거티브 스페이스가 배경색으로 뚫려 있다
+- 모든 크기에서 코너가 배경색이다
+- 29px에서 네 형상과 다이아몬드가 하나의 마크로 읽힌다
+- 20px 아래부터 표정이 자연스럽게 사라진다 — Pencil 검증 항목
+  "29px에서 4형상+다이아몬드 유지, 표정은 자연 소실 (16px는 실루엣만)" 그대로다
+
+### 시스템 마스크
+
+Default를 256px로 줄여 마스크별로 잘려 나가는 페어리 픽셀을 셌다.
+
+- 표준 스퀘어클(n=5): **0.00%** — 네 페어리 모두 손실 없음
+- 크게 자른 프리뷰(n=8): **0.00%**
+- 원형: 최대 1.25% (Victory 안테나 끝만 스침). 몸이나 얼굴은 잘리지 않는다
+
+원형은 iOS 홈 화면 마스크가 아니며, 스치는 것은 안테나 팁뿐이다. 라이트 · 다크 ·
+컬러풀 배경화면 위에서도 확인했다.
+
+### 그레이스케일과 틴트
+
+세 렌디션 모두 색을 지워도 네 형상이 밝기로 갈린다. Tinted는 밝기 계단이 가장 넓다 —
+순검정과 순백을 모두 포함하고, 네 몸이 `FF / D1 / B3 / 94`로 나뉜다.
+
+Tinted에 잉크 외곽선(`$line-ink` #232A3C)이 남아 있다. 이는 Pencil이 Default와
+**동일하게 그린 것**이지 내보내기 사고가 아니다. 휘도가 사실상 검정이라 시스템이
+휘도로 틴트를 만들 때 배경과 함께 묻히며, 회색 몸과 검은 배경 사이 경계 역할만 한다.
+
+### verify_app_icon.sh 갱신
+
+낡은 전제를 걷어내고, **"예전 것이 아님"이 아니라 "지금 것이 맞음"**을 확인하도록 바꿨다.
+
+- 소스 보드 참조를 `01_Brand_and_AppIcon` → `01_AppIcon_VictoryFairies`로
+- `EXPECTED_DEFAULT_SHA` · `EXPECTED_DARK_SHA` · `EXPECTED_TINTED_SHA` 추가.
+  아이콘이 통째로 빠져도 통과하지 않는다
+- `RETIRED_CORAL_SHA` + `RETIRED_VWING_*` 세 개를 금지 목록으로
+- 렌디션 수가 정확히 셋인지 (네 번째 금지)
+- 파일 이름 집합이 정확한지
+- dark · tinted 외형 매핑이 있는지
+- 셋 다 1024×1024이고 알파가 없는지
+- 카탈로그가 참조하지 않는 아이콘 파일이 남아 있지 않은지
+- 세 렌디션이 서로 다른 파일인지 (Dark가 Default를 베끼면 실패)
+
+게이트를 양쪽으로 확인했다. 쿼텟에서는 통과하고, V-Wing Default를 되돌려 놓으면
+두 가지 이유로 실패한다.
+
+코너 픽셀·전체 출혈·중앙 네거티브 스페이스처럼 픽셀을 읽어야 하는 검사는 sips가
+답하지 못하므로 `AppIconContractTests`가 CGImage로 맡는다.
+
+### 자산 카탈로그
+
+`AppIcon.appiconset` 하나, 렌디션 셋, `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`,
+대체 아이콘 설정 없음 — 모두 그대로다. `Contents.json`은 손대지 않았다.
+
+번들 식별자 · 마케팅 버전 1.1.0 · 빌드 번호 · 서명 설정도 바꾸지 않았다.
+
+### 이번 패스에서 건드리지 않은 것
+
+**LaunchMark는 그대로다.** 아직 V-Wing 마크이며
+SHA-256 `2b60eeb3fc21148e5273a014ecf89b2666781183e3897a209ba4049ae5ce3528`로 못박아
+두었다. 다음 패스에서 쿼텟으로 바꿀 때 이 해시도 함께 갱신해야 한다.
+`LaunchBackground`와 `UILaunchScreen`도 그대로다.
+
+화면 소스, 페어리·팀 페어리·구장 페어리 시스템, 픽스처, 도메인, 저장소, API도
+모두 그대로다.
+
+### 다음 패스
+
+`pass/launch-mark-quartet` — `LaunchScreen_Light` / `LaunchScreen_Dark`의
+`런치 마크 쿼텟`을 `LaunchMark.pdf`로 옮긴다. 그 보드의 `SplashMark_OnDark`에 아직
+V-Wing이 남아 있어, 온다크 스플래시 마크가 최신인지 먼저 확인해야 한다.
