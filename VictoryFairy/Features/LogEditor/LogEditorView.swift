@@ -1,28 +1,30 @@
 import PhotosUI
 import SwiftUI
 
+/// `AppDataStore`가 받는 저장 입력. 정본 초안(`RecordEditorDraft`)이 이 값을 만든다.
+///
+/// 값을 지어내지 않도록 기본값을 두지 않는다. 점수는 적히지 않았을 수 있으므로
+/// 선택값이다 — 0으로 바꾸면 "0점 경기"라는 없는 사실이 저장된다.
 struct LogEditorViewModel {
-    static let defaultShortMemo = "KIA가 9:3으로 승리했던 경기"
-
-    var date = Date.vfDate(year: 2026, month: 4, day: 12)
-    var favoriteTeam = "한화 이글스"
-    var opponentTeam = "KIA 타이거즈"
-    var stadium = "잠실야구장"
-    var result: GameResult = .loss
-    var ourScore = 3
-    var opponentScore = 9
+    var date: Date
+    var favoriteTeam: String
+    var opponentTeam: String
+    var stadium: String
+    var result: GameResult
+    var ourScore: Int?
+    var opponentScore: Int?
     var gameSource: String?
     var linkedKBOGameID: String?
     var officialRecordURL: String?
 
     init(
-        date: Date = Date.vfDate(year: 2026, month: 4, day: 12),
-        favoriteTeam: String = "한화 이글스",
-        opponentTeam: String = "KIA 타이거즈",
-        stadium: String = "잠실야구장",
-        result: GameResult = .loss,
-        ourScore: Int = 3,
-        opponentScore: Int = 9,
+        date: Date,
+        favoriteTeam: String,
+        opponentTeam: String,
+        stadium: String,
+        result: GameResult,
+        ourScore: Int?,
+        opponentScore: Int?,
         gameSource: String? = nil,
         linkedKBOGameID: String? = nil,
         officialRecordURL: String? = nil
@@ -53,14 +55,10 @@ struct LogEditorView: View {
     @EnvironmentObject private var preferences: UserPreferencesStore
     @EnvironmentObject private var appData: AppDataStore
     @Environment(\.dismiss) private var dismiss
-    @State private var viewModel = LogEditorViewModel()
-    @State private var seat = "1루 네이비석 204블록"
-    @State private var companion = "친구"
-    @State private var shortMemo = "KIA가 9:3으로 승리했던 경기"
-    @State private var diary = ""
-    @State private var appliedKBOHighlightTags: [String] = []
-    @State private var selectedMood = "짜릿함"
-    @State private var selectedHighlight = "홈런"
+    /// 사용자가 쓴 값 전부. 새로 만들기와 수정하기가 이 하나를 함께 쓴다.
+    @State private var draft: RecordEditorDraft
+    /// 열었을 때의 초안. 무엇이 바뀌었는지 견주는 기준이다.
+    @State private var originalDraft: RecordEditorDraft
     @State private var selectedTone = "담백하게"
     @State private var saveMessage: String?
     @State private var validationMessage: String?
@@ -73,7 +71,6 @@ struct LogEditorView: View {
     @State private var pendingDraftTextToApply: String?
     @State private var isShowingAIDraftApplyChoice = false
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
-    @State private var photoLocalRefs: [String] = []
     @State private var isProcessingPhotos = false
     @State private var isShowingPhotoAnalysisSelection = false
     @State private var isAnalyzingPhotos = false
@@ -95,28 +92,45 @@ struct LogEditorView: View {
     private let tones = ["담백하게", "감성적으로", "유쾌하게", "SNS 캡션처럼"]
     private let companions = ["혼자", "친구", "가족", "연인", "모임"]
     private let editingLog: AttendanceLogViewState?
+    private let mode: RecordEditorMode
     private let startsAIPreflightOnAppear: Bool
 
+    /// 진입점이 쓰던 생김새를 그대로 둔다. 안쪽에서만 모드와 초안으로 옮긴다.
     init(initialDate: Date? = nil, editingLog: AttendanceLogViewState? = nil, startsAIPreflightOnAppear: Bool = false) {
+        let mode: RecordEditorMode = editingLog.map { .edit(recordID: $0.id) } ?? .create(initialDate: initialDate)
         self.editingLog = editingLog
+        self.mode = mode
         self.startsAIPreflightOnAppear = startsAIPreflightOnAppear
-        let initialViewModel = Self.makeInitialViewModel(initialDate: initialDate, editingLog: editingLog)
-        _viewModel = State(initialValue: initialViewModel)
-        _seat = State(initialValue: editingLog?.seat ?? "1루 네이비석 204블록")
-        _companion = State(initialValue: editingLog?.companion ?? "친구")
-        _shortMemo = State(initialValue: editingLog?.memo ?? LogEditorViewModel.defaultShortMemo)
-        _diary = State(initialValue: editingLog?.diary ?? "")
-        _selectedMood = State(initialValue: editingLog?.tags.first ?? "짜릿함")
-        _selectedHighlight = State(initialValue: editingLog?.tags.dropFirst().first ?? "홈런")
-        _photoLocalRefs = State(initialValue: editingLog?.photoLocalRefs ?? [])
+        let initialDraft = RecordEditorDraft.make(
+            mode: mode,
+            existingRecord: editingLog,
+            preferredFavoriteTeamName: nil,
+            defaultMoodTag: Self.defaultMoodTag,
+            defaultHighlightTag: Self.defaultHighlightTag,
+            fallbackDate: Self.fallbackCreateDate
+        )
+        _draft = State(initialValue: initialDraft)
+        _originalDraft = State(initialValue: initialDraft)
     }
+
+    /// 아직 아무것도 고르지 않았을 때 칩이 가리키는 값. 저장되는 사실이 아니라
+    /// 목록의 첫 항목이다.
+    private static let defaultMoodTag = "짜릿함"
+    private static let defaultHighlightTag = "홈런"
+    /// 캘린더처럼 날짜를 정해 주는 진입점이 없을 때 쓰는 시작 날짜.
+    private static let fallbackCreateDate = Date.vfDate(year: 2026, month: 4, day: 12)
+
+    /// 저장 전에 이 초안이 바뀌었는지. 시트·로딩·오류는 초안에 없으므로 섞이지 않는다.
+    private var isDirty: Bool { draft.isDirty(comparedTo: originalDraft) }
+
+    private var validation: RecordEditorValidationResult { RecordEditorValidation.validate(draft) }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
                 requiredSection
                 PhotoAttachmentEditorSection(
-                    photoLocalRefs: $photoLocalRefs,
+                    photoLocalRefs: $draft.photo.refs,
                     selectedPhotoItems: $selectedPhotoItems,
                     isProcessingPhotos: isProcessingPhotos,
                     isAnalyzingPhotos: isAnalyzingPhotos,
@@ -124,12 +138,12 @@ struct LogEditorView: View {
                     onAnalyze: {}
                 )
                 DiarySectionView(
-                    seat: $seat,
-                    companion: $companion,
-                    shortMemo: $shortMemo,
-                    diary: $diary,
-                    selectedMood: $selectedMood,
-                    selectedHighlight: $selectedHighlight,
+                    seat: $draft.seat,
+                    companion: $draft.companion,
+                    shortMemo: $draft.shortMemo,
+                    diary: $draft.diary,
+                    selectedMood: $draft.moodTag,
+                    selectedHighlight: $draft.highlightTag,
                     selectedTone: $selectedTone,
                     moods: moods,
                     highlights: highlights,
@@ -140,7 +154,7 @@ struct LogEditorView: View {
                         isShowingTicketOCR = true
                     },
                     onHighlightChange: {
-                        appliedKBOHighlightTags = []
+                        draft.appliedHighlightTags = []
                     },
                     onGenerateTemplate: {
                         Task { await generateTemplateDraftForPreview() }
@@ -177,11 +191,14 @@ struct LogEditorView: View {
             .padding(VFSpacing.lg)
             .padding(.bottom, VFSpacing.xl)
         }
-        .navigationTitle(editingLog == nil ? "직관 기록 추가" : "직관 기록 수정")
+        .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            if editingLog == nil {
-                viewModel.favoriteTeam = appData.team(id: preferences.favoriteTeamID)?.name ?? viewModel.favoriteTeam
+            if !mode.isEditing, draft.favoriteTeamName.isEmpty {
+                // 새로 만들 때만, 그리고 아직 비어 있을 때만 사용자의 응원팀을 채운다.
+                // 지금 편집기가 이미 하던 일이고, 지어낸 값이 아니다.
+                draft.favoriteTeamName = appData.team(id: preferences.favoriteTeamID)?.name ?? ""
+                originalDraft = draft
             }
             if startsAIPreflightOnAppear, !didStartInitialAIPreflight {
                 didStartInitialAIPreflight = true
@@ -192,13 +209,13 @@ struct LogEditorView: View {
                 }
             }
         }
-        .onChange(of: viewModel.date) {
+        .onChange(of: draft.date) {
             Task {
                 await lookupKBOGameCandidates()
             }
         }
         .sheet(isPresented: $isShowingTicketOCR) {
-            TicketOCRView(currentFavoriteTeamName: viewModel.favoriteTeam) { suggestion in
+            TicketOCRView(currentFavoriteTeamName: draft.favoriteTeamName) { suggestion in
                 applyTicketSuggestion(suggestion)
             }
         }
@@ -222,7 +239,7 @@ struct LogEditorView: View {
             }
         }
         .sheet(isPresented: $isShowingPhotoAnalysisSelection) {
-            PhotoAnalysisSelectionSheet(photoLocalRefs: photoLocalRefs, isAnalyzing: isAnalyzingPhotos) { refs in
+            PhotoAnalysisSelectionSheet(photoLocalRefs: draft.photo.refs, isAnalyzing: isAnalyzingPhotos) { refs in
                 Task { await analyzePhotos(refs) }
             }
         }
@@ -268,15 +285,15 @@ struct LogEditorView: View {
         .alert("기존 다이어리를 AI 초안으로 바꿀까요?", isPresented: $isShowingAIDraftApplyChoice) {
             Button("바꾸기", role: .destructive) {
                 guard let pendingDraftTextToApply else { return }
-                diary = pendingDraftTextToApply
+                draft.diary = pendingDraftTextToApply
                 self.pendingDraftTextToApply = nil
                 isShowingAIDraft = false
             }
             Button("이어 붙이기") {
                 guard let pendingDraftTextToApply else { return }
-                diary = diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                draft.diary = draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? pendingDraftTextToApply
-                    : "\(diary)\n\n\(pendingDraftTextToApply)"
+                    : "\(draft.diary)\n\n\(pendingDraftTextToApply)"
                 self.pendingDraftTextToApply = nil
                 isShowingAIDraft = false
             }
@@ -290,29 +307,6 @@ struct LogEditorView: View {
         .vfScreenBackground()
     }
 
-    private static func makeInitialViewModel(initialDate: Date?, editingLog: AttendanceLogViewState?) -> LogEditorViewModel {
-        guard let editingLog else {
-            return LogEditorViewModel(date: initialDate ?? Date.vfDate(year: 2026, month: 4, day: 12))
-        }
-        let teams = editingLog.matchup
-            .components(separatedBy: " vs ")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let favorite = KBOSeed.team(named: teams.first ?? "")?.name ?? teams.first ?? "응원팀 미정"
-        let opponent = KBOSeed.team(named: teams.dropFirst().first ?? "")?.name ?? teams.dropFirst().first ?? "상대팀 미정"
-        return LogEditorViewModel(
-            date: editingLog.date,
-            favoriteTeam: favorite,
-            opponentTeam: opponent,
-            stadium: editingLog.stadium,
-            result: editingLog.result,
-            ourScore: editingLog.ourScore ?? 0,
-            opponentScore: editingLog.opponentScore ?? 0,
-            gameSource: editingLog.gameSource,
-            linkedKBOGameID: editingLog.linkedKBOGameID,
-            officialRecordURL: editingLog.officialRecordURL
-        )
-    }
-
     private var requiredSection: some View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
@@ -320,7 +314,7 @@ struct LogEditorView: View {
                     .font(.system(.headline, design: .rounded).weight(.bold))
                     .foregroundStyle(VFColor.bodyPrimary)
 
-                DatePicker("경기 날짜", selection: $viewModel.date, displayedComponents: .date)
+                DatePicker("경기 날짜", selection: $draft.date, displayedComponents: .date)
                     .tint(theme.primary)
 
                 kboGameSuggestionSection
@@ -331,19 +325,19 @@ struct LogEditorView: View {
 
                 menuRow(
                     title: "상대팀",
-                    value: viewModel.opponentTeam,
+                    value: draft.opponentTeamName,
                     icon: "person.2",
                     values: opponentTeamNames
                 ) { value in
-                    viewModel.opponentTeam = value
+                    draft.opponentTeamName = value
                 }
                 menuRow(
                     title: "구장",
-                    value: viewModel.stadium,
+                    value: draft.stadiumName,
                     icon: "mappin.and.ellipse",
                     values: KBOSeed.stadiums
                 ) { value in
-                    viewModel.stadium = value
+                    draft.stadiumName = value
                 }
 
                 VStack(alignment: .leading, spacing: VFSpacing.sm) {
@@ -353,13 +347,13 @@ struct LogEditorView: View {
                     HStack(spacing: VFSpacing.xs) {
                         ForEach(GameResult.allCases) { result in
                             Button {
-                                viewModel.result = result
+                                draft.result = result
                             } label: {
                                 Text(result.title)
                                     .font(.system(.subheadline, design: .rounded).weight(.bold))
                                     .frame(maxWidth: .infinity, minHeight: 44)
-                                    .foregroundStyle(viewModel.result == result ? .white : result.color)
-                                    .background(viewModel.result == result ? result.color : result.color.opacity(0.1))
+                                    .foregroundStyle(draft.result == result ? .white : result.color)
+                                    .background(draft.result == result ? result.color : result.color.opacity(0.1))
                                     .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                             }
                             .buttonStyle(.plain)
@@ -368,14 +362,14 @@ struct LogEditorView: View {
                     }
                 }
 
-                if viewModel.result != .canceled {
+                if draft.result != .canceled {
                     VStack(alignment: .leading, spacing: VFSpacing.sm) {
                         Text("점수")
                             .font(VFTypography.cardTitle)
                             .foregroundStyle(VFColor.bodyPrimary)
                         HStack(spacing: VFSpacing.sm) {
-                            scoreStepper(title: "응원팀", value: $viewModel.ourScore)
-                            scoreStepper(title: "상대팀", value: $viewModel.opponentScore)
+                            scoreStepper(title: "응원팀", value: scoreBinding(\.ourScore))
+                            scoreStepper(title: "상대팀", value: scoreBinding(\.opponentScore))
                         }
                     }
                 }
@@ -636,22 +630,23 @@ struct LogEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
+    /// 규칙은 `RecordEditorValidation`이 갖는다. 화면은 결과만 그린다.
     private var shouldShowScoreWarning: Bool {
-        switch viewModel.result {
-        case .win:
-            return viewModel.ourScore <= viewModel.opponentScore
-        case .loss:
-            return viewModel.ourScore >= viewModel.opponentScore
-        case .draw:
-            return viewModel.ourScore != viewModel.opponentScore
-        case .canceled:
-            return false
-        }
+        validation.warnings.contains(.scoreDisagreesWithResult)
+    }
+
+    /// 점수 스테퍼용 이음새. 적히지 않은 점수는 0으로 보이지만, 사용자가 손대기
+    /// 전까지는 초안에서 계속 비어 있다.
+    private func scoreBinding(_ keyPath: WritableKeyPath<RecordEditorDraft, Int?>) -> Binding<Int> {
+        Binding(
+            get: { draft[keyPath: keyPath] ?? 0 },
+            set: { draft[keyPath: keyPath] = $0 }
+        )
     }
 
     private var opponentTeamNames: [String] {
         appData.teams
-            .filter { $0.name != viewModel.favoriteTeam }
+            .filter { $0.name != draft.favoriteTeamName }
             .map(\.name)
     }
 
@@ -696,9 +691,9 @@ struct LogEditorView: View {
                 ForEach(appData.teams) { team in
                     Button {
                         appData.updateFavoriteTeam(team.id)
-            viewModel.favoriteTeam = team.name
-                        if viewModel.opponentTeam == team.name {
-                            viewModel.opponentTeam = opponentTeamNames.first ?? viewModel.opponentTeam
+            draft.favoriteTeamName = team.name
+                        if draft.opponentTeamName == team.name {
+                            draft.opponentTeamName = opponentTeamNames.first ?? draft.opponentTeamName
                         }
                         Task {
                             await lookupKBOGameCandidates()
@@ -706,9 +701,9 @@ struct LogEditorView: View {
                     } label: {
                         Text(team.name)
                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundStyle(team.name == viewModel.favoriteTeam ? theme.textOnPrimary : VFColor.bodyPrimary)
+                            .foregroundStyle(team.name == draft.favoriteTeamName ? theme.textOnPrimary : VFColor.bodyPrimary)
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(team.name == viewModel.favoriteTeam ? theme.primary : VFColor.subtleSurface)
+                            .background(team.name == draft.favoriteTeamName ? theme.primary : VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -718,7 +713,7 @@ struct LogEditorView: View {
     }
 
     private var currentFavoriteTeamID: String? {
-        KBOSeed.team(named: viewModel.favoriteTeam)?.id
+        KBOSeed.team(named: draft.favoriteTeamName)?.id
             ?? KBOSeed.normalizedTeamID(preferences.favoriteTeamID)
     }
 
@@ -732,7 +727,7 @@ struct LogEditorView: View {
             return
         }
 
-        let lookupDate = viewModel.date
+        let lookupDate = draft.date
         kboLookupState = .loading
         kboLookupSource = nil
         kboLookupSourceLabel = nil
@@ -741,7 +736,7 @@ struct LogEditorView: View {
 
         do {
             let response = try await appData.fetchKBOGameCandidates(date: lookupDate, favoriteTeamID: favoriteTeamID)
-            guard Calendar.current.isDate(lookupDate, inSameDayAs: viewModel.date) else { return }
+            guard Calendar.current.isDate(lookupDate, inSameDayAs: draft.date) else { return }
             kboLookupSource = response.source
             kboLookupSourceLabel = response.sourceLabel
             kboLookupSourceDisclosure = response.sourceDisclosure
@@ -749,7 +744,7 @@ struct LogEditorView: View {
             kboLookupState = response.items.isEmpty ? .empty : .loaded
             isShowingKBOCandidateSelection = response.items.count > 1
         } catch {
-            guard Calendar.current.isDate(lookupDate, inSameDayAs: viewModel.date) else { return }
+            guard Calendar.current.isDate(lookupDate, inSameDayAs: draft.date) else { return }
             kboLookupSource = nil
             kboLookupSourceLabel = nil
             kboLookupSourceDisclosure = nil
@@ -761,7 +756,7 @@ struct LogEditorView: View {
     private func requestKBOGameCandidateApply(_ candidate: KBOGameCandidateDTO) {
         if !candidate.isScheduled,
            candidate.suggestedDiaryTemplate(favoriteTeamID: currentFavoriteTeamID).isEmpty == false,
-           diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+           draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
             pendingDiaryOverwriteCandidate = candidate
             isShowingDiaryOverwriteConfirmation = true
             return
@@ -772,34 +767,34 @@ struct LogEditorView: View {
     private func applyKBOGameCandidate(_ candidate: KBOGameCandidateDTO, shouldOverwriteDiary: Bool) {
         guard let favoriteTeamID = currentFavoriteTeamID else { return }
         let perspective = candidate.favoriteTeamPerspective(favoriteTeamID: favoriteTeamID)
-        viewModel.date = Date.vfParseServerDate(candidate.date)
-        viewModel.opponentTeam = perspective.opponentTeamName
-        viewModel.stadium = candidate.suggestedStadiumName
-        viewModel.gameSource = candidate.source ?? kboLookupSource
-        viewModel.linkedKBOGameID = candidate.gameID
-        viewModel.officialRecordURL = candidate.officialRecordURL?.absoluteString
+        draft.date = Date.vfParseServerDate(candidate.date)
+        draft.opponentTeamName = perspective.opponentTeamName
+        draft.stadiumName = candidate.suggestedStadiumName
+        draft.gameSource = candidate.source ?? kboLookupSource
+        draft.linkedKBOGameID = candidate.gameID
+        draft.officialRecordURL = candidate.officialRecordURL?.absoluteString
 
         if !candidate.isScheduled, let result = perspective.result {
-            viewModel.result = result
+            draft.result = result
         }
         if !candidate.isScheduled,
            let favoriteScore = perspective.favoriteTeamScore,
            let opponentScore = perspective.opponentTeamScore {
-            viewModel.ourScore = favoriteScore
-            viewModel.opponentScore = opponentScore
+            draft.ourScore = favoriteScore
+            draft.opponentScore = opponentScore
         }
 
         if !candidate.isScheduled {
-            selectedMood = candidate.preferredMoodTag(for: viewModel.result, availableMoods: moods)
-            selectedHighlight = candidate.preferredHighlightTag(availableHighlights: highlights)
-            appliedKBOHighlightTags = candidate.suggestedHighlightTags
+            draft.moodTag = candidate.preferredMoodTag(for: draft.result ?? .canceled, availableMoods: moods)
+            draft.highlightTag = candidate.preferredHighlightTag(availableHighlights: highlights)
+            draft.appliedHighlightTags = candidate.suggestedHighlightTags
             let suggestedMemo = candidate.suggestedShortMemo(favoriteTeamID: favoriteTeamID)
             if shouldReplaceShortMemo {
-                shortMemo = suggestedMemo
+                draft.shortMemo = suggestedMemo
             }
             let suggestedDiary = candidate.suggestedDiaryTemplate(favoriteTeamID: favoriteTeamID)
-            if shouldOverwriteDiary || diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                diary = suggestedDiary
+            if shouldOverwriteDiary || draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                draft.diary = suggestedDiary
             }
         }
         debugLogKBO("applied suggestion score=\(candidate.recordScoreText(favoriteTeamID: favoriteTeamID))")
@@ -826,51 +821,55 @@ struct LogEditorView: View {
     private func saveLog() async {
         guard !isSaving else { return }
         guard validateRequiredFields() else { return }
+        guard let saveInput = draft.makeSaveInput() else { return }
         isSaving = true
-        if let editingLog {
+        if let recordID = mode.editingRecordID {
             _ = await appData.updateAttendanceLog(
-                id: editingLog.id,
-                viewModel: viewModel,
-                seat: seat,
-                companion: companion,
-                shortMemo: shortMemo,
-                diary: diary,
-                tags: saveTags,
-                photoLocalRefs: photoLocalRefs
+                id: recordID,
+                viewModel: saveInput,
+                seat: draft.seat,
+                companion: draft.companion,
+                shortMemo: draft.shortMemo,
+                diary: draft.diary,
+                tags: draft.saveTags,
+                photoLocalRefs: draft.photo.refs
             )
         } else {
             _ = await appData.saveAttendanceLog(
-                viewModel: viewModel,
-                seat: seat,
-                companion: companion,
-                shortMemo: shortMemo,
-                diary: diary,
-                tags: saveTags,
-                photoLocalRefs: photoLocalRefs
+                viewModel: saveInput,
+                seat: draft.seat,
+                companion: draft.companion,
+                shortMemo: draft.shortMemo,
+                diary: draft.diary,
+                tags: draft.saveTags,
+                photoLocalRefs: draft.photo.refs
             )
         }
         isSaving = false
         saveMessage = appData.lastSaveMessage
+        // 저장이 끝나면 이 초안이 새 기준이 된다. 편집기가 그대로 남아 있어도
+        // "바뀐 것 없음"으로 시작한다.
+        originalDraft = draft
         dismiss()
     }
 
     private func applyTicketSuggestion(_ suggestion: TicketFieldSuggestion) {
         if let gameDate = suggestion.gameDate {
-            viewModel.date = gameDate
+            draft.date = gameDate
         }
         if let favoriteTeamName = suggestion.favoriteTeamName {
-            viewModel.favoriteTeam = favoriteTeamName
+            draft.favoriteTeamName = favoriteTeamName
         }
-        if let opponentTeamName = suggestion.opponentTeamName, opponentTeamName != viewModel.favoriteTeam {
-            viewModel.opponentTeam = opponentTeamName
+        if let opponentTeamName = suggestion.opponentTeamName, opponentTeamName != draft.favoriteTeamName {
+            draft.opponentTeamName = opponentTeamName
         }
         if let stadiumName = suggestion.stadiumName {
-            viewModel.stadium = stadiumName
+            draft.stadiumName = stadiumName
         }
         if let seatText = suggestion.seatText {
-            seat = seatText
+            draft.seat = seatText
         }
-        appliedKBOHighlightTags = []
+        draft.appliedHighlightTags = []
         validationMessage = "인식한 내용이 정확한지 확인해 주세요."
     }
 
@@ -901,17 +900,17 @@ struct LogEditorView: View {
 
     private func makeDiaryDraftRequest() -> DiaryDraftRequest {
         DiaryDraftRequest(
-            gameDate: DateFormatter.vfAPIDate.string(from: viewModel.date),
-            favoriteTeamName: viewModel.favoriteTeam,
-            opponentTeamName: viewModel.opponentTeam,
-            stadiumName: viewModel.stadium,
-            result: viewModel.result.serverValue,
-            scoreText: viewModel.result == .canceled ? "취소" : "\(viewModel.ourScore):\(viewModel.opponentScore) \(viewModel.result.title)",
-            moodTags: [selectedMood],
-            highlightTags: [selectedHighlight],
+            gameDate: DateFormatter.vfAPIDate.string(from: draft.date),
+            favoriteTeamName: draft.favoriteTeamName,
+            opponentTeamName: draft.opponentTeamName,
+            stadiumName: draft.stadiumName,
+            result: (draft.result ?? .canceled).serverValue,
+            scoreText: draftScoreText,
+            moodTags: [draft.moodTag],
+            highlightTags: [draft.highlightTag],
             companionType: sanitizedCompanionType,
             tone: selectedTone.aiToneValue,
-            extraNoteSanitized: shortMemo.sanitizedExtraNote,
+            extraNoteSanitized: draft.shortMemo.sanitizedExtraNote,
             locale: "ko-KR"
         )
     }
@@ -947,17 +946,17 @@ struct LogEditorView: View {
 
     private func localTemplateDraft() -> DiaryDraftDTO {
         let draft = DiaryTemplateGenerator().generate(
-            favoriteTeamName: viewModel.favoriteTeam,
-            opponentTeamName: viewModel.opponentTeam,
-            stadium: viewModel.stadium,
-            result: viewModel.result,
-            favoriteTeamScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
-            opponentTeamScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
-            moodTags: [selectedMood],
-            highlightTags: [selectedHighlight],
-            companionType: companion,
-            seatText: seat,
-            shortMemo: shortMemo,
+            favoriteTeamName: draft.favoriteTeamName,
+            opponentTeamName: draft.opponentTeamName,
+            stadium: draft.stadiumName,
+            result: draft.result ?? .canceled,
+            favoriteTeamScore: draft.result == .canceled ? nil : draft.ourScore,
+            opponentTeamScore: draft.result == .canceled ? nil : draft.opponentScore,
+            moodTags: [draft.moodTag],
+            highlightTags: [draft.highlightTag],
+            companionType: draft.companion,
+            seatText: draft.seat,
+            shortMemo: draft.shortMemo,
             tone: selectedTone
         )
         return DiaryDraftDTO(
@@ -974,8 +973,8 @@ struct LogEditorView: View {
     private func requestApplyDraft(_ draftText: String) {
         let trimmed = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        if diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            diary = trimmed
+        if draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            draft.diary = trimmed
             isShowingAIDraft = false
         } else {
             pendingDraftTextToApply = trimmed
@@ -991,7 +990,7 @@ struct LogEditorView: View {
             selectedPhotoItems = []
         }
 
-        let remainingSlots = max(0, 10 - photoLocalRefs.count)
+        let remainingSlots = max(0, 10 - draft.photo.refs.count)
         guard remainingSlots > 0 else {
             validationMessage = "사진은 최대 10장까지 추가할 수 있어요."
             return
@@ -1001,7 +1000,7 @@ struct LogEditorView: View {
         for item in selectedPhotoItems.prefix(remainingSlots) {
             do {
                 let ref = try await service.savePhoto(from: item)
-                photoLocalRefs.append(ref)
+                draft.photo.append(ref)
             } catch {
                 validationMessage = error.localizedDescription
             }
@@ -1009,7 +1008,8 @@ struct LogEditorView: View {
     }
 
     private func removePhoto(_ ref: String) {
-        photoLocalRefs.removeAll { $0 == ref }
+        // 지우는 것은 언제나 사용자의 명시적 의도다. 실패나 취소로는 지워지지 않는다.
+        draft.photo.remove(ref)
     }
 
     private func analyzePhotos(_ refs: [String]) async {
@@ -1031,18 +1031,18 @@ struct LogEditorView: View {
 
     private func applyPhotoAnalysis(_ analysis: PhotoAnalysisDTO) {
         if let mood = analysis.suggestedMoodTags.first, moods.contains(mood) {
-            selectedMood = mood
+            draft.moodTag = mood
         }
         if let highlight = analysis.suggestedHighlightTags.first, highlights.contains(highlight) {
-            selectedHighlight = highlight
+            draft.highlightTag = highlight
         }
         if let hint = analysis.diaryHintText?.trimmingCharacters(in: .whitespacesAndNewlines), !hint.isEmpty {
-            diary = diary.isEmpty ? hint : "\(diary)\n\n\(hint)"
+            draft.diary = draft.diary.isEmpty ? hint : "\(draft.diary)\n\n\(hint)"
         }
     }
 
     private var sanitizedCompanionType: String? {
-        let trimmed = companion.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = draft.companion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         switch trimmed {
         case "혼자": return "alone"
@@ -1053,30 +1053,26 @@ struct LogEditorView: View {
         }
     }
 
-    private var saveTags: [String] {
-        [selectedMood] + (appliedKBOHighlightTags.isEmpty ? [selectedHighlight] : appliedKBOHighlightTags)
-    }
-
+    /// 한 줄 메모를 경기 정보로 덮어써도 되는가. 사용자가 쓴 글은 지우지 않는다.
     private var shouldReplaceShortMemo: Bool {
-        let trimmedMemo = shortMemo.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedMemo.isEmpty || trimmedMemo == LogEditorViewModel.defaultShortMemo
+        draft.shortMemo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// AI 초안 요청에 실어 보내는 점수 문구. 없는 점수를 0으로 지어내지 않는다.
+    private var draftScoreText: String {
+        guard draft.result != .canceled else { return "취소" }
+        guard let ours = draft.ourScore, let theirs = draft.opponentScore else {
+            return draft.result?.title ?? ""
+        }
+        return "\(ours):\(theirs) \(draft.result?.title ?? "")"
+    }
+
+    /// 검증 규칙은 `RecordEditorValidation`이 갖는다. 여기서는 문구만 띄운다.
+    @discardableResult
     private func validateRequiredFields() -> Bool {
-        if KBOSeed.team(named: viewModel.favoriteTeam) == nil {
-            validationMessage = "응원팀을 선택해 주세요."
-            return false
-        }
-        if viewModel.opponentTeam.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            validationMessage = "상대팀을 선택해 주세요."
-            return false
-        }
-        if viewModel.stadium.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            validationMessage = "구장을 선택해 주세요."
-            return false
-        }
-        validationMessage = nil
-        return true
+        let result = validation
+        validationMessage = result.blockingMessage
+        return result.isValid
     }
 
     private func scoreStepper(title: String, value: Binding<Int>) -> some View {

@@ -283,6 +283,7 @@ final class AppDataStore: ObservableObject {
             opponentTeamID: opponentTeamID,
             stadiumName: viewModel.stadium,
             result: viewModel.result.serverValue,
+            // 적히지 않은 점수는 계속 비어 있다. 0으로 채우면 없는 사실이 저장된다.
             ourScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
             opponentScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
             seatText: seat.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
@@ -343,6 +344,7 @@ final class AppDataStore: ObservableObject {
             opponentTeamID: opponentTeamID,
             stadiumName: viewModel.stadium,
             result: viewModel.result.serverValue,
+            // 적히지 않은 점수는 계속 비어 있다. 0으로 채우면 없는 사실이 저장된다.
             ourScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
             opponentScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
             seatText: seat.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
