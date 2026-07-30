@@ -87,19 +87,29 @@ final class UserPreferencesStore: ObservableObject {
         favoriteTeam?.name ?? "선택 안 함"
     }
 
+    /// 빈 문자열은 값이 없는 것으로 본다.
+    ///
+    /// 빈 팀 ID나 빈 구장 ID는 어떤 canonical 값과도 맞지 않으므로 저장돼 있어도
+    /// 의미가 없다. 이렇게 두면 "지웠다"는 뜻을 값 하나로 표현할 수 있어, 하위
+    /// 도메인에 남은 옛 값을 앱 도메인에서 확실히 덮어쓸 수 있다.
+    private static func storedText(_ defaults: UserDefaults, _ key: String) -> String? {
+        guard let value = defaults.string(forKey: key) else { return nil }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding)
-        favoriteTeamID = KBOSeed.normalizedTeamID(defaults.string(forKey: Key.favoriteTeamID))
+        favoriteTeamID = KBOSeed.normalizedTeamID(Self.storedText(defaults, Key.favoriteTeamID))
         // 저장된 구장이 더 이상 유효하지 않으면 값을 버리고 복구 단계에서 다시 받는다.
-        let storedStadiumID = defaults.string(forKey: Key.primaryStadiumID)
+        let storedStadiumID = Self.storedText(defaults, Key.primaryStadiumID)
         primaryStadiumID = KBOStadiumSeed.isValid(id: storedStadiumID) ? storedStadiumID : nil
         onboardingSchemaVersion = defaults.object(forKey: Key.onboardingSchemaVersion) as? Int ?? 1
         // 이미 온보딩을 마친 기존 사용자는 소개를 본 것으로 간주한다.
         hasSeenOnboardingOverview = defaults.object(forKey: Key.hasSeenOverview) as? Bool
             ?? defaults.bool(forKey: Key.hasCompletedOnboarding)
         teamThemeEnabled = defaults.object(forKey: Key.teamThemeEnabled) as? Bool ?? true
-        userDisplayName = defaults.string(forKey: Key.userDisplayName)
+        userDisplayName = Self.storedText(defaults, Key.userDisplayName)
         selectedSeason = defaults.object(forKey: Key.selectedSeason) as? Int
             ?? Calendar.current.component(.year, from: .now)
     }

@@ -7,7 +7,14 @@ struct AppRootView: View {
 
     var body: some View {
         Group {
-            if preferences.hasCompletedOnboarding {
+            // 완료 플래그가 아니라 저장된 값으로 판단한다.
+            //
+            // `hasCompletedOnboarding`만 보면, 팀이나 구장이 빠졌거나 더 이상
+            // 유효하지 않은 기존 설치본이 홈으로 들어가 버린다. `onboardingEntry`가
+            // 이미 그 경우를 `repairTeam`·`repairStadium`으로 구분해 두는데
+            // (`UserPreferencesStore` 단위 테스트가 그 뜻을 못박는다) 여기서 쓰지
+            // 않아 보완 단계에 도달할 방법이 없었다.
+            if preferences.onboardingEntry == .completed {
                 MainTabView()
             } else {
                 OnboardingView()
@@ -15,6 +22,9 @@ struct AppRootView: View {
         }
         .environment(\.appTheme, themeProvider.theme)
         .task {
+            // 두 값이 모두 유효한데 완료 플래그만 빠진 기존 사용자를 승격한다.
+            // 이 플래그는 프로필 동기화 DTO에도 실려 나가므로 계속 유지한다.
+            preferences.migrateOnboardingIfSatisfied()
             await appData.loadInitialDataIfNeeded()
         }
     }

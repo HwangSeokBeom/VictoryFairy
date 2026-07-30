@@ -10,29 +10,17 @@ final class OnboardingUITests: XCTestCase {
         try super.setUpWithError()
         continueAfterFailure = false
 
-        // 예전에 적어 둔 건너뛰기 사유는 사실이 아니었다. "`-VFUITestReset`이
-        // UserDefaults만 지우고 응원 팀은 프로필/저장소 계층에서 되살아난다"고
-        // 보았는데, 실제로 확인해 보니 팀과 완료 플래그를 심어 저장한 뒤 초기화하고
-        // 다시 띄우면 온보딩 첫 화면이 정상으로 나온다. 초기화는 동작한다.
+        // 여기 있던 일괄 건너뛰기 가드를 걷어냈다.
         //
-        // 진짜 이유는 다른 데 있다. 아래 열세 개는 재설계 **이전** 온보딩 흐름
-        // (환영 → 소개 → 팀)을 전제로 쓰여 있고, `onboarding.overview.next` 같은
-        // 식별자를 찾는다. 재설계된 온보딩은 쪽 넘김 소개 화면이라 그 단계가 없다.
-        // 이 묶음을 되살리려면 새 흐름에 맞춰 다시 쓰는 온보딩 작업이 필요하다.
+        // 그 가드는 "재설계된 온보딩에는 소개 단계와 `onboarding.overview.next`가
+        // 없다"는 이유로 이름만 보고 열세 개를 건너뛰었다. 저장소를 확인해 보니
+        // 사실이 아니다 — `OnboardingViewModel`에 `case overview`가 있고
+        // `OnboardingView`가 `onboarding.overview.next` 식별자를 실제로 붙인다.
+        // Pencil `11_Developer_Handoff`도 `/onboarding/overview`를 5단계 중 2단계로
+        // 못박는다. 즉 단계도 식별자도 살아 있고, 가드가 멀쩡한 검사를 가리고 있었다.
         //
-        // 새 흐름에서도 뜻이 통하는 두 개(test10, test13)는 건너뛰지 않고 계속 돌린다.
-        // 통째로 건너뛰면 실제로 지켜지고 있는 것까지 확인을 멈추게 된다.
-        let stillMeaningful = [
-            "test10_completedOnboardingDoesNotRepeatAfterRelaunch",
-            "test13_existingUserWithBothValuesBypassesOnboarding"
-        ]
-        if !stillMeaningful.contains(where: { name.contains($0) }) {
-            throw XCTSkip(
-                "재설계 이전 온보딩 흐름을 전제로 작성됨: 환영 → 소개 → 팀 단계와 "
-                + "onboarding.overview.next 식별자가 지금 화면에 없다. "
-                + "초기화 자체는 동작하며, 되살리려면 새 흐름에 맞춘 재작성이 필요하다."
-            )
-        }
+        // 이름으로 검사를 끄는 장치를 두지 않는다. 실패하는 것이 있으면 실패로
+        // 드러나야 하고, 건너뛰기로 감추지 않는다.
     }
 
     // MARK: - 앱 실행 도우미

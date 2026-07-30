@@ -48,6 +48,7 @@ enum VFUITestConfiguration {
             for key in managedKeys {
                 defaults.removeObject(forKey: key)
             }
+            maskResidualValues(in: defaults)
         }
 
         if let teamID = value(for: Argument.teamID, in: arguments) {
@@ -83,6 +84,37 @@ enum VFUITestConfiguration {
             defaults.set(VFRecordDetailFixtures.displayName, forKey: "userDisplayName")
         }
         #endif
+    }
+
+    /// 지워도 되살아나는 값을 앱 도메인에서 덮어써 무력화한다.
+    ///
+    /// `UserDefaults.standard`는 여러 도메인을 순서대로 뒤진다. 시뮬레이터에는
+    /// 앱 컨테이너 밖(`<device>/data/Library/Preferences/<bundle>.plist`)에 같은
+    /// 번들 ID의 값이 남아 있을 수 있고, 그 도메인은 앱을 지워도 사라지지 않는다.
+    /// 샌드박스 안에서 하는 `removeObject`는 앱 자신의 도메인만 지우므로 그런
+    /// 잔재는 그대로 살아남아 "첫 실행"이 첫 실행이 아니게 된다.
+    ///
+    /// 그래서 지운 뒤에도 값이 보이면, 앱 도메인에 "비어 있음"에 해당하는 값을
+    /// 직접 써서 아래 도메인을 가린다. 빈 문자열은 `UserPreferencesStore`가 값
+    /// 없음으로 읽는다.
+    private static func maskResidualValues(in defaults: UserDefaults) {
+        // 잔재가 남았을 때 어떤 값으로 가릴지. 지운 상태와 같은 뜻이어야 한다.
+        let blankedText = ["favoriteTeamID", "primaryStadiumID", "userDisplayName"]
+        let blankedFlags: [String: Bool] = [
+            "hasCompletedOnboarding": false,
+            "hasSeenOnboardingOverview": false,
+            // 팀 테마는 값이 없을 때 켜진 것으로 읽는다. 그 기본값을 유지한다.
+            "teamThemeEnabled": true
+        ]
+
+        for key in blankedText where defaults.string(forKey: key) != nil {
+            defaults.set("", forKey: key)
+        }
+        for (key, value) in blankedFlags where defaults.object(forKey: key) != nil {
+            defaults.set(value, forKey: key)
+        }
+        // 시즌과 스키마 버전은 온보딩 진입을 좌우하지 않고, 값을 새로 쓰면 오히려
+        // 다른 픽스처가 정한 시작 시즌을 덮어쓴다. 지우는 데서 멈춘다.
     }
 
     /// 앱이 처음 열 탭. UI 테스트와 화면 캡처가 특정 탭에서 바로 시작하기 위해 쓴다.
