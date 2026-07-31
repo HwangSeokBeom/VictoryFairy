@@ -244,22 +244,26 @@ struct StatisticsView: View {
     @ViewBuilder
     private func highlightRow(_ highlight: SeasonHighlight) -> some View {
         switch highlight.kind {
+        // 들어갈 수 있는지(`isDetailReachable`)와 강조할 값이 있는지
+        // (`hasHighlightedValue`)를 따로 본다. 예전에는 `isAvailable` 하나가 둘을
+        // 겸해서, 값이 없으면 상세 화면 자체가 잠겼다 — 그 화면이 갖고 있던 빈 상태와
+        // 기록 추가 동선에 도달할 방법이 사라졌다.
         case .mostVisitedStadium:
             NavigationLink {
                 StadiumStatsView(stats: viewModel.derived.stadiumStats)
             } label: {
-                SeasonHighlightRow(highlight: highlight, showsDisclosure: highlight.isAvailable)
+                SeasonHighlightRow(highlight: highlight, showsDisclosure: highlight.hasHighlightedValue)
             }
             .buttonStyle(.plain)
-            .disabled(!highlight.isAvailable)
+            .disabled(!highlight.isDetailReachable)
         case .mostFacedOpponent:
             NavigationLink {
                 OpponentStatsView(stats: viewModel.derived.opponentStats)
             } label: {
-                SeasonHighlightRow(highlight: highlight, showsDisclosure: highlight.isAvailable)
+                SeasonHighlightRow(highlight: highlight, showsDisclosure: highlight.hasHighlightedValue)
             }
             .buttonStyle(.plain)
-            .disabled(!highlight.isAvailable)
+            .disabled(!highlight.isDetailReachable)
         case .longestWinStreak, .largestWinMargin:
             SeasonHighlightRow(highlight: highlight, showsDisclosure: false)
         }
@@ -681,7 +685,7 @@ struct SeasonHighlightRow: View {
                     .foregroundStyle(VFColor.bodyTertiary)
                 Text(highlight.value)
                     .font(Font.system(.subheadline, design: .default).weight(.semibold))
-                    .foregroundStyle(highlight.isAvailable ? VFColor.bodyPrimary : VFColor.bodySecondary)
+                    .foregroundStyle(highlight.hasHighlightedValue ? VFColor.bodyPrimary : VFColor.bodySecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

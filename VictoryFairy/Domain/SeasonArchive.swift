@@ -362,11 +362,28 @@ struct SeasonHighlight: Equatable, Identifiable {
     let kind: Kind
     let label: String
     let value: String
+    /// 요약할 값이 실제로 있는가. **이 한 줄에 보여 줄 값**에 대한 사실이다.
     let isAvailable: Bool
 
     var id: String { kind.rawValue }
     var accessibilityIdentifier: String { "statistics.highlight.\(kind.rawValue)" }
     var accessibilityLabel: String { "\(label), \(value)" }
+
+    /// 값이 있어서 강조해 보여 줄 수 있는가. 꺾쇠 표시와 글자색이 이 값을 따른다.
+    var hasHighlightedValue: Bool { isAvailable }
+
+    /// 상세 분석 화면으로 들어갈 수 있는가.
+    ///
+    /// `isAvailable` 하나로 "값이 있다"·"꺾쇠를 보인다"·"들어갈 수 있다" 셋을 모두
+    /// 표현하던 것이 결함의 원인이었다. 구장·상대팀 상세 화면은 기록이 0건일 때
+    /// 보여 줄 빈 상태와 기록 추가 동선을 이미 갖고 있으므로, 요약 값이 없어도
+    /// 언제나 들어갈 수 있어야 한다. 그러지 않으면 그 빈 상태에 도달할 방법이 없다.
+    var isDetailReachable: Bool {
+        switch kind {
+        case .mostVisitedStadium, .mostFacedOpponent: true
+        case .longestWinStreak, .largestWinMargin: false
+        }
+    }
 }
 
 // MARK: - 구장

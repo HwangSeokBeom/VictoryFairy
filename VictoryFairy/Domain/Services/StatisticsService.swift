@@ -76,7 +76,13 @@ struct StatisticsService {
         key: (AttendanceLogViewState) -> String,
         latestPrefix: String
     ) -> [StatGroupViewState] {
-        Dictionary(grouping: logs, by: key)
+        // 이름이 비어 있는 묶음은 만들지 않는다.
+        //
+        // 요약 쪽(`stadiumVisits`)은 이미 빈 이름을 걸러 내는데 여기서는 걸러 내지
+        // 않아, 구장이 적히지 않은 기록이 이름 없는 줄로 상세 목록에 나타났다.
+        // 그리고 그 때문에 목록이 절대 비지 않아, 화면이 갖고 있던 빈 상태에
+        // 도달할 방법이 없었다.
+        Dictionary(grouping: logs.filter { key($0).trimmedOrNil != nil }, by: key)
             .map { name, grouped in
                 let wins = grouped.filter { $0.result == .win }.count
                 let losses = grouped.filter { $0.result == .loss }.count
