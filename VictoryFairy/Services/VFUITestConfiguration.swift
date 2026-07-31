@@ -180,6 +180,21 @@ enum VFUITestConfiguration {
         return production
     }
 
+    /// 홈 대시보드. 피드 픽스처가 있으면 같은 기록으로 다시 집계한다.
+    ///
+    /// 홈의 대시보드는 저장소에서 온 `feedLogs`로 만들어지므로, 피드 픽스처만으로는
+    /// 홈이 비어 있었다. 그래서 "최근 기록이 있는 홈"을 결정적으로 만들 방법이 없었고
+    /// 승리요정 지수 카드와 AI 도우미 진입을 검증할 수 없었다. Release에서는 인자를
+    /// 그대로 돌려주므로 제품 경로에는 아무 영향이 없다.
+    static func homeDashboard(_ production: HomeDashboardViewState) -> HomeDashboardViewState {
+        #if DEBUG
+        if let fixture = feedFixture {
+            return .sample(logs: VFFeedFixtures.logs(for: fixture))
+        }
+        #endif
+        return production
+    }
+
     /// 피드 데이터 상태. 픽스처가 없으면 실제 상태를 그대로 돌려준다.
     static func feedState(_ production: RemoteDataState) -> RemoteDataState {
         #if DEBUG

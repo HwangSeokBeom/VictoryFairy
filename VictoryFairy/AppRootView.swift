@@ -102,7 +102,11 @@ struct MainTabView: View {
         case .home:
             NavigationStack {
                 // 대시보드는 AppDataStore가 feedLogs 변경 시 1회 집계해 보관한다.
-                HomeView(viewModel: HomeViewModel(dashboard: appData.homeDashboard))
+                // UI 테스트 픽스처 이음새는 피드와 같은 모양이다 — Release에서는
+                // 인자를 그대로 돌려준다.
+                HomeView(viewModel: HomeViewModel(
+                    dashboard: VFUITestConfiguration.homeDashboard(appData.homeDashboard)
+                ))
             }
             .accessibilityIdentifier(MainTab.home.screenIdentifier)
         case .feed:
