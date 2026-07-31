@@ -130,11 +130,12 @@ struct RecordCreateStep1View: View {
 
     private var dateField: some View {
         VFFormField(label: "경기 날짜") {
+            // 라벨은 `DatePicker`가 스스로 갖는다. 여기서 한 번 더 붙이면
+            // VoiceOver가 "경기 날짜, 경기 날짜"로 두 번 읽는다(실측).
             DatePicker("경기 날짜", selection: $draft.date, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityLabel("경기 날짜")
                 .accessibilityIdentifier("recordCreate.field.date")
         }
         .id(RecordEditorField.date.rawValue)
