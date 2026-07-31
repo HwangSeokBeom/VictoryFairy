@@ -193,6 +193,21 @@ struct LogEditorView: View {
         }
         .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // 편집기를 빠져나갈 눈에 보이는 길.
+            //
+            // 이 화면은 언제나 시트로 뜨고, 지금까지 나가는 길은 시트를 아래로 끄는
+            // 제스처 하나뿐이었다. 접근성 글자 크기(AccessibilityXXXL)에서는 그 제스처가
+            // 통하지 않는다 — 같은 경로·같은 동작을 글자 크기만 바꿔 재보면 기본
+            // 크기에서는 닫히고 AccessibilityXXXL에서는 네 가지 이탈 동작이 모두
+            // 실패한다(UI 테스트로 실측). 저장은 경기 결과가 있어야만 되므로,
+            // 결과를 고르지 않은 사용자는 화면에 갇혔다.
+            ToolbarItem(placement: .cancellationAction) {
+                Button("취소") { dismiss() }
+                    .accessibilityIdentifier("logEditor.cancel")
+                    .accessibilityHint("저장하지 않고 편집기를 닫는다")
+            }
+        }
         .onAppear {
             if !mode.isEditing, draft.favoriteTeamName.isEmpty {
                 // 새로 만들 때만, 그리고 아직 비어 있을 때만 사용자의 응원팀을 채운다.
