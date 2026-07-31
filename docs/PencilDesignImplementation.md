@@ -2456,3 +2456,30 @@ Release에 닿는 코드도 없다.
 
 검증: 라우트 7개 전부 통과, 단위 621개 통과. iPhone SE 3세대 반응형은 17개 실행 ·
 16개 통과 · 1개 실패로 아직 닫지 못했다.
+
+### 좁은 폭 마무리 (완료)
+
+`testCompact03_feedCreateRemainsUsable`가 편집기의 구장 메뉴 대신 시트 뒤 피드
+카드를 집어 왔다. 카드 라벨에 "잠실야구장"이 들어 있어 부분 일치 "구장"에 걸린
+것이다 — `TEST_QUERY_DEFECT`. 메뉴 라벨은 제목으로 시작하므로 앞부분 일치로
+좁혔다. 제품은 바꾸지 않았다.
+
+iPhone SE 3세대(375pt, iOS 26.3)에서 `RecordCreateFoundationResponsiveUITests`
+**24개 실행 · 24개 통과 · 0개 실패 · 0개 건너뜀** (1347.5초). 좁은 폭 12개,
+키보드 2개, AccessibilityXXXL 10개가 모두 실제 기기에서 돌았다.
+
+호스트 부하가 높을 때(load 8~10) 같은 스위트가 `testCompact03`과
+`testKeyboard02`에서 실패했지만, 부하가 낮을 때(load 3.6) 같은 순서로 셋 다
+통과했고 전체 재실행도 24/24로 통과했다. 단정은 하나도 바꾸지 않았다.
+
+### 최종 게이트
+
+- 단위 621개 통과 (12.9초)
+- 온보딩 UI 15개 실행 · 15개 통과 · 0개 실패 · 0개 건너뜀 (151.6초)
+- Debug 빌드 통과 · Release 빌드 통과 · 경고 0
+- `verify_app_icon.sh` 통과 · `verify_release_readiness.sh` 통과
+- 새 아카이브 `VictoryFairy-RecordCreate-Foundation-Final.xcarchive` 성공.
+  번들 ID·1.1.0·빌드 1, 테스트 번들 0개, 아이콘·런치 마크 그대로,
+  `aiDraftEditorLog`가 들어 있어 홈 수정이 실제로 실렸음을 확인했다.
+- 픽스처 제외: Release 0건 통과, Debug 58건 실패(음성 대조). 58건은 새
+  `noOpponent` 시나리오까지 게이트가 잡는다는 뜻이다.
