@@ -63,7 +63,16 @@ struct RecordCreateFlowView: View {
                     onNext: { advance() },
                     onSaveMinimal: { Task { await saveMinimalRecord() } }
                 )
-            case .details, .memory:
+            case .details:
+                RecordCreateStep2View(
+                    draft: $draft,
+                    onBack: { goBack() },
+                    onNext: { advance() },
+                    // 건너뛰기는 같은 곳으로 가지만, 적어 둔 값을 지우지 않는다.
+                    // Pencil이 지우라고 말한 적이 없고, 지우면 놀라운 동작이 된다.
+                    onSkip: { advance() }
+                )
+            case .memory:
                 stagedBoundary
             }
         }
@@ -71,14 +80,27 @@ struct RecordCreateFlowView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // 시트를 빠져나갈 눈에 보이는 길. 큰 글자에서는 제스처가 통하지 않는다.
-            ToolbarItem(placement: .cancellationAction) {
-                Button("취소") { finish() }
-                    .accessibilityIdentifier("recordCreate.cancel")
-                    .accessibilityHint("저장하지 않고 기록 작성을 닫는다")
+            //
+            // 1단계에서는 왼쪽이 취소다(그대로 둔다). 2단계부터는 Pencil 내비바가
+            // 왼쪽에 뒤로 화살표를 두므로 왼쪽을 뒤로에 내주고 취소를 오른쪽으로
+            // 옮긴다. 오른쪽은 Pencil이 `임시저장`을 두었던 자리이지만 그 동작은
+            // 구현하지 않는다 — 그 문구는 "이어서 쓸 수 있다"는 약속인데 이어쓰기에
+            // 필요한 지속 초안 소유권과 재개 의미가 아직 정해지지 않았다.
+            if step == .game {
+                ToolbarItem(placement: .cancellationAction) {
+                    cancelButton
+                }
+            } else {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("이전") { goBack() }
+                        .accessibilityLabel("이전 단계")
+                        .accessibilityHint("앞 단계로 돌아갑니다. 적어 둔 값은 그대로 남습니다.")
+                        .accessibilityIdentifier("recordCreate.back")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    cancelButton
+                }
             }
-            // Pencil 내비바 오른쪽의 `임시저장`은 구현하지 않는다. 그 문구는 "이어서
-            // 쓸 수 있다"는 약속인데, 이어쓰기에 필요한 지속 초안 소유권과 재개
-            // 의미가 아직 정해지지 않았다. 가짜 버튼을 두지 않는다.
         }
         .onAppear {
             // 지금 편집기와 같은 규칙: 새로 만들 때만, 아직 비어 있을 때만 응원팀을 채운다.
@@ -86,6 +108,12 @@ struct RecordCreateFlowView: View {
                 draft.favoriteTeamName = appData.team(id: preferences.favoriteTeamID)?.name ?? ""
             }
         }
+    }
+
+    private var cancelButton: some View {
+        Button("취소") { finish() }
+            .accessibilityIdentifier("recordCreate.cancel")
+            .accessibilityHint("저장하지 않고 기록 작성을 닫는다")
     }
 
     /// 흐름을 닫는다. 제품 경로에서는 `dismiss()`가 실제로 화면을 내린다.
