@@ -103,3 +103,23 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next pass: `RECORD_CREATE_STEP1_VISIBLE_LAYOUT`
 - Safe to begin visible Step 1: yes
+
+---
+
+## 2026-07-31 22:04 KST — RECORD_CREATE_STEP1_VISIBLE_LAYOUT_IMPLEMENTED_AND_VERIFIED
+
+- Task: Record Create Step 1 — staged visible layout
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `f379dff13b8256812b6ac0fde17d6db922bc4f33`
+- Ending HEAD: `__ENDING_HEAD__`
+- Archive report: `docs/ai-reports/archive/2026-07-31_2204_record-create-step1-staged-layout_implemented.md`
+- Latest report: `docs/ai-reports/LATEST_REPORT.md`
+- Built: `RecordCreateStep1View`, `RecordCreateFlowView`, reusable `VFStepProgress`; staged behind a DEBUG fixture, not routed to users
+- Decided: `여기까지만 저장할게요` = one complete ordinary record from valid Step 1 data
+- Deferred: `RESUMABLE_TEMPORARY_SAVE` (authored `임시저장` not implemented)
+- Fresh counts: unit 666/0 failed/0 skipped · Step 1 UI 20 · SE 3 compact 14 · captures 18 · route regression 145
+- Production source changed: yes (three new files; staged fixture seam; root branch)
+- Pushed: no
+- Merged: no
+- Next pass: `RECORD_CREATE_STEP2_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
