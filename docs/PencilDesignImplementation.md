@@ -2394,3 +2394,40 @@ Release에 닿는 코드도 없다.
 - 전체 UI 스위트
 - Debug/Release 빌드, `verify_app_icon.sh`, `verify_release_readiness.sh`
 - 재사용 아카이브 경로 확인과 픽스처 제외 게이트 양방향 실행
+
+### 진입/이탈 막힘 세 가지 수리 (완료)
+
+기준 HEAD `8c19304`. 앞선 분류를 실제 동작으로 확인하고 고쳤다.
+
+**홈 AI 진입 — `TEST_USED_WRONG_TRIGGER` + 픽스처 공백.**
+실제 컨트롤은 `VictoryFairyIndexCard` 안의 반짝 버튼
+(`accessibilityLabel("AI 직관 기록 도우미")`)이다. 지연 생성되므로 먼저 스크롤로
+올린 뒤 찾아야 한다. 그런데 홈 대시보드는 `appData.feedLogs`로 만들어져서 피드
+픽스처만으로는 홈이 언제나 비어 있었고, "최근 기록이 있는 홈"을 만들 방법이 없었다.
+피드·캘린더·시즌이 이미 쓰는 것과 같은 모양의 이음새
+(`VFUITestConfiguration.homeDashboard`)를 하나 더해 해결했다. Release에서는 인자를
+그대로 돌려준다.
+
+최근 기록이 **없을** 때의 가지(`HomeView.swift:83`, 생성 모드)는 여전히 도달할 수
+없다. `fairyIndexSection`이 `dashboard.isEmpty`가 아닐 때만 그려지고, 그 조건은
+"최근 기록이 없다"와 같기 때문이다. 죽은 가지로 기록하고 테스트로 못박았다 —
+나중에 도달 가능해지면 그 테스트가 실패해서 알려 준다.
+
+**취소 — `TEST_GESTURE_COORDINATE_DEFECT`.**
+실제 사용자는 시트를 내릴 수 있다. 화면 가운데에서 아래로 쓸면 편집기
+`ScrollView`가 제스처를 먹지만, 내비게이션 바는 스크롤 뷰 밖이라 언제나 시트를
+잡는다. 제품 수정은 필요 없었고 취소 버튼도 더하지 않았다. 폼을 스크롤한 뒤에도
+닫히고, 원본 좌석이 그대로이며, 다시 열면 원래 값이 돌아온다. 생성 취소는 기록을
+만들지 않는다.
+
+**시즌 아카이브 두 경로 — 진짜 제품 결함, 수리 완료.**
+`SeasonHighlight.isAvailable` 하나가 "요약할 값이 있다"와 "상세로 들어갈 수 있다"를
+겸했다. 값이 없으면 줄이 비활성이 되어, 값이 없을 때만 나오는 빈 상태에 영영 닿지
+못했다. `hasHighlightedValue`(값과 꺾쇠)와 `isDetailReachable`(상세 진입)로 나눴다.
+`groupedStats`도 함께 고쳤다 — 요약 쪽은 빈 이름을 걸러 내는데 여기서는 걸러 내지
+않아 이름 없는 줄이 생기고 목록이 절대 비지 않았다. 계산·요약·값이 있을 때의
+동작은 그대로다.
+
+검증: 라우트 수리 UI 7개 전부 통과. 단위 621개 통과. Debug·Release 빌드 통과,
+`verify_app_icon.sh`·`verify_release_readiness.sh` 통과. 제품이 바뀌었으므로 새
+아카이브를 만들어 확인했고 픽스처 제외 게이트를 양방향으로 돌렸다.
