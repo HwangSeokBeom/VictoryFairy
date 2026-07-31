@@ -97,6 +97,25 @@ final class RecordCreateStep1ResponsiveUITests: XCTestCase {
         }
     }
 
+    func testCompact01b_dateControlCanBeOpenedAndClosed() throws {
+        let app = launch()
+        let screen = try requireCompactWidth(app)
+        let date = scrollIntoView(app, node(app, "recordCreate.field.date"))
+        XCTAssertTrue(date.exists && date.isHittable, "좁은 폭에서 날짜 컨트롤을 누를 수 없다")
+        // 라벨이 한 번만 읽힌다.
+        XCTAssertEqual(date.label, "경기 날짜", "날짜 컨트롤이 라벨을 두 번 읽는다: \(date.label)")
+        date.tap()
+        // 달력이 열려도 페이지가 가로로 밀리지 않는다.
+        XCTAssertLessThanOrEqual(settled(node(app, "recordCreate.step1.root")).maxX, screen.maxX + 0.5,
+                                 "날짜 컨트롤을 여는 동안 화면이 가로로 밀렸다")
+        // 달력 밖을 눌러 닫는다. 열린 동안에는 날짜 컨트롤 자신을 누를 수 없다.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        XCTAssertTrue(node(app, "recordCreate.step1.title").waitForExistence(timeout: 8),
+                      "날짜 상호작용 뒤 폼이 사라졌다")
+        XCTAssertLessThanOrEqual(settled(node(app, "recordCreate.field.date")).maxX, screen.maxX + 0.5,
+                                 "날짜 필드가 가로로 잘렸다")
+    }
+
     func testCompact02_scoreAndResultControlsRemainReachable() throws {
         let app = launch()
         let screen = try requireCompactWidth(app)

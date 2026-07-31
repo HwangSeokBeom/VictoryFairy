@@ -231,6 +231,10 @@ final class RecordCreateStep1UITests: XCTestCase {
             XCTAssertFalse(message.label.contains(raw), "내부 이름 \(raw)이 노출됐다")
         }
         XCTAssertFalse(node(app, "recordCreate.stagedBoundary").exists, "막혔는데 다음 단계로 갔다")
+        // 안내만 띄우고 끝내지 않는다 — 첫 번째로 막힌 값을 화면 안으로 데려온다.
+        let firstInvalid = node(app, "recordCreate.field.opponentTeam")
+        XCTAssertTrue(firstInvalid.exists && firstInvalid.isHittable,
+                      "첫 번째로 막힌 값이 화면 밖에 있다")
     }
 
     func testFillingEveryRequirementEnablesNext() {

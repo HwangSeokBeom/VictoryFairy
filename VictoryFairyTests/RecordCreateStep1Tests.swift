@@ -329,6 +329,10 @@ final class RecordCreateStep1Tests: XCTestCase {
     func testMinimalSaveUsesTheExistingSaveBoundary() {
         XCTAssertTrue(flowSource.contains("appData.saveAttendanceLog("),
                       "기존 저장 경계를 쓰지 않는다")
+        // 기록은 **하나만** 만들어진다. 저장 호출부가 하나뿐이고, 그 하나도
+        // `isSaving` 문지기 뒤에 있다.
+        XCTAssertEqual(flowSource.components(separatedBy: "appData.saveAttendanceLog(").count - 1, 1,
+                       "저장 호출부가 둘 이상이다 — 기록이 여러 개 생길 수 있다")
         XCTAssertFalse(flowSource.contains("appData.updateAttendanceLog("),
                        "새로 만들기인데 수정 경로를 부른다")
         // 저장 전에 검증을 통과해야 한다.
