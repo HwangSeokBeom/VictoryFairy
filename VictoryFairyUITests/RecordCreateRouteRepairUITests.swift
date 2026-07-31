@@ -92,8 +92,16 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
             app.swipeDown()
             _ = app.keyboards.element.waitForNonExistence(timeout: 4)
         }
-        let bar = app.navigationBars.firstMatch
-        XCTAssertTrue(waits(bar), "시트의 내비게이션 바를 찾지 못했다")
+        // `firstMatch`는 시트 **뒤에 깔린** 화면의 막대를 집을 수 있다(측정으로 확인:
+        // 구장별 통계 상세 위에서 편집기를 열면 "구장별 통계" 막대가 먼저 잡혀
+        // 드래그가 시트에 닿지 않는다). 편집기 제목을 가진 막대를 먼저 찾고,
+        // 없으면 트리에서 가장 나중에 얹힌 막대를 쓴다.
+        let bars = app.navigationBars
+        XCTAssertTrue(waits(bars.firstMatch), "시트의 내비게이션 바를 찾지 못했다")
+        let titled = bars.matching(NSPredicate(
+            format: "identifier == %@ OR identifier == %@", "직관 기록 추가", "직관 기록 수정")).firstMatch
+        let bar = titled.exists ? titled : bars.element(boundBy: max(bars.count - 1, 0))
+        XCTAssertTrue(bar.exists, "시트의 내비게이션 바를 찾지 못했다")
         let start = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let end = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 22))
         start.press(forDuration: 0.1, thenDragTo: end)
@@ -249,8 +257,9 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
         XCTAssertFalse(text(app, "잠실야구장").exists, "없는 구장을 지어냈다")
         XCTAssertFalse(text(app, "대구 삼성 라이온즈 파크").exists, "주 관람 구장을 끌어왔다")
 
-        dismissSheetFromNavigationBar(app)
-        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10))
+        cancelEditorFromToolbar(app)
+        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
+                      "큰 글자에서 편집기를 빠져나갈 수 없다")
         XCTAssertTrue(waits(text(app, "아직 구장별 통계가 없어요")), "취소 후 구장 상세로 돌아오지 못했다")
     }
 
@@ -275,11 +284,124 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
             XCTAssertFalse(text(app, fabricated).exists, "없는 상대팀 \(fabricated)을 지어냈다")
         }
 
-        dismissSheetFromNavigationBar(app)
-        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10))
+        cancelEditorFromToolbar(app)
+        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
+                      "큰 글자에서 편집기를 빠져나갈 수 없다")
         XCTAssertTrue(waits(text(app, "아직 상대팀별 통계가 없어요")), "취소 후 상대팀 상세로 돌아오지 못했다")
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(waits(node(app, "statistics.root")), "뒤로 가기가 되지 않는다")
+    }
+
+    // MARK: - 4. 시즌 아카이브 빈 상태 · AccessibilityXXXL
+
+    private func launchStatistics(_ fixture: String, accessibilitySize: Bool) -> XCUIApplication {
+        let app = XCUIApplication()
+        var arguments = ["-VFUITest", "-VFUITestReset",
+                         "-VFUITestTeamID", "samsung-lions",
+                         "-VFUITestStadiumID", "daegu-lions",
+                         "-VFUITestOnboardingCompleted", "1",
+                         "-VFUITestInitialTab", "statistics",
+                         "-VFUITestStatisticsFixture", fixture]
+        if accessibilitySize {
+            arguments += ["-UIPreferredContentSizeCategoryName",
+                          "UICTContentSizeCategoryAccessibilityXXXL"]
+        }
+        app.launchArguments = arguments
+        app.launch()
+        XCTAssertTrue(waits(node(app, "statistics.scenario.\(fixture)")), "\(fixture) 픽스처가 적용되지 않았다")
+        XCTAssertTrue(waits(node(app, "statistics.root")), "시즌 화면이 뜨지 않았다")
+        return app
+    }
+
+    private func settled(_ element: XCUIElement) -> CGRect {
+        var previous = element.frame
+        for _ in 0..<25 {
+            usleep(120_000)
+            let current = element.frame
+            if current == previous { return current }
+            previous = current
+        }
+        return previous
+    }
+
+    /// 큰 글자가 실제로 적용됐는지. 기본 크기의 같은 요소와 견준다.
+    private func assertAccessibilityCategoryApplied(_ fixture: String, rowIdentifier: String) -> CGFloat {
+        let normal = launchStatistics(fixture, accessibilitySize: false)
+        let baseline = settled(scrollIntoView(normal, node(normal, rowIdentifier))).height
+        normal.terminate()
+        XCTAssertGreaterThan(baseline, 0, "기준 높이를 재지 못했다")
+        return baseline
+    }
+
+    /// 눈에 보이는 이탈 수단으로 편집기를 닫는다.
+    ///
+    /// 제스처는 AccessibilityXXXL에서 통하지 않는다(실측). 화면에 보이는 취소가
+    /// 있어야 한다는 것 자체가 이 테스트가 지키는 약속이다.
+    private func cancelEditorFromToolbar(_ app: XCUIApplication) {
+        if app.keyboards.element.exists {
+            app.swipeDown()
+            _ = app.keyboards.element.waitForNonExistence(timeout: 4)
+        }
+        let cancel = node(app, "logEditor.cancel")
+        XCTAssertTrue(waits(cancel), "편집기에 눈에 보이는 취소가 없다")
+        XCTAssertTrue(cancel.isHittable, "취소를 누를 수 없다 — 큰 글자에서 화면 밖으로 밀렸다")
+        cancel.tap()
+    }
+
+    /// 구장 빈 상태 경로를 큰 글자에서 확인한다.
+    func testStadiumEmptyRouteAtAccessibilityXXXL() {
+        let baseline = assertAccessibilityCategoryApplied("noStadium",
+                                                          rowIdentifier: "statistics.highlight.mostVisitedStadium")
+        let app = launchStatistics("noStadium", accessibilitySize: true)
+        let row = scrollIntoView(app, node(app, "statistics.highlight.mostVisitedStadium"))
+        XCTAssertGreaterThan(settled(row).height, baseline * 1.2,
+                             "AccessibilityXXXL이 적용되지 않았다 — 기본 \(baseline)pt")
+        let screen = app.windows.firstMatch.frame
+        XCTAssertLessThanOrEqual(settled(row).maxX, screen.maxX + 0.5, "행이 가로로 잘렸다")
+        row.tap()
+
+        XCTAssertTrue(waits(text(app, "아직 구장별 통계가 없어요")), "큰 글자에서 빈 제목이 없다")
+        XCTAssertTrue(text(app, "직관 기록을 추가하면").exists, "큰 글자에서 빈 설명이 없다")
+        let cta = scrollIntoView(app, app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "첫 직관 기록하기")).firstMatch)
+        XCTAssertLessThanOrEqual(settled(cta).maxX, screen.maxX + 0.5, "CTA가 가로로 잘렸다")
+        cta.tap()
+
+        assertEditorIsOpen(app, editing: false)
+        XCTAssertFalse(text(app, "잠실야구장").exists, "없는 구장을 지어냈다")
+        cancelEditorFromToolbar(app)
+        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
+                      "큰 글자에서 편집기를 빠져나갈 수 없다")
+        XCTAssertTrue(waits(text(app, "아직 구장별 통계가 없어요")), "취소 후 구장 상세로 돌아오지 못했다")
+    }
+
+    /// 상대팀 빈 상태 경로를 큰 글자에서 확인한다.
+    func testOpponentEmptyRouteAtAccessibilityXXXL() {
+        let baseline = assertAccessibilityCategoryApplied("noOpponent",
+                                                          rowIdentifier: "statistics.highlight.mostFacedOpponent")
+        let app = launchStatistics("noOpponent", accessibilitySize: true)
+        let row = scrollIntoView(app, node(app, "statistics.highlight.mostFacedOpponent"))
+        XCTAssertGreaterThan(settled(row).height, baseline * 1.2,
+                             "AccessibilityXXXL이 적용되지 않았다 — 기본 \(baseline)pt")
+        let screen = app.windows.firstMatch.frame
+        XCTAssertLessThanOrEqual(settled(row).maxX, screen.maxX + 0.5, "행이 가로로 잘렸다")
+        row.tap()
+
+        XCTAssertTrue(waits(text(app, "아직 상대팀별 통계가 없어요")), "큰 글자에서 빈 제목이 없다")
+        XCTAssertTrue(text(app, "직관 기록을 추가하면").exists, "큰 글자에서 빈 설명이 없다")
+        let cta = scrollIntoView(app, app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "첫 직관 기록하기")).firstMatch)
+        XCTAssertLessThanOrEqual(settled(cta).maxX, screen.maxX + 0.5, "CTA가 가로로 잘렸다")
+        cta.tap()
+
+        assertEditorIsOpen(app, editing: false)
+        for fabricated in ["KIA 타이거즈", "LG 트윈스", "두산 베어스"] {
+            XCTAssertFalse(text(app, fabricated).exists, "없는 상대팀 \(fabricated)을 지어냈다")
+        }
+        cancelEditorFromToolbar(app)
+        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
+                      "큰 글자에서 편집기를 빠져나갈 수 없다")
+        XCTAssertTrue(waits(text(app, "아직 상대팀별 통계가 없어요")), "취소 후 상대팀 상세로 돌아오지 못했다")
     }
 
     /// 값이 있을 때의 동작은 그대로다 — 상세로 들어가면 목록이 나오고 빈 상태가 아니다.

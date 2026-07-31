@@ -96,14 +96,26 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
 
     /// 시트를 실제 사용자 동작으로 내린다.
     ///
-    /// 화면 가운데에서 아래로 쓸면 편집기 `ScrollView`가 그 제스처를 먹어 버려
-    /// 폼만 스크롤된다(측정으로 확인했다). 시트를 잡으려면 콘텐츠 위쪽,
-    /// 내비게이션 바 바로 아래에서 끌어내려야 한다.
-    private func dismissSheetByDraggingFromTop(_ app: XCUIApplication) {
-        let window = app.windows.firstMatch
-        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08))
-        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
-        start.press(forDuration: 0.05, thenDragTo: end)
+    /// 화면 가운데에서 아래로 쓸면 편집기 `ScrollView`가 제스처를 먹는다(측정으로
+    /// 확인했다). 내비게이션 바는 스크롤 뷰 밖이라 언제나 시트를 잡는다.
+    private func dismissSheetFromNavigationBar(_ app: XCUIApplication) {
+        if app.keyboards.element.exists {
+            app.swipeDown()
+            _ = app.keyboards.element.waitForNonExistence(timeout: 4)
+        }
+        // `firstMatch`는 시트 **뒤에 깔린** 화면의 막대를 집을 수 있다(측정으로 확인:
+        // 구장별 통계 상세 위에서 편집기를 열면 "구장별 통계" 막대가 먼저 잡혀
+        // 드래그가 시트에 닿지 않는다). 편집기 제목을 가진 막대를 먼저 찾고,
+        // 없으면 트리에서 가장 나중에 얹힌 막대를 쓴다.
+        let bars = app.navigationBars
+        XCTAssertTrue(waits(bars.firstMatch), "시트의 내비게이션 바를 찾지 못했다")
+        let titled = bars.matching(NSPredicate(
+            format: "identifier == %@ OR identifier == %@", "직관 기록 추가", "직관 기록 수정")).firstMatch
+        let bar = titled.exists ? titled : bars.element(boundBy: max(bars.count - 1, 0))
+        XCTAssertTrue(bar.exists, "시트의 내비게이션 바를 찾지 못했다")
+        let start = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 22))
+        start.press(forDuration: 0.1, thenDragTo: end)
     }
 
     private func capture(_ name: String) {
@@ -185,25 +197,34 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
 
     /// 홈 AI 진입. 최근 기록이 있으면 수정 모드, 없으면 생성 모드로 같은 편집기가 열린다.
     func testCapture02_homeAIPreflightEntry() {
-        let app = feedApp()
-        XCTAssertTrue(waits(node(app, "screen.feed")))
-        app.buttons["tab.home"].tap()
-        XCTAssertTrue(waits(node(app, "screen.home")))
-        // 실제 제품 컨트롤은 승리요정 지수 카드 안의 반짝 버튼이다.
-        // `VictoryFairyIndexCard`가 `accessibilityLabel("AI 직관 기록 도우미")`를 붙인다.
-        let aiButton = app.buttons["AI 직관 기록 도우미"].firstMatch
-        XCTAssertTrue(waits(aiButton), "AI 도우미 버튼을 찾지 못했다")
-        scrollIntoView(app, aiButton).tap()
-        let start = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@ OR label CONTAINS %@",
-                        "후기 초안 만들기", "최근 직관 다듬기", "첫 직관 기록하기")).firstMatch
-        XCTAssertTrue(waits(start), "AI 도우미 시트가 열리지 않았다")
-        start.tap()
-        let editing = app.staticTexts["직관 기록 수정"].waitForExistence(timeout: 12)
-        if !editing {
-            XCTAssertTrue(waits(app.staticTexts["직관 기록 추가"]), "AI 진입에서 편집기가 열리지 않았다")
+        // 홈 대시보드에 최근 기록이 있어야 승리요정 지수 카드와 AI 도우미가 나온다.
+        let app = launch(["-VFUITestInitialTab", "home", "-VFUITestFeedFixture", "populated"])
+        XCTAssertTrue(waits(node(app, "home.root")), "홈이 뜨지 않았다")
+
+        // 지연 생성되는 실제 제품 버튼. 먼저 스크롤로 올린 뒤에 찾는다.
+        let aiButton = app.buttons["AI 직관 기록 도우미"]
+        for _ in 0..<12 { if aiButton.exists, aiButton.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(aiButton.exists, "AI 도우미 버튼이 나타나지 않았다")
+        XCTAssertTrue(aiButton.isHittable, "AI 도우미 버튼을 누를 수 없다")
+        aiButton.tap()
+
+        XCTAssertTrue(waits(text(app, "AI가 직관 기록을 정리해드릴게요")), "AI 도우미 시트가 없다")
+        let startDraft = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@",
+                        "후기 초안 만들기", "최근 직관 다듬기")).firstMatch
+        XCTAssertTrue(waits(startDraft), "최근 기록용 초안 버튼이 없다")
+        startDraft.tap()
+
+        // 최근 기록을 다듬는 경로이므로 수정 모드다.
+        XCTAssertTrue(waits(app.staticTexts["직관 기록 수정"].firstMatch), "수정 모드로 열리지 않았다")
+        XCTAssertEqual(app.staticTexts.matching(identifier: "직관 기록 수정").count, 1, "편집기가 둘이다")
+        // `startsAIPreflightOnAppear`가 살아 있으면 사전 고지가 스스로 올라온다.
+        XCTAssertTrue(waits(text(app, "AI"), 10), "AI 사전 고지가 뜨지 않았다")
+        for forbidden in ["다음 · 그날의 디테일", "임시저장", "기록 완성하기", "0 / 500",
+                          "날씨", "먹은 것", "응원 준비물"] {
+            XCTAssertFalse(text(app, forbidden).exists, "\(forbidden)이 생겼다")
         }
-        capture("02-home-aiPreflight-\(editing ? "edit" : "create")")
+        capture("02-home-ai-preflight-edit")
     }
 
     // MARK: - 6~7 편집 상태
@@ -259,15 +280,27 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
 
     // MARK: - 13~14 좁은 폭 (SE3에서 실행할 때만 뜻이 있다)
 
+    /// 좁은 폭 두 장. SE 3에서 돌릴 때만 뜻이 있다.
     func testCapture13and14_compactAndKeyboard() {
         let app = feedApp()
+        let width = app.windows.firstMatch.frame.width
         openFeedCreate(app)
+        // 현재 폼이 실제로 보이는지 확인한 뒤 찍는다.
+        scrollIntoView(app, app.buttons["저장하기"].firstMatch)
+        app.swipeDown(); app.swipeDown()
+        XCTAssertFalse(app.keyboards.element.exists, "키보드가 떠 있는 채로 13번을 찍으려 한다")
         capture("13-compact-width")
+
         let seat = scrollIntoView(app, app.textFields["좌석"].firstMatch)
         seat.tap()
-        XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 8), "키보드가 올라오지 않았다")
+        XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 10), "키보드가 올라오지 않았다")
+        XCTAssertLessThan(seat.frame.maxY, app.keyboards.element.frame.minY + 0.5,
+                          "입력 필드가 키보드에 가렸다")
+        seat.typeText("좁은폭")
         capture("14-compact-keyboard")
+        XCTAssertTrue((seat.value as? String ?? "").contains("좁은폭"), "입력이 남지 않았다")
         if app.buttons["Return"].exists { app.buttons["Return"].tap() } else { app.swipeDown() }
+        print("CAPTURE_WIDTH \(width)")
     }
 
     // MARK: - 15 큰 글자
@@ -307,19 +340,34 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
     func testCapture18_cancellationPreservesTheRecord() {
         let app = feedApp()
         openRecordDetailEdit(app)
-        // 초안 값을 바꾼 뒤 저장하지 않고 닫는다.
-        let seat = scrollIntoView(app, app.textFields["좌석"].firstMatch)
-        seat.tap()
-        seat.typeText("취소확인")
-        if app.buttons["Return"].exists { app.buttons["Return"].tap() } else { app.swipeDown() }
-        _ = app.keyboards.element.waitForNonExistence(timeout: 6)
-        dismissSheetByDraggingFromTop(app)
 
+        // 원본 값을 기억한다.
+        let seatField = scrollIntoView(app, app.textFields["좌석"].firstMatch)
+        let originalSeat = seatField.value as? String ?? ""
+        XCTAssertFalse(originalSeat.isEmpty, "원본 좌석이 비어 있어 비교할 수 없다")
+
+        // 지속되는 초안 값을 바꾸고, 폼을 맨 위에서 떨어뜨린다.
+        seatField.tap()
+        seatField.typeText("취소확인")
+        if app.buttons["Return"].exists { app.buttons["Return"].tap() }
+        _ = app.keyboards.element.waitForNonExistence(timeout: 6)
+        app.swipeUp()
+        app.swipeUp()
+
+        dismissSheetFromNavigationBar(app)
+
+        XCTAssertTrue(app.staticTexts["직관 기록 수정"].waitForNonExistence(timeout: 10),
+                      "실제 이탈 동작으로 편집기를 닫지 못했다")
         XCTAssertTrue(waits(node(app, "recordDetail.root")), "취소 후 상세로 돌아오지 못했다")
-        XCTAssertTrue(app.staticTexts["직관 기록 수정"].waitForNonExistence(timeout: 8),
-                      "편집기가 남아 있다")
-        // 원본이 그대로다.
         XCTAssertFalse(text(app, "취소확인").exists, "취소했는데 원본이 바뀌었다")
-        capture("18-cancellation-record-unchanged")
+        capture("18-cancellation-return-state")
+
+        // 다시 열면 원래 값이 그대로다.
+        scrollIntoView(app, node(app, "recordDetail.edit")).tap()
+        assertEditorReadyForCapture(app, editing: true)
+        let reopened = scrollIntoView(app, app.textFields["좌석"].firstMatch)
+        XCTAssertEqual(reopened.value as? String ?? "", originalSeat, "취소한 값이 다시 살아났다")
+        dismissSheetFromNavigationBar(app)
+        XCTAssertTrue(waits(node(app, "recordDetail.root")))
     }
 }
