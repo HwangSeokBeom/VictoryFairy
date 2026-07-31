@@ -153,7 +153,7 @@ archive file linked from each entry — never paste a full report here.
 - Task: Record Create Step 2 — product decisions and staged visible layout
 - Branch: `feat/pencil-revision-v2`
 - Starting HEAD: `c29d580716c0f2cd36c9b2ca53fa0e76a222967c`
-- Ending HEAD: `__ENDING_HEAD__`
+- Ending HEAD: `d0e51b89fcf0f64c048493ac424bc05472e3885d`
 - Archive report: `docs/ai-reports/archive/2026-08-01_0331_record-create-step2-staged-layout_implemented.md`
 - Latest report: `docs/ai-reports/LATEST_REPORT.md`
 - Built: `RecordCreateStep2View` wired into the staged flow between Step 1 and the Step 3 boundary; still unrouted to users

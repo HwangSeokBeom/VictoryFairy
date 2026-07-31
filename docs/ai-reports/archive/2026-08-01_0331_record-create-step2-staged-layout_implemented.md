@@ -3,7 +3,7 @@
 REPORT_STATUS: RECORD_CREATE_STEP2_VISIBLE_LAYOUT_IMPLEMENTED_AND_VERIFIED
 REPORT_PROJECT_STATUS: PARTIAL_WITH_EXPLICIT_GAPS
 REPORT_BRANCH: feat/pencil-revision-v2
-REPORT_HEAD: 353ad617e357f2720e7e3e054f428828b81184e9
+REPORT_HEAD: d0e51b89fcf0f64c048493ac424bc05472e3885d
 REPORT_NEXT_PASS: RECORD_CREATE_STEP3_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT
 REPORT_STEP2_ROUTED_TO_USERS: NO
 
@@ -24,7 +24,7 @@ integration, Profile, Team Selector and the dedicated `09_States` frames remain.
 - Branch: `feat/pencil-revision-v2`
 - Date and time (Asia/Seoul): 2026-08-01 03:31 KST
 - HEAD at start: `c29d580716c0f2cd36c9b2ca53fa0e76a222967c`
-- HEAD at end: `353ad617e357f2720e7e3e054f428828b81184e9` (report commits follow)
+- HEAD at end: `d0e51b89fcf0f64c048493ac424bc05472e3885d` (plus one index commit)
 - `b42888adfe5e862ab71501bd4dc4277b3b1a25fd` preserved; the only commit after it at
   start was `c29d580 docs(ai): stamp the audit report ending HEAD` — a report/index
   workflow commit, as the prompt anticipated
