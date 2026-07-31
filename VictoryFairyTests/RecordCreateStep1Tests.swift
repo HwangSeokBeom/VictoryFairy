@@ -627,13 +627,20 @@ final class RecordCreateStep1GovernanceTests: XCTestCase {
         XCTAssertFalse(root.contains("Button(\"기록 작성 흐름\""), "사용자가 누를 수 있는 진입점이 생겼다")
     }
 
-    /// 2·3단계의 권위 있는 레이아웃은 아직 없다.
-    func testNoVisibleStep2Or3LayoutExists() throws {
+    /// 3단계의 권위 있는 레이아웃은 아직 없다.
+    ///
+    /// 2단계는 2026-08-01 패스에서 실제로 만들었으므로 그 문구는 이제 제품에 있다.
+    /// 어디에 있어야 하는지까지 함께 못박아, 다른 화면으로 새어 나가지 않게 한다.
+    func testNoVisibleStep3LayoutExistsAndStep2CopyStaysInStep2() throws {
         for entry in try productionSources() {
             let body = stripComments(entry.body)
-            for authored in ["그날의 디테일을 더해볼까요", "오늘의 이야기를 남겨주세요", "0 / 500"] {
+            for authored in ["오늘의 이야기를 남겨주세요", "0 / 500"] {
                 XCTAssertFalse(body.contains(authored),
-                               "\(entry.name)에 2·3단계 문구 \(authored)가 생겼다")
+                               "\(entry.name)에 3단계 문구 \(authored)가 생겼다")
+            }
+            if entry.name != "RecordCreateStep2View.swift" {
+                XCTAssertFalse(body.contains("그날의 디테일을 더해볼까요"),
+                               "\(entry.name)에 2단계 제목이 새어 나갔다")
             }
         }
         XCTAssertNil(RecordCreateStep.memory.next)

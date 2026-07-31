@@ -41,6 +41,10 @@
 		B1C2D3E4F5061728394A6B11 /* RecordCreateStep1UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A6B10 /* RecordCreateStep1UITests.swift */; };
 		B1C2D3E4F5061728394A6C11 /* RecordCreateStep1ResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A6C10 /* RecordCreateStep1ResponsiveUITests.swift */; };
 		B1C2D3E4F5061728394A6D11 /* RecordCreateStep1CaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A6D10 /* RecordCreateStep1CaptureUITests.swift */; };
+		B1C2D3E4F5061728394A7A11 /* RecordCreateStep2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A7A10 /* RecordCreateStep2Tests.swift */; };
+		B1C2D3E4F5061728394A7B11 /* RecordCreateStep2UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A7B10 /* RecordCreateStep2UITests.swift */; };
+		B1C2D3E4F5061728394A7C11 /* RecordCreateStep2ResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A7C10 /* RecordCreateStep2ResponsiveUITests.swift */; };
+		B1C2D3E4F5061728394A7D11 /* RecordCreateStep2CaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A7D10 /* RecordCreateStep2CaptureUITests.swift */; };
 		B1C2D3E4F5061728394A5D11 /* RecordCreateFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5D10 /* RecordCreateFoundationTests.swift */; };
 		B1C2D3E4F5061728394A5C11 /* FairyPlacementContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5C10 /* FairyPlacementContractTests.swift */; };
 		B1C2D3E4F5061728394A5C21 /* FairyPlacementUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5C20 /* FairyPlacementUITests.swift */; };
@@ -103,6 +107,10 @@
 		B1C2D3E4F5061728394A6B10 /* RecordCreateStep1UITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep1UITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A6C10 /* RecordCreateStep1ResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep1ResponsiveUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A6D10 /* RecordCreateStep1CaptureUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep1CaptureUITests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A7A10 /* RecordCreateStep2Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep2Tests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A7B10 /* RecordCreateStep2UITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep2UITests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A7C10 /* RecordCreateStep2ResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep2ResponsiveUITests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A7D10 /* RecordCreateStep2CaptureUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep2CaptureUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A5D10 /* RecordCreateFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateFoundationTests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A5C10 /* FairyPlacementContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FairyPlacementContractTests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A5C20 /* FairyPlacementUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FairyPlacementUITests.swift; sourceTree = "<group>"; };
@@ -201,6 +209,7 @@
 				A7B8C9D0E1F20314253647A8 /* TeamFairyContractTests.swift */,
 				B1C2D3E4F5061728394A5B60 /* StadiumFairyContractTests.swift */,
 				B1C2D3E4F5061728394A6A10 /* RecordCreateStep1Tests.swift */,
+				B1C2D3E4F5061728394A7A10 /* RecordCreateStep2Tests.swift */,
 				B1C2D3E4F5061728394A5D10 /* RecordCreateFoundationTests.swift */,
 				B1C2D3E4F5061728394A5C10 /* FairyPlacementContractTests.swift */,
 				C2D3E4F506172839405B6C70 /* AppIconContractTests.swift */,
@@ -228,6 +237,9 @@
 				B1C2D3E4F5061728394A6B10 /* RecordCreateStep1UITests.swift */,
 				B1C2D3E4F5061728394A6C10 /* RecordCreateStep1ResponsiveUITests.swift */,
 				B1C2D3E4F5061728394A6D10 /* RecordCreateStep1CaptureUITests.swift */,
+				B1C2D3E4F5061728394A7B10 /* RecordCreateStep2UITests.swift */,
+				B1C2D3E4F5061728394A7C10 /* RecordCreateStep2ResponsiveUITests.swift */,
+				B1C2D3E4F5061728394A7D10 /* RecordCreateStep2CaptureUITests.swift */,
 				B1C2D3E4F5061728394A5F10 /* RecordCreateRouteRepairUITests.swift */,
 				B1C2D3E4F5061728394A5E20 /* RecordCreateFoundationCaptureUITests.swift */,
 				B1C2D3E4F5061728394A5E10 /* RecordCreateFoundationResponsiveUITests.swift */,
@@ -403,6 +415,9 @@
 				B1C2D3E4F5061728394A6B11 /* RecordCreateStep1UITests.swift in Sources */,
 				B1C2D3E4F5061728394A6C11 /* RecordCreateStep1ResponsiveUITests.swift in Sources */,
 				B1C2D3E4F5061728394A6D11 /* RecordCreateStep1CaptureUITests.swift in Sources */,
+				B1C2D3E4F5061728394A7B11 /* RecordCreateStep2UITests.swift in Sources */,
+				B1C2D3E4F5061728394A7C11 /* RecordCreateStep2ResponsiveUITests.swift in Sources */,
+				B1C2D3E4F5061728394A7D11 /* RecordCreateStep2CaptureUITests.swift in Sources */,
 				B1C2D3E4F5061728394A5F11 /* RecordCreateRouteRepairUITests.swift in Sources */,
 				B1C2D3E4F5061728394A5E21 /* RecordCreateFoundationCaptureUITests.swift in Sources */,
 				B1C2D3E4F5061728394A5E11 /* RecordCreateFoundationResponsiveUITests.swift in Sources */,
@@ -434,6 +449,7 @@
 				A7B8C9D0E1F20314253647A9 /* TeamFairyContractTests.swift in Sources */,
 				B1C2D3E4F5061728394A5B61 /* StadiumFairyContractTests.swift in Sources */,
 				B1C2D3E4F5061728394A6A11 /* RecordCreateStep1Tests.swift in Sources */,
+				B1C2D3E4F5061728394A7A11 /* RecordCreateStep2Tests.swift in Sources */,
 				B1C2D3E4F5061728394A5D11 /* RecordCreateFoundationTests.swift in Sources */,
 				B1C2D3E4F5061728394A5C11 /* FairyPlacementContractTests.swift in Sources */,
 				C2D3E4F506172839405B6C71 /* AppIconContractTests.swift in Sources */,
