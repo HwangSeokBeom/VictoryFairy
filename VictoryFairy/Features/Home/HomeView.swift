@@ -18,7 +18,8 @@ struct HomeView: View {
     let viewModel: HomeViewModel
     @State private var isShowingLogEditor = false
     @State private var isShowingAIHelper = false
-    @State private var isShowingAIDraftEditor = false
+    /// AI 초안을 다듬을 최근 기록. 값이 있을 때만 편집기 시트가 열린다.
+    @State private var aiDraftEditorLog: AttendanceLogViewState?
 
     private var team: KBOTeam? { preferences.favoriteTeam }
     private var primaryStadium: KBOStadium? { preferences.primaryStadium }
@@ -65,7 +66,7 @@ struct HomeView: View {
                 recentLog: latestLog,
                 onStartDraft: {
                     isShowingAIHelper = false
-                    DispatchQueue.main.async { isShowingAIDraftEditor = true }
+                    DispatchQueue.main.async { aiDraftEditorLog = latestLog }
                 },
                 onAddLog: {
                     isShowingAIHelper = false
@@ -75,13 +76,13 @@ struct HomeView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isShowingAIDraftEditor) {
+        // 최근 기록이 있을 때만 열린다. 예전에는 없을 때를 위한 생성 모드 가지가
+        // 있었지만, 그 가지는 도달할 수 없었다 — 승리요정 지수 카드 자체가
+        // `dashboard.isEmpty`가 아닐 때만 그려지고, 그 조건이 곧 "최근 기록이 있다"다.
+        // 기록이 없을 때의 동선은 홈의 "오늘의 직관 남기기"가 이미 갖고 있다.
+        .sheet(item: $aiDraftEditorLog) { log in
             NavigationStack {
-                if let latestLog {
-                    LogEditorView(editingLog: latestLog, startsAIPreflightOnAppear: true)
-                } else {
-                    LogEditorView()
-                }
+                LogEditorView(editingLog: log, startsAIPreflightOnAppear: true)
             }
         }
         .vfScreenBackground()

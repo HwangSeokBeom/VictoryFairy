@@ -639,7 +639,9 @@ final class RecordCreateFoundationTests: XCTestCase {
         }
         // 미리보기를 뺀 제품 호출부.
         let production = callSites.filter { !$0.hasPrefix("LogEditorView.swift") }
-        XCTAssertEqual(production.count, 8, "진입점 수가 달라졌다: \(production)")
+        // 일곱 곳이다. 예전에는 홈 AI 시트 안에 최근 기록이 없을 때를 위한 여덟 번째
+        // 호출부가 있었지만 구조적으로 도달할 수 없어 걷어냈다.
+        XCTAssertEqual(production.count, 7, "진입점 수가 달라졌다: \(production)")
         XCTAssertTrue(production.contains { $0.contains("LogEditorView(initialDate:") }, "캘린더 진입점이 사라졌다")
         XCTAssertTrue(production.contains { $0.contains("LogEditorView(editingLog:") }, "수정 진입점이 사라졌다")
         XCTAssertTrue(production.contains { $0.contains("startsAIPreflightOnAppear: true") }, "AI 사전 진입점이 사라졌다")
