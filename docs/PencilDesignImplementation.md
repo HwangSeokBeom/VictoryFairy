@@ -2584,6 +2584,8 @@ iPhone SE 3세대(375pt, iOS 26.3)에서 `RecordCreateFoundationResponsiveUITest
   경계에 `.contain`을 더해 `recordCreate.back`을 살렸다.
 - 숫자 키패드가 떠 있는 동안에는 사라진 입력 칸이 첫 응답자로 트리에 남는다.
   결과를 바꾸기 전에 키패드를 내려야 한다.
+- `DatePicker`는 초기화에 준 이름을 스스로 접근성 라벨로 갖는다. 거기에 라벨을 또
+  붙이면 "경기 날짜, 경기 날짜"로 두 번 읽힌다(2026-08-01 감사에서 실측·수정).
 
 ### KBO 추천 · 티켓 OCR 경계
 
