@@ -94,6 +94,18 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         }
     }
 
+    /// 시트를 실제 사용자 동작으로 내린다.
+    ///
+    /// 화면 가운데에서 아래로 쓸면 편집기 `ScrollView`가 그 제스처를 먹어 버려
+    /// 폼만 스크롤된다(측정으로 확인했다). 시트를 잡으려면 콘텐츠 위쪽,
+    /// 내비게이션 바 바로 아래에서 끌어내려야 한다.
+    private func dismissSheetByDraggingFromTop(_ app: XCUIApplication) {
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+        start.press(forDuration: 0.05, thenDragTo: end)
+    }
+
     private func capture(_ name: String) {
         usleep(900_000)
         let shot = XCUIScreen.main.screenshot()
@@ -177,10 +189,11 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         XCTAssertTrue(waits(node(app, "screen.feed")))
         app.buttons["tab.home"].tap()
         XCTAssertTrue(waits(node(app, "screen.home")))
-        let indexCard = app.buttons.containing(
-            NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "승리요정 지수", "지수")).firstMatch
-        XCTAssertTrue(waits(indexCard), "승리요정 지수 카드를 찾지 못했다")
-        scrollIntoView(app, indexCard).tap()
+        // 실제 제품 컨트롤은 승리요정 지수 카드 안의 반짝 버튼이다.
+        // `VictoryFairyIndexCard`가 `accessibilityLabel("AI 직관 기록 도우미")`를 붙인다.
+        let aiButton = app.buttons["AI 직관 기록 도우미"].firstMatch
+        XCTAssertTrue(waits(aiButton), "AI 도우미 버튼을 찾지 못했다")
+        scrollIntoView(app, aiButton).tap()
         let start = app.buttons.containing(
             NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@ OR label CONTAINS %@",
                         "후기 초안 만들기", "최근 직관 다듬기", "첫 직관 기록하기")).firstMatch
@@ -299,7 +312,8 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         seat.tap()
         seat.typeText("취소확인")
         if app.buttons["Return"].exists { app.buttons["Return"].tap() } else { app.swipeDown() }
-        app.swipeDown(velocity: .fast)
+        _ = app.keyboards.element.waitForNonExistence(timeout: 6)
+        dismissSheetByDraggingFromTop(app)
 
         XCTAssertTrue(waits(node(app, "recordDetail.root")), "취소 후 상세로 돌아오지 못했다")
         XCTAssertTrue(app.staticTexts["직관 기록 수정"].waitForNonExistence(timeout: 8),

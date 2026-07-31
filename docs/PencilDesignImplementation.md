@@ -2345,3 +2345,52 @@ Release에 닿는 코드도 없다.
 제품 소스가 바뀌지 않았으므로 앞선 패스의 아카이브
 `/tmp/VictoryFairy-archives/VictoryFairy-RecordCreate-Foundation.xcarchive`가
 여전히 유효한 제품 바이너리 증거다. 새 아카이브를 만들었다고 말하지 않는다.
+
+### 검증 마무리 — 1단계 분류 결과 (미완)
+
+기준 HEAD `d4aebe86a903e4da9de68294760815b7aa0f0cc9`. 제품 소스는 여전히 바꾸지
+않았다.
+
+**홈 AI 진입 — `TEST_USED_WRONG_TRIGGER`.**
+실제 제품 컨트롤은 "승리요정 지수" 섹션 헤더도 카드 자체도 아니다.
+`VictoryFairyIndexCard`(`SharedComponents/VFComponents.swift:177`) 안의 반짝
+아이콘 버튼이고, `accessibilityLabel("AI 직관 기록 도우미")`가 붙어 있다.
+`HomeView`가 이 버튼의 `aiAction`으로 `isShowingAIHelper = true`를 걸고, 그 시트가
+최근 기록 유무에 따라 `LogEditorView(editingLog:startsAIPreflightOnAppear: true)`
+또는 `LogEditorView()`를 연다. 테스트를 그 버튼으로 고쳤지만, 요소가 지연 생성되어
+스크롤 전에는 트리에 없어서 아직 통과하지 못한다 — 기다리기 전에 먼저 스크롤해야
+한다. 제품 결함이 아니다.
+
+**취소 — `NESTED_SCROLL_CAPTURED_GESTURE`.**
+`RecordDetailViews.swift:97`의 시트에는 `interactiveDismissDisabled`도 detent도
+드래그 인디케이터도 없다. 화면 가운데에서 아래로 쓸면 편집기 `ScrollView`가 그
+제스처를 먹어 폼만 스크롤된다. 기존 `testD33_cancellingTheEditorPreservesTheDetail`이
+통과하는 이유는 그 시점에 폼이 맨 위에 있기 때문이다. 콘텐츠 위쪽에서 끌어내리는
+방식으로 고쳤지만 아직 시트가 내려가지 않는다. 사용자 이탈 결함인지 제스처 좌표
+문제인지는 **아직 확정하지 못했다**.
+
+**시즌 아카이브 두 경로 — 둘 다 `CONDITION_CAN_NEVER_BE_TRUE`.**
+`StatisticsViews.swift:1068`과 `:1121`의 편집기 버튼은 각각
+`StadiumStatsView`/`OpponentStatsView`의 `stats.isEmpty` 가지 안에만 있다.
+그런데 `StatisticsService.groupedStats`는 빈 이름도 걸러내지 않고 모든 기록을
+묶으므로, `stats`가 비는 경우는 기록이 아예 없을 때뿐이다. 기록이 없으면
+`stadiumVisits`도 비어 `mostVisitedStadium.isAvailable == false`가 되고,
+`highlightRow`의 `NavigationLink`가 `.disabled(true)`가 되어 그 화면에 들어갈 수
+없다. 즉 두 버튼은 **사용자가 도달할 수 없는 죽은 경로**다.
+`StadiumStatsView(`/`OpponentStatsView(` 호출부는 각각 한 곳뿐이라 다른 진입도 없다.
+
+이것은 진짜 제품 결함이지만, 고치려면 "분석 화면을 언제 열 수 있는가"라는 완료된
+시즌 아카이브 화면의 상호작용 결정을 바꿔야 한다. 이 마무리 패스의 "가장 좁은 수정"
+범위를 넘어서므로 결함으로 기록만 하고 손대지 않았다.
+
+### 아직 닫지 못한 것 (갱신)
+
+- 캡처 02·18 — 위 분류대로 테스트를 고쳤으나 아직 통과하지 못했다
+- 시즌 아카이브 두 편집기 경로 — 죽은 경로로 확인, 수정 보류
+- iPhone SE 3세대에서의 좁은 폭 12개와 키보드 2개
+- SE 3에서 다시 찍어야 하는 캡처 13·14
+- 새로 고친 Statistics 회귀
+- 새로 고친 Onboarding 회귀
+- 전체 UI 스위트
+- Debug/Release 빌드, `verify_app_icon.sh`, `verify_release_readiness.sh`
+- 재사용 아카이브 경로 확인과 픽스처 제외 게이트 양방향 실행
