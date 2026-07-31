@@ -18,6 +18,8 @@
 		4F2C5F179E27553441A35775 /* StatisticsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4106100B4A4101A8E056261 /* StatisticsUITests.swift */; };
 		523159EDCAAE182884692100 /* FeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 884FCE4AF2F372E5B3D7A18B /* FeedTests.swift */; };
 		5362641498F569B0572DF2C6 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62870DA56EA814F915135D87 /* OnboardingUITests.swift */; };
+		B1C2D3E4F5061728394A5E21 /* RecordCreateFoundationCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5E20 /* RecordCreateFoundationCaptureUITests.swift */; };
+		B1C2D3E4F5061728394A5E11 /* RecordCreateFoundationResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5E10 /* RecordCreateFoundationResponsiveUITests.swift */; };
 		5B8F3BCED41B7F81EA51FD2A /* StatisticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744823863FF6CDACE46FBC27 /* StatisticsTests.swift */; };
 		5BD2CA924539750A580D6EDA /* NavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6A286C7629719131BF3239 /* NavigationUITests.swift */; };
 		6DDE89DA19B86E23B8D7B616 /* HomeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B37B408959F96857281923 /* HomeTests.swift */; };
@@ -77,6 +79,8 @@
 		433F7F014F5DA9A079CB2847 /* RecordDetailUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordDetailUITests.swift; sourceTree = "<group>"; };
 		4AC4BE8C8CAD463FB13F2F55 /* CalendarDaySemanticsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalendarDaySemanticsTests.swift; sourceTree = "<group>"; };
 		62870DA56EA814F915135D87 /* OnboardingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A5E20 /* RecordCreateFoundationCaptureUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateFoundationCaptureUITests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A5E10 /* RecordCreateFoundationResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateFoundationResponsiveUITests.swift; sourceTree = "<group>"; };
 		637832E7D53D612C22399DF1 /* CalendarResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalendarResponsiveUITests.swift; sourceTree = "<group>"; };
 		6BC414C19EE8BD954425D1D8 /* RecordDetailResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordDetailResponsiveUITests.swift; sourceTree = "<group>"; };
 		71C6F5BC47D1ECBD1865320A /* CalendarTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalendarTests.swift; sourceTree = "<group>"; };
@@ -210,6 +214,8 @@
 			children = (
 				0B6A286C7629719131BF3239 /* NavigationUITests.swift */,
 				62870DA56EA814F915135D87 /* OnboardingUITests.swift */,
+				B1C2D3E4F5061728394A5E20 /* RecordCreateFoundationCaptureUITests.swift */,
+				B1C2D3E4F5061728394A5E10 /* RecordCreateFoundationResponsiveUITests.swift */,
 				B1C2D3E4F5061728394A5C40 /* FairyPlacementCaptureUITests.swift */,
 				B1C2D3E4F5061728394A5C30 /* FairyPlacementResponsiveUITests.swift */,
 				B1C2D3E4F5061728394A5C20 /* FairyPlacementUITests.swift */,
@@ -379,6 +385,8 @@
 			files = (
 				5BD2CA924539750A580D6EDA /* NavigationUITests.swift in Sources */,
 				5362641498F569B0572DF2C6 /* OnboardingUITests.swift in Sources */,
+				B1C2D3E4F5061728394A5E21 /* RecordCreateFoundationCaptureUITests.swift in Sources */,
+				B1C2D3E4F5061728394A5E11 /* RecordCreateFoundationResponsiveUITests.swift in Sources */,
 				B1C2D3E4F5061728394A5C41 /* FairyPlacementCaptureUITests.swift in Sources */,
 				B1C2D3E4F5061728394A5C31 /* FairyPlacementResponsiveUITests.swift in Sources */,
 				B1C2D3E4F5061728394A5C21 /* FairyPlacementUITests.swift in Sources */,
