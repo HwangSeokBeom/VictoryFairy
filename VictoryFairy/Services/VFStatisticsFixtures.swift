@@ -89,6 +89,14 @@ enum VFStatisticsFixtures {
                 record(seed: 44, month: 4, day: 12, result: .win, ours: 6, theirs: 3, stadium: ""),
                 record(seed: 45, month: 4, day: 19, result: .win, ours: 4, theirs: 1, stadium: "")
             ]
+        case .noOpponent:
+            // 대진이 적히지 않은 기록. 상대팀 이름을 지어내지 않으므로 상대팀 통계는
+            // 0건이 되고, 구장은 그대로 남아 구장 분석은 정상으로 계산된다.
+            return [
+                record(seed: 46, month: 4, day: 6, result: .win, ours: 5, theirs: 2, matchup: ""),
+                record(seed: 47, month: 4, day: 13, result: .loss, ours: 1, theirs: 4, matchup: ""),
+                record(seed: 48, month: 4, day: 20, result: .win, ours: 7, theirs: 3, matchup: "")
+            ]
         case .missingScore:
             return [
                 record(seed: 46, month: 4, day: 5, result: .loss, ours: nil, theirs: nil),

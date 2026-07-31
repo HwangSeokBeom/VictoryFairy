@@ -347,6 +347,8 @@ enum VFUITestConfiguration {
         case insufficientData
         /// 구장이 적히지 않은 기록.
         case noStadium
+        /// 대진이 적히지 않은 기록. 상대팀 통계가 0건이 된다.
+        case noOpponent
         /// 점수가 적히지 않은 기록.
         case missingScore
         case winOnly

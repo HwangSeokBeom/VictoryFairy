@@ -26,7 +26,7 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
     }
 
     private func text(_ app: XCUIApplication, _ needle: String) -> XCUIElement {
-        app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", needle)).firstMatch
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", needle)).firstMatch
     }
 
     private func launch(_ extra: [String]) -> XCUIApplication {
@@ -114,7 +114,7 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
 
         // 실제 AI 도우미 시트.
         XCTAssertTrue(waits(text(app, "AI가 직관 기록을 정리해드릴게요")), "AI 도우미 시트가 없다")
-        let startDraft = app.buttons.containing(
+        let startDraft = app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@",
                         "후기 초안 만들기", "최근 직관 다듬기")).firstMatch
         XCTAssertTrue(waits(startDraft), "최근 기록용 초안 버튼이 없다")
@@ -134,13 +134,12 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
         }
     }
 
-    /// 최근 기록이 없을 때 홈이 어떤 상태인지 확인한다.
+    /// 기록이 0건이면 AI 도우미가 없다 — 의도된 데이터 의존 부재다.
     ///
-    /// `fairyIndexSection`은 `dashboard.isEmpty`가 아닐 때만 그려지고, 대시보드가
-    /// 비는 조건과 최근 기록이 없는 조건이 같다. 그래서 기록이 0건이면 AI 도우미
-    /// 버튼 자체가 없고, `HomeView`의 "최근 기록 없음 → 생성 모드" 가지에 닿을 수
-    /// 없다. 이 테스트는 그 사실을 못박아 둔다 — 나중에 도달 가능해지면 실패해서
-    /// 알려 준다.
+    /// 승리요정 지수는 기록에서 계산하는 통계이고 카드도 `dashboard.isEmpty`가
+    /// 아닐 때만 그려진다. 데이터가 없는데 지수를 보여 주면 없는 사실을 지어내는
+    /// 것이 된다. 그래서 "최근 기록 없음 → 생성 모드" 가지는 걷어냈고, 기록이 없을
+    /// 때의 동선은 홈의 "오늘의 직관 남기기"가 갖는다.
     func testHomeAIPreflightWithoutRecentRecordHasNoHelperEntry() {
         let app = launch(["-VFUITestInitialTab", "feed", "-VFUITestFeedFixture", "empty"])
         XCTAssertTrue(waits(node(app, "screen.feed")))
@@ -149,7 +148,7 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
 
         for _ in 0..<12 { app.swipeUp() }
         XCTAssertFalse(app.buttons["AI 직관 기록 도우미"].exists,
-                       "기록이 0건인데 AI 도우미 버튼이 생겼다 — 도달 가능해졌다면 생성 모드 검증을 추가해야 한다")
+                       "기록이 0건인데 AI 도우미 버튼이 생겼다 — 지수를 지어내고 있다")
         // 표준 생성 동선은 그대로 살아 있다.
         for _ in 0..<12 where !node(app, "home.recordCTA").isHittable { app.swipeDown() }
         XCTAssertTrue(node(app, "home.recordCTA").exists, "표준 생성 진입점까지 사라졌다")
@@ -241,7 +240,7 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
         scrollIntoView(app, row).tap()
 
         XCTAssertTrue(waits(text(app, "아직 구장별 통계가 없어요")), "구장 상세의 빈 상태가 없다")
-        let cta = app.buttons.containing(
+        let cta = app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "첫 직관 기록하기")).firstMatch
         scrollIntoView(app, cta).tap()
 
@@ -256,16 +255,29 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
     }
 
     /// 통계가 0건이어도 상대팀 상세로 들어갈 수 있고, 그 빈 상태의 기록 추가가 열린다.
-    /// 상대팀 상세도 요약 값과 무관하게 들어갈 수 있다.
+    /// 상대팀 통계가 0건이어도 상세로 들어갈 수 있고, 그 빈 상태의 기록 추가가 열린다.
     ///
-    /// 지금 픽스처 가운데 상대팀 통계가 0건이 되는 것이 없어서(모든 기록에 상대팀이
-    /// 적혀 있다) 빈 상태 자체는 여기서 확인하지 못한다. 확인하는 것은 **잠기지
-    /// 않는다**는 것 — 예전에는 요약 값이 없으면 줄 자체가 비활성이었다.
-    func testOpponentDetailIsReachableRegardlessOfSummaryValue() {
-        let app = openStatistics("noStadium")
+    /// `noOpponent` 픽스처는 대진이 적히지 않은 기록만 담는다. 상대팀 이름을
+    /// 지어내지 않으므로 상대팀 통계가 정직하게 0건이 된다.
+    func testOpponentDetailIsReachableWithZeroStatistics() {
+        let app = openStatistics("noOpponent")
         let row = node(app, "statistics.highlight.mostFacedOpponent")
         scrollIntoView(app, row).tap()
-        XCTAssertTrue(waits(app.navigationBars["상대팀별 통계"]), "상대팀 상세로 들어가지 못했다")
+
+        XCTAssertTrue(waits(text(app, "아직 상대팀별 통계가 없어요")), "상대팀 상세의 빈 상태가 없다")
+        let cta = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "첫 직관 기록하기")).firstMatch
+        scrollIntoView(app, cta).tap()
+
+        assertEditorIsOpen(app, editing: false)
+        // 상대팀을 지어내지 않는다.
+        for fabricated in ["KIA 타이거즈", "LG 트윈스", "두산 베어스"] {
+            XCTAssertFalse(text(app, fabricated).exists, "없는 상대팀 \(fabricated)을 지어냈다")
+        }
+
+        dismissSheetFromNavigationBar(app)
+        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10))
+        XCTAssertTrue(waits(text(app, "아직 상대팀별 통계가 없어요")), "취소 후 상대팀 상세로 돌아오지 못했다")
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(waits(node(app, "statistics.root")), "뒤로 가기가 되지 않는다")
     }

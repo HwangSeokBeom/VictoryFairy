@@ -143,7 +143,7 @@ echo "── 시나리오 이름 (시즌 아카이브)"
 # 나올 수 있는 토큰은 이 검사에 쓸 수 없다 — 거짓 실패만 만든다.
 for scenario in \
   referenceSeason multipleSeasons previousSeason oneRecord \
-  noStadium missingScore winOnly lossOnly drawOnly \
+  noStadium noOpponent missingScore winOnly lossOnly drawOnly \
   cancelledOnly mixedResults allStadiums
 do
   absent "$scenario" "시나리오 '$scenario'가 없다"
