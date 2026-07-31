@@ -200,11 +200,16 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         }
 
         // 필수 정보 카드의 컨트롤.
+        //
+        // 부분 일치는 쓰지 않는다. 시트 뒤 피드 카드의 라벨
+        // ("… 잠실야구장 · 3루 원정석 · 엄마랑")이 "구장"을 품고 있어서, 부분 일치는
+        // 편집기의 구장 메뉴 대신 그 카드를 집어 온다(SE 3에서 실제로 그랬다).
+        // 메뉴 라벨은 제목으로 시작하므로 앞부분 일치로 좁힌다.
         let opponentMenu = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "상대팀")).firstMatch
+            NSPredicate(format: "label BEGINSWITH %@", "상대팀")).firstMatch
         assertInsideScreen(scrollIntoView(app, opponentMenu, file: file, line: line), "상대팀 메뉴")
         let stadiumMenu = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "구장")).firstMatch
+            NSPredicate(format: "label BEGINSWITH %@", "구장")).firstMatch
         assertInsideScreen(scrollIntoView(app, stadiumMenu, file: file, line: line), "구장 메뉴")
         // 경기 결과 네 버튼.
         for result in ["승", "패", "무", "취소"] {
@@ -214,7 +219,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
 
         // 사진 카드 · 선택 정보 카드.
         let addPhoto = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "사진 추가")).firstMatch
+            NSPredicate(format: "label BEGINSWITH %@", "사진 추가")).firstMatch
         assertInsideScreen(scrollIntoView(app, addPhoto, file: file, line: line), "사진 추가")
         assertInsideScreen(scrollIntoView(app, app.textFields["좌석"].firstMatch, file: file, line: line), "좌석")
         assertInsideScreen(scrollIntoView(app, app.textFields["한 줄 메모"].firstMatch, file: file, line: line), "한 줄 메모")
