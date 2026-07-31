@@ -157,12 +157,12 @@ final class FairyPlacementUITests: XCTestCase {
         // 서로 다른 두 팀으로 같은 화면을 만든다. 표본이 박혀 있으면 둘이 같아진다.
         let first = completeOnboarding(launch(arguments: []), team: "nc-dinos", stadium: "changwon-nc")
         XCTAssertTrue(first.staticTexts["준비됐어요"].exists, "완료 제목이 없다")
-        let firstSummary = first.staticTexts.containing(
+        let firstSummary = first.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "NC 다이노스")
         ).firstMatch
         XCTAssertTrue(firstSummary.exists, "고른 팀이 완료 화면에 없다")
         XCTAssertFalse(
-            first.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "삼성")).firstMatch.exists,
+            first.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "삼성")).firstMatch.exists,
             "Pencil 표본 팀이 나타났다"
         )
         // 탭바는 온보딩 중에 뜨지 않는다.
@@ -171,7 +171,7 @@ final class FairyPlacementUITests: XCTestCase {
 
         let second = completeOnboarding(launch(arguments: []), team: "kt-wiz", stadium: "suwon-kt")
         XCTAssertTrue(
-            second.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "KT 위즈")).firstMatch.exists,
+            second.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "KT 위즈")).firstMatch.exists,
             "두 번째 팀이 반영되지 않았다"
         )
         // 완료 화면의 두 페어리는 스크롤 컨테이너 안이라 접근성 트리에 요소로

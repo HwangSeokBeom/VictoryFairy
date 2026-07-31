@@ -42,7 +42,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
     /// 부분 일치. 화면 뒤에 남아 있는 발표 화면의 글자까지 잡을 수 있으므로,
     /// 편집기 안의 라벨을 찾을 때는 아래 `exactText`를 쓴다.
     private func text(_ app: XCUIApplication, _ needle: String) -> XCUIElement {
-        app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", needle)).firstMatch
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", needle)).firstMatch
     }
 
     /// 편집기 안에서 정확히 일치하는 라벨.
@@ -194,7 +194,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         let aiButton = app.buttons["AI 직관 기록 도우미"].firstMatch
         XCTAssertTrue(waits(aiButton), "AI 도우미 버튼을 찾지 못했다")
         scrollIntoView(app, aiButton).tap()
-        let start = app.buttons.containing(
+        let start = app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@ OR label CONTAINS %@",
                         "후기 초안 만들기", "최근 직관 다듬기", "첫 직관 기록하기")).firstMatch
         XCTAssertTrue(waits(start), "AI 도우미 시트가 열리지 않았다")
@@ -223,7 +223,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         let ocr = feedApp()
         openFeedCreate(ocr)
         scrollIntoView(ocr, ocr.buttons["티켓으로 작성하기"].firstMatch).tap()
-        _ = waits(ocr.staticTexts.containing(
+        _ = waits(ocr.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "티켓")).firstMatch, 8)
         capture("08-ticketOCR-entry")
         ocr.terminate()
@@ -236,7 +236,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
 
         let ai = feedApp()
         openFeedCreate(ai)
-        scrollIntoView(ai, ai.buttons.containing(
+        scrollIntoView(ai, ai.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "AI로 후기 초안 만들기")).firstMatch)
         capture("10-aiDiary-entry")
         ai.terminate()
@@ -284,7 +284,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         let invalid = feedApp()
         openFeedCreate(invalid)
         scrollIntoView(invalid, invalid.buttons["저장하기"].firstMatch).tap()
-        let warning = invalid.staticTexts.containing(
+        let warning = invalid.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 8), "검증 안내가 뜨지 않았다")
         scrollIntoView(invalid, warning)

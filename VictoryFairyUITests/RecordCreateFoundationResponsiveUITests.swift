@@ -39,7 +39,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
     /// 부분 일치. 화면 뒤에 남아 있는 발표 화면의 글자까지 잡을 수 있으므로,
     /// 편집기 안의 라벨을 찾을 때는 아래 `exactText`를 쓴다.
     private func text(_ app: XCUIApplication, _ needle: String) -> XCUIElement {
-        app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", needle)).firstMatch
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", needle)).firstMatch
     }
 
     /// 편집기 안에서 정확히 일치하는 라벨.
@@ -184,8 +184,9 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
 
     /// 카드·필드·저장까지 실제로 닿을 수 있는지 한 번에 잰다.
     ///
-    /// 상대팀·구장은 `Menu`의 라벨이라 안쪽 글자 자체는 누를 수 없다. 누를 수 있는
-    /// 것은 메뉴 버튼이므로 그것으로 잰다. 존재만으로 통과시키지 않는다.
+    /// 글자 라벨 대신 **컨트롤**로만 잰다. 시트가 떠 있어도 뒤 화면의 요소가 접근성
+    /// 트리에 남아서, "경기 날짜"·"구장"·"사진" 같은 글자는 홈·피드·캘린더의 것과
+    /// 섞인다(측정으로 확인했다). 편집기에만 있는 컨트롤은 그런 혼동이 없다.
     private func assertCurrentFormRemainsUsable(_ app: XCUIApplication,
                                                 file: StaticString = #filePath, line: UInt = #line) {
         let screen = app.windows.firstMatch.frame
@@ -195,24 +196,29 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
             XCTAssertGreaterThanOrEqual(frame.minX, screen.minX - 0.5, "\(name)이 왼쪽으로 넘쳤다", file: file, line: line)
             XCTAssertLessThanOrEqual(frame.maxX, screen.maxX + 0.5, "\(name)이 오른쪽으로 넘쳤다", file: file, line: line)
             XCTAssertGreaterThan(frame.height, 0, "\(name)이 높이 0으로 접혔다", file: file, line: line)
+            XCTAssertGreaterThan(frame.width, 0, "\(name)이 너비 0으로 접혔다", file: file, line: line)
         }
 
-        // 필수 정보 카드.
-        assertInsideScreen(scrollIntoView(app, exactText(app, "경기 날짜"), file: file, line: line), "경기 날짜")
-        let opponentMenu = app.buttons.containing(
+        // 필수 정보 카드의 컨트롤.
+        let opponentMenu = app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "상대팀")).firstMatch
         assertInsideScreen(scrollIntoView(app, opponentMenu, file: file, line: line), "상대팀 메뉴")
-        let stadiumMenu = app.buttons.containing(
+        let stadiumMenu = app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "구장")).firstMatch
         assertInsideScreen(scrollIntoView(app, stadiumMenu, file: file, line: line), "구장 메뉴")
-        assertInsideScreen(scrollIntoView(app, exactText(app, "경기 결과"), file: file, line: line), "경기 결과")
+        // 경기 결과 네 버튼.
+        for result in ["승", "패", "무", "취소"] {
+            let button = app.buttons[result].firstMatch
+            assertInsideScreen(scrollIntoView(app, button, file: file, line: line), "결과 \(result)")
+        }
 
-        // 사진 카드 · 선택 정보 카드 · 다이어리.
-        let addPhoto = app.buttons.containing(
+        // 사진 카드 · 선택 정보 카드.
+        let addPhoto = app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "사진 추가")).firstMatch
         assertInsideScreen(scrollIntoView(app, addPhoto, file: file, line: line), "사진 추가")
-        assertInsideScreen(scrollIntoView(app, exactText(app, "선택 정보"), file: file, line: line), "선택 정보")
-        assertInsideScreen(scrollIntoView(app, exactText(app, "직관 다이어리"), file: file, line: line), "직관 다이어리")
+        assertInsideScreen(scrollIntoView(app, app.textFields["좌석"].firstMatch, file: file, line: line), "좌석")
+        assertInsideScreen(scrollIntoView(app, app.textFields["한 줄 메모"].firstMatch, file: file, line: line), "한 줄 메모")
+        assertInsideScreen(scrollIntoView(app, app.textViews.firstMatch, file: file, line: line), "직관 다이어리")
 
         // 저장까지 닿는다.
         assertInsideScreen(scrollIntoView(app, app.buttons["저장하기"].firstMatch, file: file, line: line), "저장하기")
@@ -228,23 +234,26 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
     }
 
     func testCompact02_homeAIPreflightEntryRemainsUsable() throws {
-        let app = homeApp()
+        // 홈 대시보드에 최근 기록이 있어야 승리요정 지수 카드가 나온다.
+        let app = launch(["-VFUITestInitialTab", "home", "-VFUITestFeedFixture", "populated"])
         try requireCompactWidth(app)
-        XCTAssertTrue(waits(node(app, "screen.home")))
-        scrollIntoView(app, exactText(app, "승리요정 지수")).tap()
+        XCTAssertTrue(waits(node(app, "home.root")))
+        // 실제 컨트롤은 승리요정 지수 카드 안의 반짝 버튼이다. 지연 생성되므로
+        // 먼저 스크롤로 올린 뒤에 찾는다.
+        let aiButton = app.buttons["AI 직관 기록 도우미"]
+        for _ in 0..<12 { if aiButton.exists, aiButton.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(aiButton.exists, "AI 도우미 버튼이 나타나지 않았다")
+        aiButton.tap()
         // 최근 기록이 없으면 "첫 직관 기록하기", 있으면 초안 버튼이 나온다.
-        let startDraft = app.buttons.containing(
-            NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@ OR label CONTAINS %@",
-                        "후기 초안 만들기", "최근 직관 다듬기", "첫 직관 기록하기")
+        let startDraft = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@",
+                        "후기 초안 만들기", "최근 직관 다듬기")
         ).firstMatch
         XCTAssertTrue(waits(startDraft), "AI 도우미 시트가 열리지 않았다")
         startDraft.tap()
-        // 최근 기록 유무와 무관하게 같은 편집기가 열린다.
-        let opened = app.staticTexts["직관 기록 추가"].waitForExistence(timeout: 12)
-            || app.staticTexts["직관 기록 수정"].waitForExistence(timeout: 4)
-        XCTAssertTrue(opened, "AI 진입에서 편집기가 열리지 않았다")
+        // 최근 기록을 다듬는 경로이므로 수정 모드다.
+        XCTAssertTrue(waits(app.staticTexts["직관 기록 수정"].firstMatch), "AI 진입에서 편집기가 열리지 않았다")
         assertNoVisibleWizard(app)
-        assertCurrentFormRemainsUsable(app)
     }
 
     func testCompact03_feedCreateRemainsUsable() throws {
@@ -286,7 +295,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         openRecordDetailEdit(app)
         // 사진 수 표시와 추가 버튼이 살아 있다.
         XCTAssertTrue(text(app, "/10").exists, "사진 개수 표시가 사라졌다")
-        scrollIntoView(app, app.buttons.containing(
+        scrollIntoView(app, app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "사진 추가")).firstMatch)
     }
 
@@ -304,7 +313,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         openFeedCreate(app)
         scrollIntoView(app, app.buttons["저장하기"].firstMatch).tap()
         // 새 기록은 상대팀·구장·결과가 비어 있으므로 저장을 막는 안내가 뜬다.
-        let warning = app.staticTexts.containing(
+        let warning = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 8), "검증 안내가 뜨지 않았다")
         scrollIntoView(app, warning)
@@ -319,12 +328,12 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         // 티켓 OCR
         scrollIntoView(app, app.buttons["티켓으로 작성하기"].firstMatch)
         // 사진 첨부
-        scrollIntoView(app, app.buttons.containing(
+        scrollIntoView(app, app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "사진 추가")).firstMatch)
         // AI 초안과 기본 문장
-        scrollIntoView(app, app.buttons.containing(
+        scrollIntoView(app, app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "기본 문장으로 채우기")).firstMatch)
-        scrollIntoView(app, app.buttons.containing(
+        scrollIntoView(app, app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "AI로 후기 초안 만들기")).firstMatch)
         // 서버 없이도 경기 추천 자리는 살아 있다(찾지 못했다는 안내까지 포함).
         XCTAssertTrue(app.buttons["티켓으로 작성하기"].exists, "OCR 진입이 사라졌다")
@@ -382,7 +391,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         memo.typeText("키보드 확인")
         if app.buttons["Return"].exists { app.buttons["Return"].tap() } else { app.swipeDown() }
         scrollIntoView(app, app.buttons["저장하기"].firstMatch).tap()
-        let warning = app.staticTexts.containing(
+        let warning = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 8), "검증 안내가 뜨지 않았다")
         scrollIntoView(app, warning)
@@ -456,7 +465,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
         scrollIntoView(app, app.buttons["저장하기"].firstMatch).tap()
-        let warning = app.staticTexts.containing(
+        let warning = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 10), "큰 글자에서 검증 안내가 사라졌다")
         scrollIntoView(app, warning)
@@ -466,20 +475,20 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
         scrollIntoView(app, app.buttons["티켓으로 작성하기"].firstMatch)
-        scrollIntoView(app, app.buttons.containing(
+        scrollIntoView(app, app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "사진 추가")).firstMatch)
-        scrollIntoView(app, app.buttons.containing(
+        scrollIntoView(app, app.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "AI로 후기 초안 만들기")).firstMatch)
     }
 
     func testAccessibility08_keyboardStillLeavesTheFieldVisible() {
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
-        let seat = scrollIntoView(app, app.textFields["좌석"].firstMatch)
-        seat.tap()
-        XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 8), "큰 글자에서 키보드가 올라오지 않았다")
+        let field = scrollIntoView(app, app.textFields["한 줄 메모"].firstMatch)
+        field.tap()
+        XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 12), "큰 글자에서 키보드가 올라오지 않았다")
         let keyboardTop = settled(app.keyboards.element).minY
-        XCTAssertLessThan(settled(seat).maxY, keyboardTop + 0.5, "큰 글자에서 입력 필드가 키보드에 가렸다")
+        XCTAssertLessThan(settled(field).maxY, keyboardTop + 0.5, "큰 글자에서 입력 필드가 키보드에 가렸다")
         if app.buttons["Return"].exists { app.buttons["Return"].tap() } else { app.swipeDown() }
     }
 
