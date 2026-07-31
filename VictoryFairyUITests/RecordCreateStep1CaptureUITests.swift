@@ -274,22 +274,23 @@ final class RecordCreateStep1CaptureUITests: XCTestCase {
         capture("17-long-team-names")
     }
 
-    // MARK: - 18. 스테이징 경계
+    // MARK: - 18. 1단계의 다음이 닿는 곳
 
-    func testCapture18_stagedNextBoundary() {
+    /// 2단계를 만든 뒤로 1단계의 다음은 검증용 경계가 아니라 2단계로 간다.
+    func testCapture18_nextReachesStep2() {
         let app = launch()
         choose(app, field: "recordCreate.field.stadium", option: "잠실야구장")
         choose(app, field: "recordCreate.field.opponentTeam", option: "KIA 타이거즈")
         selectResult(app, "win")
         scrollIntoView(app, node(app, "recordCreate.next")).tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "경계로 가지 않았다")
-        // 권위 있는 2단계 레이아웃이 아니라는 것을 스스로 말한다.
-        XCTAssertTrue(text(app, "아직 만들지 않았어요").exists, "경계 안내가 없다")
-        XCTAssertFalse(text(app, "그날의 디테일을 더해볼까요").exists, "2단계를 만든 척한다")
+        XCTAssertTrue(waits(node(app, "recordCreate.step2.root")), "2단계로 가지 않았다")
+        XCTAssertEqual(node(app, "recordCreate.step2.title").label, "그날의 디테일을 더해볼까요?")
+        // 3단계는 여전히 없고, 임시저장도 없다.
+        XCTAssertFalse(text(app, "오늘의 이야기를 남겨주세요").exists, "3단계를 만든 척한다")
         XCTAssertFalse(text(app, "임시저장").exists, "임시저장이 생겼다")
-        capture("18-staged-next-boundary")
+        capture("18-next-reaches-step2")
 
-        // 돌아오면 값이 그대로다.
+        // 돌아오면 1단계 값이 그대로다.
         node(app, "recordCreate.back").tap()
         XCTAssertTrue(waits(node(app, "recordCreate.step1.root")), "1단계로 돌아오지 못했다")
         XCTAssertEqual(node(app, "recordCreate.field.stadium").value as? String ?? "", "잠실야구장")

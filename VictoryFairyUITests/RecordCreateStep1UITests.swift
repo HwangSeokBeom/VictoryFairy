@@ -245,20 +245,33 @@ final class RecordCreateStep1UITests: XCTestCase {
         XCTAssertTrue(next.isEnabled, "다음 버튼이 비활성이다")
     }
 
-    func testNextMovesToTheStagedBoundaryAndBackKeepsValues() {
+    /// 1단계의 다음은 이제 2단계로 간다. 2단계는 2026-08-01 패스에서 만들었다.
+    func testNextMovesToStep2AndBackKeepsValues() {
         let app = launch()
         fillValidStep1(app)
         scrollIntoView(app, node(app, "recordCreate.next")).tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "다음 단계 경계로 가지 않았다")
-        // 권위 있는 2단계 레이아웃이 아니라는 것을 화면이 스스로 말한다.
-        XCTAssertTrue(text(app, "아직 만들지 않았어요").exists, "경계 안내가 없다")
-        XCTAssertFalse(text(app, "그날의 디테일을 더해볼까요").exists, "2단계를 만든 척한다")
+        XCTAssertTrue(waits(node(app, "recordCreate.step2.root")), "2단계로 가지 않았다")
+        XCTAssertEqual(node(app, "recordCreate.step2.title").label, "그날의 디테일을 더해볼까요?")
+        // 3단계는 아직 없다 — 2단계에서 더 나아가면 검증용 경계가 나온다.
+        XCTAssertFalse(text(app, "오늘의 이야기를 남겨주세요").exists, "3단계를 만든 척한다")
 
         node(app, "recordCreate.back").tap()
         XCTAssertTrue(waits(node(app, "recordCreate.step1.root")), "1단계로 돌아오지 못했다")
         XCTAssertEqual(node(app, "recordCreate.field.stadium").value as? String ?? "", "잠실야구장")
         XCTAssertEqual(node(app, "recordCreate.field.opponentTeam").value as? String ?? "", "KIA 타이거즈")
         XCTAssertTrue(node(app, "recordCreate.result.feedback").exists, "돌아오니 결과가 사라졌다")
+    }
+
+    /// 검증용 경계는 3단계 자리로 물러났고, 여전히 만든 척하지 않는다.
+    func testStagedBoundaryNowSitsAfterStep2() {
+        let app = launch()
+        fillValidStep1(app)
+        scrollIntoView(app, node(app, "recordCreate.next")).tap()
+        XCTAssertTrue(waits(node(app, "recordCreate.step2.root")), "2단계로 가지 않았다")
+        scrollIntoView(app, node(app, "recordCreate.step2.next")).tap()
+        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "경계로 가지 않았다")
+        XCTAssertTrue(text(app, "아직 만들지 않았어요").exists, "경계 안내가 없다")
+        XCTAssertFalse(text(app, "오늘의 이야기를 남겨주세요").exists, "3단계를 만든 척한다")
     }
 
     // MARK: - 15~16. 최소 저장 · 취소
