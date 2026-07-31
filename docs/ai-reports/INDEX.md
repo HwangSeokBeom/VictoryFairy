@@ -123,3 +123,25 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next pass: `RECORD_CREATE_STEP2_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT`
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-01 00:25 KST — RECORD_CREATE_STEP1_VISIBLE_LAYOUT_IMPLEMENTED_AND_VERIFIED
+
+- Task: Record Create Step 1 — completion audit against the implementation prompt
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `cf8e5d906542d5b205e364381c15a263569cd985`
+- Ending HEAD: `__ENDING_HEAD__`
+- Archive report: `docs/ai-reports/archive/2026-08-01_0025_record-create-step1-completion-audit_verified.md`
+- Latest report: `docs/ai-reports/LATEST_REPORT.md`
+- Supersedes the previous report's `REMAINING STEP 1 GAPS: NONE`, which was written while one accessibility defect and three unasserted Definition-of-Done items still existed
+- Found and fixed: date control announced its accessibility label twice
+- Closed: one-record save contract, first-invalid-field visibility, compact date interaction
+- Re-ran because stale: unit 666, affected-route regression 145, SE 3 compact 14, Debug/Release builds, archive, fixture exclusion, all 18 captures
+- Stated limitation: the 380-test primary UI suite was not run — none of its four trigger conditions is met
+- Production source changed: yes (one redundant accessibility modifier removed)
+- Minimal-save policy: unchanged
+- Pushed: no
+- Merged: no
+- Next pass: `RECORD_CREATE_STEP2_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
