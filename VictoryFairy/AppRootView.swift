@@ -7,17 +7,21 @@ struct AppRootView: View {
 
     var body: some View {
         Group {
-            // 완료 플래그가 아니라 저장된 값으로 판단한다.
+            // 아직 사용자에게 열지 않은 세 단계 기록 작성 흐름을 UI 테스트만 띄울 수
+            // 있는 자리.
             //
-            // `hasCompletedOnboarding`만 보면, 팀이나 구장이 빠졌거나 더 이상
-            // 유효하지 않은 기존 설치본이 홈으로 들어가 버린다. `onboardingEntry`가
-            // 이미 그 경우를 `repairTeam`·`repairStadium`으로 구분해 두는데
-            // (`UserPreferencesStore` 단위 테스트가 그 뜻을 못박는다) 여기서 쓰지
-            // 않아 보완 단계에 도달할 방법이 없었다.
-            if preferences.onboardingEntry == .completed {
-                MainTabView()
+            // `activeRecordCreateStagedScenarioIdentifier`도 그것이 읽는 실행 인자
+            // 키도 `#if DEBUG` 안에만 있어서, Release 바이너리에는 그 문자열조차
+            // 없다(아카이브에서 확인한다). 따라서 이 가지는 Release에서 결코 참이
+            // 될 수 없다. 일곱 개 제품 진입점은 그대로 `LogEditorView`를 띄운다 —
+            // 여덟 번째 제품 경로가 아니다.
+            if let stagedScenario = VFUITestConfiguration.activeRecordCreateStagedScenarioIdentifier {
+                RecordCreateStagedHostView(
+                    initialDate: VFUITestConfiguration.recordCreateStagedInitialDate
+                )
+                .accessibilityIdentifier(stagedScenario)
             } else {
-                OnboardingView()
+                userFacingRoot
             }
         }
         .environment(\.appTheme, themeProvider.theme)
@@ -26,6 +30,22 @@ struct AppRootView: View {
             // 이 플래그는 프로필 동기화 DTO에도 실려 나가므로 계속 유지한다.
             preferences.migrateOnboardingIfSatisfied()
             await appData.loadInitialDataIfNeeded()
+        }
+    }
+
+    /// 사용자가 실제로 보는 최상위 화면.
+    ///
+    /// 완료 플래그가 아니라 저장된 값으로 판단한다. `hasCompletedOnboarding`만 보면,
+    /// 팀이나 구장이 빠졌거나 더 이상 유효하지 않은 기존 설치본이 홈으로 들어가
+    /// 버린다. `onboardingEntry`가 이미 그 경우를 `repairTeam`·`repairStadium`으로
+    /// 구분해 두는데(`UserPreferencesStore` 단위 테스트가 그 뜻을 못박는다) 여기서
+    /// 쓰지 않아 보완 단계에 도달할 방법이 없었다.
+    @ViewBuilder
+    private var userFacingRoot: some View {
+        if preferences.onboardingEntry == .completed {
+            MainTabView()
+        } else {
+            OnboardingView()
         }
     }
 }

@@ -566,6 +566,60 @@ enum VFUITestConfiguration {
         #endif
     }
 
+    // MARK: - 기록 작성 1단계 스테이징 호스트
+
+    /// 아직 사용자에게 열리지 않은 세 단계 흐름을 UI 테스트가 띄우기 위한 상태 이름.
+    ///
+    /// 이것은 **여덟 번째 제품 경로가 아니다.** 일곱 개 사용자 경로는 그대로
+    /// `LogEditorView`를 띄운다. 이 값은 `#if DEBUG` 안에서만 존재하므로 Release
+    /// 빌드에는 개념 자체가 없고, 사용자가 켤 방법도 없다.
+    enum RecordCreateStagedFixture: String {
+        /// 아무것도 심지 않은 새 기록. 응원팀만 사용자 설정에서 온다.
+        case fresh
+        /// 캘린더처럼 날짜를 정해 주는 진입점에서 온 경우.
+        case initialDate
+    }
+
+    /// 실행 인자가 지정한 스테이징 픽스처. Release에는 이 개념 자체가 없다.
+    static var recordCreateStagedFixture: RecordCreateStagedFixture? {
+        #if DEBUG
+        guard isActive,
+              let raw = value(for: "-VFUITestRecordCreateStaged", in: ProcessInfo.processInfo.arguments) else {
+            return nil
+        }
+        return RecordCreateStagedFixture(rawValue: raw)
+        #else
+        return nil
+        #endif
+    }
+
+    /// 스테이징 호스트가 1단계에 심어 줄 시작 날짜.
+    ///
+    /// 캘린더 진입점이 날짜를 건네는 경로를 그대로 흉내낸다. 값을 지어내는 것이
+    /// 아니라, 사용자가 캘린더에서 고를 수 있는 날짜와 같은 자리를 채운다.
+    static var recordCreateStagedInitialDate: Date? {
+        #if DEBUG
+        guard recordCreateStagedFixture == .initialDate else { return nil }
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 4
+        components.day = 16
+        return Calendar.current.date(from: components)
+        #else
+        return nil
+        #endif
+    }
+
+    /// UI 테스트가 "픽스처가 정말 적용됐는지"를 화면에서 확인할 수 있게 하는 표식.
+    static var activeRecordCreateStagedScenarioIdentifier: String? {
+        #if DEBUG
+        guard let fixture = recordCreateStagedFixture else { return nil }
+        return "recordCreate.scenario.\(fixture.rawValue)"
+        #else
+        return nil
+        #endif
+    }
+
     /// `-Key value` 형태에서 값을 읽는다.
     private static func value(for key: String, in arguments: [String]) -> String? {
         guard let index = arguments.firstIndex(of: key),
