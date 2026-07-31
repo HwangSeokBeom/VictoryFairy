@@ -145,3 +145,24 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next pass: `RECORD_CREATE_STEP2_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT`
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-01 03:31 KST — RECORD_CREATE_STEP2_VISIBLE_LAYOUT_IMPLEMENTED_AND_VERIFIED
+
+- Task: Record Create Step 2 — product decisions and staged visible layout
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `c29d580716c0f2cd36c9b2ca53fa0e76a222967c`
+- Ending HEAD: `__ENDING_HEAD__`
+- Archive report: `docs/ai-reports/archive/2026-08-01_0331_record-create-step2-staged-layout_implemented.md`
+- Latest report: `docs/ai-reports/LATEST_REPORT.md`
+- Built: `RecordCreateStep2View` wired into the staged flow between Step 1 and the Step 3 boundary; still unrouted to users
+- Decided: Step 2 stays a separate optional step; only seat and companion are implemented; Skip preserves entered values
+- Deferred: `STEP2_WEATHER`, `STEP2_FOOD`, `STEP2_CHEERING_GEAR`, `RESUMABLE_TEMPORARY_SAVE`
+- Fresh counts: unit 692/0 failed/0 skipped · Step 1 + Step 2 primary 85 (16 width-gated skips) · SE 3 27/27 no skips · route regression 145 · Step 2 captures 18
+- Retargeted (not weakened): Step 1's flow test and capture 18 now assert Next reaches Step 2; Step 1 governance now bans only Step 3 copy
+- Production source changed: yes (new Step 2 view; flow gained `.details` and Back)
+- Pushed: no
+- Merged: no
+- Next pass: `RECORD_CREATE_STEP3_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
