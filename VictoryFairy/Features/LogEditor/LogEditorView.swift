@@ -42,7 +42,7 @@ struct LogEditorViewModel {
     }
 }
 
-private enum KBOGameLookupState: Equatable {
+enum KBOGameLookupState: Equatable {
     case idle
     case loading
     case loaded
@@ -87,10 +87,12 @@ struct LogEditorView: View {
     @State private var safariRoute: SafariRoute?
     @State private var didStartInitialAIPreflight = false
 
-    private let moods = ["짜릿함", "아쉬움", "편안함", "열광적", "분노", "감동"]
-    private let highlights = ["홈런", "역전승", "끝내기", "연장전", "호수비", "응원 분위기", "우천 취소"]
-    private let tones = ["담백하게", "감성적으로", "유쾌하게", "SNS 캡션처럼"]
-    private let companions = ["혼자", "친구", "가족", "연인", "모임"]
+    // 보조 기능이 쓰는 어휘와 매핑은 `RecordEditorAssistance` 한 곳에 있다.
+    // 세 단계 작성 흐름도 같은 곳을 쓴다 — 목록이 두 벌이 되지 않는다.
+    private let moods = RecordEditorAssistance.moods
+    private let highlights = RecordEditorAssistance.highlights
+    private let tones = RecordEditorAssistance.tones
+    private let companions = RecordEditorAssistance.companions
     private let editingLog: AttendanceLogViewState?
     private let mode: RecordEditorMode
     private let startsAIPreflightOnAppear: Bool
@@ -306,9 +308,7 @@ struct LogEditorView: View {
             }
             Button("이어 붙이기") {
                 guard let pendingDraftTextToApply else { return }
-                draft.diary = draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? pendingDraftTextToApply
-                    : "\(draft.diary)\n\n\(pendingDraftTextToApply)"
+                draft.diary = RecordEditorAssistance.appendingDiary(pendingDraftTextToApply, to: draft.diary)
                 self.pendingDraftTextToApply = nil
                 isShowingAIDraft = false
             }
@@ -769,9 +769,9 @@ struct LogEditorView: View {
     }
 
     private func requestKBOGameCandidateApply(_ candidate: KBOGameCandidateDTO) {
-        if !candidate.isScheduled,
-           candidate.suggestedDiaryTemplate(favoriteTeamID: currentFavoriteTeamID).isEmpty == false,
-           draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+        if RecordEditorAssistance.requiresDiaryOverwriteConfirmation(
+            for: candidate, draft: draft, favoriteTeamID: currentFavoriteTeamID
+        ) {
             pendingDiaryOverwriteCandidate = candidate
             isShowingDiaryOverwriteConfirmation = true
             return
@@ -781,39 +781,15 @@ struct LogEditorView: View {
 
     private func applyKBOGameCandidate(_ candidate: KBOGameCandidateDTO, shouldOverwriteDiary: Bool) {
         guard let favoriteTeamID = currentFavoriteTeamID else { return }
-        let perspective = candidate.favoriteTeamPerspective(favoriteTeamID: favoriteTeamID)
-        draft.date = Date.vfParseServerDate(candidate.date)
-        draft.opponentTeamName = perspective.opponentTeamName
-        draft.stadiumName = candidate.suggestedStadiumName
-        draft.gameSource = candidate.source ?? kboLookupSource
-        draft.linkedKBOGameID = candidate.gameID
-        draft.officialRecordURL = candidate.officialRecordURL?.absoluteString
-
-        if !candidate.isScheduled, let result = perspective.result {
-            draft.result = result
-        }
-        if !candidate.isScheduled,
-           let favoriteScore = perspective.favoriteTeamScore,
-           let opponentScore = perspective.opponentTeamScore {
-            draft.ourScore = favoriteScore
-            draft.opponentScore = opponentScore
-        }
-
-        if !candidate.isScheduled {
-            draft.moodTag = candidate.preferredMoodTag(for: draft.result ?? .canceled, availableMoods: moods)
-            draft.highlightTag = candidate.preferredHighlightTag(availableHighlights: highlights)
-            draft.appliedHighlightTags = candidate.suggestedHighlightTags
-            let suggestedMemo = candidate.suggestedShortMemo(favoriteTeamID: favoriteTeamID)
-            if shouldReplaceShortMemo {
-                draft.shortMemo = suggestedMemo
-            }
-            let suggestedDiary = candidate.suggestedDiaryTemplate(favoriteTeamID: favoriteTeamID)
-            if shouldOverwriteDiary || draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                draft.diary = suggestedDiary
-            }
-        }
+        // 매핑은 `RecordEditorAssistance` 한 곳에 있다. 화면은 그 결과만 알린다.
+        validationMessage = RecordEditorAssistance.applyKBOGameCandidate(
+            candidate,
+            to: &draft,
+            favoriteTeamID: favoriteTeamID,
+            lookupSource: kboLookupSource,
+            shouldOverwriteDiary: shouldOverwriteDiary
+        )
         debugLogKBO("applied suggestion score=\(candidate.recordScoreText(favoriteTeamID: favoriteTeamID))")
-        validationMessage = "경기 정보를 적용했어요. 저장 전 내용을 확인해 주세요."
         kboLookupState = .idle
         kboLookupSource = nil
         kboLookupSourceLabel = nil
@@ -869,23 +845,7 @@ struct LogEditorView: View {
     }
 
     private func applyTicketSuggestion(_ suggestion: TicketFieldSuggestion) {
-        if let gameDate = suggestion.gameDate {
-            draft.date = gameDate
-        }
-        if let favoriteTeamName = suggestion.favoriteTeamName {
-            draft.favoriteTeamName = favoriteTeamName
-        }
-        if let opponentTeamName = suggestion.opponentTeamName, opponentTeamName != draft.favoriteTeamName {
-            draft.opponentTeamName = opponentTeamName
-        }
-        if let stadiumName = suggestion.stadiumName {
-            draft.stadiumName = stadiumName
-        }
-        if let seatText = suggestion.seatText {
-            draft.seat = seatText
-        }
-        draft.appliedHighlightTags = []
-        validationMessage = "인식한 내용이 정확한지 확인해 주세요."
+        validationMessage = RecordEditorAssistance.applyTicketSuggestion(suggestion, to: &draft)
     }
 
     private func generateAIDraft() async {
@@ -914,38 +874,11 @@ struct LogEditorView: View {
     }
 
     private func makeDiaryDraftRequest() -> DiaryDraftRequest {
-        DiaryDraftRequest(
-            gameDate: DateFormatter.vfAPIDate.string(from: draft.date),
-            favoriteTeamName: draft.favoriteTeamName,
-            opponentTeamName: draft.opponentTeamName,
-            stadiumName: draft.stadiumName,
-            result: (draft.result ?? .canceled).serverValue,
-            scoreText: draftScoreText,
-            moodTags: [draft.moodTag],
-            highlightTags: [draft.highlightTag],
-            companionType: sanitizedCompanionType,
-            tone: selectedTone.aiToneValue,
-            extraNoteSanitized: draft.shortMemo.sanitizedExtraNote,
-            locale: "ko-KR"
-        )
+        RecordEditorAssistance.makeDiaryDraftRequest(from: draft, tone: selectedTone)
     }
 
     private func makeTemplateDraftRequest() -> TemplateDraftRequest {
-        let request = makeDiaryDraftRequest()
-        return TemplateDraftRequest(
-            gameDate: request.gameDate,
-            favoriteTeamName: request.favoriteTeamName,
-            opponentTeamName: request.opponentTeamName,
-            stadiumName: request.stadiumName,
-            result: request.result,
-            scoreText: request.scoreText,
-            moodTags: request.moodTags,
-            highlightTags: request.highlightTags,
-            companionType: request.companionType,
-            tone: request.tone,
-            extraNoteSanitized: request.extraNoteSanitized,
-            locale: request.locale
-        )
+        RecordEditorAssistance.makeTemplateDraftRequest(from: draft, tone: selectedTone)
     }
 
     private func generateTemplateDraftForPreview() async {
@@ -954,45 +887,20 @@ struct LogEditorView: View {
             aiDraft = try await appData.createTemplateDraft(request: makeTemplateDraftRequest()).diaryDraft
             isShowingAIDraft = true
         } catch {
-            aiDraft = localTemplateDraft()
+            aiDraft = RecordEditorAssistance.localTemplateDraft(from: draft, tone: selectedTone)
             isShowingAIDraft = true
         }
     }
 
-    private func localTemplateDraft() -> DiaryDraftDTO {
-        let draft = DiaryTemplateGenerator().generate(
-            favoriteTeamName: draft.favoriteTeamName,
-            opponentTeamName: draft.opponentTeamName,
-            stadium: draft.stadiumName,
-            result: draft.result ?? .canceled,
-            favoriteTeamScore: draft.result == .canceled ? nil : draft.ourScore,
-            opponentTeamScore: draft.result == .canceled ? nil : draft.opponentScore,
-            moodTags: [draft.moodTag],
-            highlightTags: [draft.highlightTag],
-            companionType: draft.companion,
-            seatText: draft.seat,
-            shortMemo: draft.shortMemo,
-            tone: selectedTone
-        )
-        return DiaryDraftDTO(
-            draftText: draft,
-            summaryText: "기본 문장 초안",
-            shareText: nil,
-            hashtags: ["#승리요정", "#KBO직관"],
-            model: "local-template",
-            safetyNotice: "저장 전 직접 확인해 주세요.",
-            warnings: []
-        )
-    }
-
     private func requestApplyDraft(_ draftText: String) {
-        let trimmed = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        if draft.diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            draft.diary = trimmed
+        switch RecordEditorAssistance.diaryApplyPlan(for: draftText, existingDiary: draft.diary) {
+        case .none:
+            return
+        case .replaceEmpty(let text):
+            draft.diary = text
             isShowingAIDraft = false
-        } else {
-            pendingDraftTextToApply = trimmed
+        case .needsChoice(let text):
+            pendingDraftTextToApply = text
             isShowingAIDraftApplyChoice = true
         }
     }
@@ -1037,41 +945,7 @@ struct LogEditorView: View {
     }
 
     private func applyPhotoAnalysis(_ analysis: PhotoAnalysisDTO) {
-        if let mood = analysis.suggestedMoodTags.first, moods.contains(mood) {
-            draft.moodTag = mood
-        }
-        if let highlight = analysis.suggestedHighlightTags.first, highlights.contains(highlight) {
-            draft.highlightTag = highlight
-        }
-        if let hint = analysis.diaryHintText?.trimmingCharacters(in: .whitespacesAndNewlines), !hint.isEmpty {
-            draft.diary = draft.diary.isEmpty ? hint : "\(draft.diary)\n\n\(hint)"
-        }
-    }
-
-    private var sanitizedCompanionType: String? {
-        let trimmed = draft.companion.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        switch trimmed {
-        case "혼자": return "alone"
-        case "친구": return "friends"
-        case "가족": return "family"
-        case "연인": return "partner"
-        default: return "group"
-        }
-    }
-
-    /// 한 줄 메모를 경기 정보로 덮어써도 되는가. 사용자가 쓴 글은 지우지 않는다.
-    private var shouldReplaceShortMemo: Bool {
-        draft.shortMemo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    /// AI 초안 요청에 실어 보내는 점수 문구. 없는 점수를 0으로 지어내지 않는다.
-    private var draftScoreText: String {
-        guard draft.result != .canceled else { return "취소" }
-        guard let ours = draft.ourScore, let theirs = draft.opponentScore else {
-            return draft.result?.title ?? ""
-        }
-        return "\(ours):\(theirs) \(draft.result?.title ?? "")"
+        RecordEditorAssistance.applyPhotoAnalysis(analysis, to: &draft)
     }
 
     /// 검증 규칙은 `RecordEditorValidation`이 갖는다. 여기서는 문구만 띄운다.
@@ -1099,7 +973,7 @@ struct LogEditorView: View {
     }
 }
 
-private struct KBOGameFavoritePerspective {
+struct KBOGameFavoritePerspective {
     let favoriteTeamName: String
     let opponentTeamID: String
     let opponentTeamName: String
@@ -1108,7 +982,7 @@ private struct KBOGameFavoritePerspective {
     let result: GameResult?
 }
 
-private extension KBOGameCandidateDTO {
+extension KBOGameCandidateDTO {
     func safeSourceLabel(fallbackSource: String?, fallbackSourceLabel: String? = nil) -> String {
         KBOReviewSafeSource.visibleLabel(
             sourceLabel: sourceLabel ?? fallbackSourceLabel,
@@ -1323,7 +1197,7 @@ private extension KBOGameCandidateDTO {
     }
 }
 
-private struct KBOGameCandidateSelectionSheet: View {
+struct KBOGameCandidateSelectionSheet: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     let candidates: [KBOGameCandidateDTO]
@@ -1845,24 +1719,6 @@ struct AIDiaryDraftSheet: View {
                 .foregroundStyle(VFColor.bodyPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-}
-
-private extension String {
-    var aiToneValue: String {
-        switch self {
-        case "감성적으로": "warm"
-        case "유쾌하게": "playful"
-        case "SNS 캡션처럼": "social"
-        default: "plain"
-        }
-    }
-
-    var sanitizedExtraNote: String? {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        let collapsed = trimmed.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-        return String(collapsed.prefix(120))
     }
 }
 
