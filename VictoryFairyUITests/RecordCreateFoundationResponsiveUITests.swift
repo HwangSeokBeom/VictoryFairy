@@ -131,22 +131,65 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         XCTAssertFalse(text(app, "0 / 500").exists, "500자 제한이 생겼다", file: file, line: line)
     }
 
+    /// 생성 경로가 여는 것은 이제 세 단계 흐름의 1단계다.
+    private func assertWizardStep1IsOpen(_ app: XCUIApplication, origin: String,
+                                         file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(waits(node(app, "recordCreate.origin.\(origin)")),
+                      "\(origin) 경로로 열리지 않았다", file: file, line: line)
+        XCTAssertTrue(waits(node(app, "recordCreate.step1.root")), "1단계가 열리지 않았다", file: file, line: line)
+        XCTAssertTrue(waits(exactText(app, "어떤 경기였나요?")), "1단계 제목이 없다", file: file, line: line)
+        XCTAssertFalse(exactText(app, "필수 정보").exists,
+                       "생성 경로가 아직 한 장짜리 폼을 연다", file: file, line: line)
+        for forbidden in ["임시저장", "날씨", "먹은 것", "응원 준비물", "0 / 500", "오늘 직관, 몇 점이었나요?"] {
+            XCTAssertFalse(text(app, forbidden).exists,
+                           "지원하지 않는 \(forbidden)이 생겼다", file: file, line: line)
+        }
+    }
+
+    /// 1단계의 컨트롤이 좁은 폭·큰 글자에서 화면 안에 남는지.
+    private func assertStep1RemainsUsable(_ app: XCUIApplication,
+                                          file: StaticString = #filePath, line: UInt = #line) {
+        let screen = app.windows.firstMatch.frame
+
+        func assertInsideScreen(_ element: XCUIElement, _ name: String) {
+            let frame = settled(element)
+            XCTAssertGreaterThanOrEqual(frame.minX, screen.minX - 0.5, "\(name)이 왼쪽으로 넘쳤다", file: file, line: line)
+            XCTAssertLessThanOrEqual(frame.maxX, screen.maxX + 0.5, "\(name)이 오른쪽으로 넘쳤다", file: file, line: line)
+            XCTAssertGreaterThan(frame.height, 0, "\(name)이 높이 0으로 접혔다", file: file, line: line)
+            XCTAssertGreaterThan(frame.width, 0, "\(name)이 너비 0으로 접혔다", file: file, line: line)
+        }
+
+        for identifier in ["recordCreate.field.date", "recordCreate.field.stadium",
+                           "recordCreate.field.favoriteTeam", "recordCreate.field.opponentTeam"] {
+            assertInsideScreen(scrollIntoView(app, node(app, identifier), file: file, line: line), identifier)
+        }
+        for result in ["승리", "패배", "무승부", "경기 취소"] {
+            assertInsideScreen(scrollIntoView(app, app.buttons[result].firstMatch, file: file, line: line), "결과 \(result)")
+        }
+        // 지금 편집기가 이미 가진 도움에 여기서도 닿는다.
+        assertInsideScreen(scrollIntoView(app, node(app, "recordCreate.assist.ticketOCR"), file: file, line: line), "티켓에서 불러오기")
+        assertInsideScreen(scrollIntoView(app, node(app, "recordCreate.assist.findGame"), file: file, line: line), "경기 자동 찾기")
+        // 다음과 최소 저장까지 닿는다.
+        assertInsideScreen(scrollIntoView(app, node(app, "recordCreate.next"), file: file, line: line), "다음")
+        assertInsideScreen(scrollIntoView(app, node(app, "recordCreate.saveMinimal"), file: file, line: line), "여기까지만 저장할게요")
+    }
+
     private func openHomeCreate(_ app: XCUIApplication) {
         XCTAssertTrue(waits(node(app, "screen.home")), "홈에 들어가지 못했다")
         scrollIntoView(app, node(app, "home.recordCTA")).tap()
-        assertEditorIsOpen(app, editing: false)
+        assertWizardStep1IsOpen(app, origin: "home")
     }
 
     private func openFeedCreate(_ app: XCUIApplication) {
         XCTAssertTrue(waits(node(app, "screen.feed")), "피드에 들어가지 못했다")
         scrollIntoView(app, node(app, "feed.addRecord")).tap()
-        assertEditorIsOpen(app, editing: false)
+        assertWizardStep1IsOpen(app, origin: "feed")
     }
 
     private func openCalendarCreate(_ app: XCUIApplication) {
         XCTAssertTrue(waits(node(app, "screen.calendar")), "캘린더에 들어가지 못했다")
         scrollIntoView(app, node(app, "calendar.detailAddRecord")).tap()
-        assertEditorIsOpen(app, editing: false)
+        assertWizardStep1IsOpen(app, origin: "calendar")
     }
 
     private func openRecordDetailEdit(_ app: XCUIApplication) {
@@ -235,7 +278,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         let app = homeApp()
         try requireCompactWidth(app)
         openHomeCreate(app)
-        assertCurrentFormRemainsUsable(app)
+        assertStep1RemainsUsable(app)
     }
 
     func testCompact02_homeAIPreflightEntryRemainsUsable() throws {
@@ -265,7 +308,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         let app = feedApp()
         try requireCompactWidth(app)
         openFeedCreate(app)
-        assertCurrentFormRemainsUsable(app)
+        assertStep1RemainsUsable(app)
     }
 
     func testCompact04_calendarCreateKeepsTheSelectedDate() throws {
@@ -273,9 +316,9 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         try requireCompactWidth(app)
         XCTAssertTrue(waits(node(app, "calendar.scenario.selectedEmptyDate")), "픽스처가 적용되지 않았다")
         openCalendarCreate(app)
-        // 캘린더가 정한 날짜가 편집기에 그대로 온다.
-        XCTAssertTrue(scrollIntoView(app, exactText(app, "경기 날짜")).exists)
-        assertCurrentFormRemainsUsable(app)
+        // 캘린더가 정한 날짜가 1단계에 그대로 온다.
+        XCTAssertTrue(scrollIntoView(app, node(app, "recordCreate.field.date")).exists)
+        assertStep1RemainsUsable(app)
     }
 
     func testCompact05_recordDetailEditRemainsUsable() throws {
@@ -316,41 +359,34 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         let app = feedApp()
         try requireCompactWidth(app)
         openFeedCreate(app)
-        scrollIntoView(app, app.buttons["저장하기"].firstMatch).tap()
-        // 새 기록은 상대팀·구장·결과가 비어 있으므로 저장을 막는 안내가 뜬다.
+        scrollIntoView(app, node(app, "recordCreate.next")).tap()
+        // 새 기록은 상대팀·구장·결과가 비어 있으므로 진행을 막는 안내가 뜬다.
         let warning = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 8), "검증 안내가 뜨지 않았다")
         scrollIntoView(app, warning)
-        // 편집기는 그대로 열려 있다.
-        assertEditorIsOpen(app, editing: false)
+        // 1단계는 그대로 열려 있다.
+        assertWizardStep1IsOpen(app, origin: "feed")
     }
 
     func testCompact10_featureSurfacesRemainReachable() throws {
         let app = feedApp()
         try requireCompactWidth(app)
         openFeedCreate(app)
-        // 티켓 OCR
-        scrollIntoView(app, app.buttons["티켓으로 작성하기"].firstMatch)
-        // 사진 첨부
-        scrollIntoView(app, app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "사진 추가")).firstMatch)
-        // AI 초안과 기본 문장
-        scrollIntoView(app, app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "기본 문장으로 채우기")).firstMatch)
-        scrollIntoView(app, app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "AI로 후기 초안 만들기")).firstMatch)
-        // 서버 없이도 경기 추천 자리는 살아 있다(찾지 못했다는 안내까지 포함).
-        XCTAssertTrue(app.buttons["티켓으로 작성하기"].exists, "OCR 진입이 사라졌다")
+        // 1단계의 도우미 — 티켓 OCR과 경기 자동 찾기.
+        scrollIntoView(app, node(app, "recordCreate.assist.ticketOCR"))
+        scrollIntoView(app, node(app, "recordCreate.assist.findGame"))
+        XCTAssertTrue(node(app, "recordCreate.assist.ticketOCR").isHittable, "OCR 진입을 누를 수 없다")
+        // 사진 분석과 AI 초안은 3단계에 있다. 통합 UI 테스트가 거기서 확인한다.
     }
 
     func testCompact11_cancellationReturnsToThePresentingScreen() throws {
         let app = feedApp()
         try requireCompactWidth(app)
         openFeedCreate(app)
-        app.swipeDown(velocity: .fast)
+        node(app, "recordCreate.cancel").tap()
         XCTAssertTrue(waits(node(app, "screen.feed")), "취소 후 피드로 돌아오지 못했다")
-        XCTAssertFalse(app.staticTexts["직관 기록 추가"].exists, "편집기가 남아 있다")
+        XCTAssertFalse(node(app, "recordCreate.step1.root").exists, "흐름이 남아 있다")
     }
 
     func testCompact12_noDuplicateNavigationContainerAppears() throws {
@@ -365,9 +401,10 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
     // MARK: - 소프트 키보드
 
     func testKeyboard01_diaryStaysVisibleWhileTyping() throws {
+        // 좌석은 한 장짜리 폼에만 있다. 그 폼의 주인은 이제 수정 경로다.
         let app = feedApp()
         try requireCompactWidth(app)
-        openFeedCreate(app)
+        openRecordDetailEdit(app)
         let seat = scrollIntoView(app, app.textFields["좌석"].firstMatch)
         seat.tap()
         XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 8), "키보드가 올라오지 않았다")
@@ -390,20 +427,22 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         let app = feedApp()
         try requireCompactWidth(app)
         openFeedCreate(app)
-        let memo = scrollIntoView(app, app.textFields["한 줄 메모"].firstMatch)
-        memo.tap()
+        let score = scrollIntoView(app, node(app, "recordCreate.score.our"))
+        score.tap()
         XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 8), "키보드가 올라오지 않았다")
-        memo.typeText("키보드 확인")
-        if app.buttons["Return"].exists { app.buttons["Return"].tap() } else { app.swipeDown() }
-        scrollIntoView(app, app.buttons["저장하기"].firstMatch).tap()
+        score.typeText("6")
+        // 숫자 키패드에는 Return이 없다. 화면이 주는 완료로 내린다.
+        node(app, "recordCreate.score.done").tap()
+        _ = app.keyboards.element.waitForNonExistence(timeout: 6)
+        scrollIntoView(app, node(app, "recordCreate.next")).tap()
         let warning = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 8), "검증 안내가 뜨지 않았다")
         scrollIntoView(app, warning)
-        // 시트가 하나뿐이고 편집기 상태가 남아 있다.
+        // 시트가 하나뿐이고 적어 둔 값이 남아 있다.
         XCTAssertEqual(app.staticTexts.matching(identifier: "직관 기록 추가").count, 1)
-        XCTAssertTrue((app.textFields["한 줄 메모"].firstMatch.value as? String ?? "").contains("키보드 확인"),
-                      "검증 뒤 입력이 사라졌다")
+        XCTAssertEqual(scrollIntoView(app, node(app, "recordCreate.score.our")).value as? String ?? "", "6",
+                       "검증 뒤 입력이 사라졌다")
     }
 
     // MARK: - AccessibilityXXXL
@@ -424,7 +463,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
     private func defaultRequiredHeadingHeight() -> CGFloat {
         let app = feedApp()
         openFeedCreate(app)
-        let height = settled(exactText(app, "필수 정보")).height
+        let height = settled(exactText(app, "어떤 경기였나요?")).height
         app.terminate()
         return height
     }
@@ -434,20 +473,20 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         XCTAssertGreaterThan(baseline, 0, "기준 높이를 재지 못했다")
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
-        assertAccessibilityCategoryApplied(exactText(app, "필수 정보"), defaultHeight: baseline)
+        assertAccessibilityCategoryApplied(exactText(app, "어떤 경기였나요?"), defaultHeight: baseline)
     }
 
     func testAccessibility02_homeCreateRemainsUsable() {
         let app = homeApp(accessibilitySize: true)
         openHomeCreate(app)
-        assertCurrentFormRemainsUsable(app)
+        assertStep1RemainsUsable(app)
     }
 
     func testAccessibility03_calendarCreateRemainsUsable() {
         let app = calendarApp(accessibilitySize: true)
         XCTAssertTrue(waits(node(app, "calendar.scenario.selectedEmptyDate")))
         openCalendarCreate(app)
-        assertCurrentFormRemainsUsable(app)
+        assertStep1RemainsUsable(app)
     }
 
     func testAccessibility04_recordDetailEditKeepsSeatAndCompanion() {
@@ -469,7 +508,7 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
     func testAccessibility06_validationErrorRemainsReachable() {
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
-        scrollIntoView(app, app.buttons["저장하기"].firstMatch).tap()
+        scrollIntoView(app, node(app, "recordCreate.next")).tap()
         let warning = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 10), "큰 글자에서 검증 안내가 사라졌다")
@@ -479,29 +518,28 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
     func testAccessibility07_featureSurfacesRemainReachable() {
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
-        scrollIntoView(app, app.buttons["티켓으로 작성하기"].firstMatch)
-        scrollIntoView(app, app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "사진 추가")).firstMatch)
-        scrollIntoView(app, app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "AI로 후기 초안 만들기")).firstMatch)
+        scrollIntoView(app, node(app, "recordCreate.assist.ticketOCR"))
+        scrollIntoView(app, node(app, "recordCreate.assist.findGame"))
     }
 
     func testAccessibility08_keyboardStillLeavesTheFieldVisible() {
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
-        let field = scrollIntoView(app, app.textFields["한 줄 메모"].firstMatch)
+        let field = scrollIntoView(app, node(app, "recordCreate.score.our"))
         field.tap()
         XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 12), "큰 글자에서 키보드가 올라오지 않았다")
         let keyboardTop = settled(app.keyboards.element).minY
         XCTAssertLessThan(settled(field).maxY, keyboardTop + 0.5, "큰 글자에서 입력 필드가 키보드에 가렸다")
-        if app.buttons["Return"].exists { app.buttons["Return"].tap() } else { app.swipeDown() }
+        node(app, "recordCreate.score.done").tap()
     }
 
     func testAccessibility09_cancellationRemainsPossible() {
         let app = feedApp(accessibilitySize: true)
         openFeedCreate(app)
-        app.swipeDown(velocity: .fast)
-        XCTAssertTrue(waits(node(app, "screen.feed")), "큰 글자에서 편집기를 닫지 못했다")
+        let cancel = node(app, "recordCreate.cancel")
+        XCTAssertTrue(cancel.isHittable, "큰 글자에서 취소를 누를 수 없다")
+        cancel.tap()
+        XCTAssertTrue(waits(node(app, "screen.feed")), "큰 글자에서 흐름을 닫지 못했다")
     }
 
     func testAccessibility10_noInternalNameIsSpoken() {

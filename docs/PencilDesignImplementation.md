@@ -2791,3 +2791,94 @@ Pencil 1단계 프레임에도 `11_Developer_Handoff`에도 KBO 추천이나 티
   안내)로 확인해야 한다.
 - `@Binding`을 든 화면에서는 `inout`을 `await` 너머로 넘길 수 없다. 사진 규칙을
   값-in/값-out 형태로 만든 이유다.
+
+---
+
+## 개정 Pencil — Record Create 세 단계 제품 통합
+
+세 단계 흐름이 **사용자에게 열렸다.** 이 항목이 그 경계를 기록한다.
+
+### 최종 경로 계약
+
+| # | 경로 | 화면 | 여는 것 | 시작 컨텍스트 |
+|---|------|------|---------|---------------|
+| 1 | 홈 표준 생성 | `HomeView` | `RecordCreateFlowView` | `.home()` |
+| 2 | 기록(피드) 생성 | `FeedView` | `RecordCreateFlowView` | `.feed()` |
+| 3 | 캘린더 생성 | `AttendanceCalendarView` | `RecordCreateFlowView` | `.calendar(date:)` |
+| 4 | 구장 통계 빈 상태 | `StadiumStatsView` | `RecordCreateFlowView` | `.statisticsStadium()` |
+| 5 | 상대팀 통계 빈 상태 | `OpponentStatsView` | `RecordCreateFlowView` | `.statisticsOpponent()` |
+| 6 | 홈 AI 사전 점검 수정 | `HomeView` | `LogEditorView` | `editingLog:` |
+| 7 | 기록 상세 수정 | `AttendancePostDetailView` | `LogEditorView` | `editingLog:` |
+
+죽은 경로는 없다. 그 밖의 제품 편집기 목적지도 없다. 검증용 스테이징 호스트는
+`#if DEBUG` 픽스처 뒤에만 있고 여덟 번째 사용자 경로가 아니다.
+
+### 하나뿐인 시작 컨텍스트
+
+`RecordCreateLaunchContext`가 다섯 경로의 유일한 입구다. 만드는 것은 정본
+`RecordEditorDraft` 하나뿐이고, 두 번째 초안도 DTO도 없다. 지어내는 값이 하나도
+없다 — 상대팀·구장·결과·점수·좌석·동행·사진·일기 어느 것도 미리 채우지 않는다.
+캘린더가 정해 준 날짜만 그대로 실려 간다. 만드는 것으로는 아무것도 저장되지 않고,
+Release에 DEBUG 전용 값이 남지 않는다.
+
+응원팀만은 컨텍스트가 아니라 화면의 `onAppear`가 채운다. 사용자 설정은 화면이
+떠야 읽을 수 있고, 그 규칙은 지금 편집기가 이미 하던 것과 같다.
+
+캘린더는 `Date?` + `Bool` 두 값을 하나의 경로 값(`CalendarCreateRoute`)으로 합쳤다.
+날짜 없이 열릴 수 있는 상태 자체를 타입에서 없앤다.
+
+### 숨은 기본 기분 교정
+
+새 기록의 기분은 **비어 있다**(`RecordCreateFlowView.newRecordMoodTag == ""`).
+
+예전 값 `설렘`은 3단계가 그린 다섯 선택지 어디에도 없었다. 화면에는 아무것도
+선택되지 않은 것으로 보이는데 저장에는 그 값이 실려 나갔다 — 사용자가 고르지 않은
+사실이 조용히 기록되는 셈이다.
+
+- 새로 만들기 → 빈 기분, 아무 칩도 선택돼 보이지 않는다
+- 3단계에서 고름 → 앞 값을 대신하고 저장 태그의 첫 자리가 된다
+- 보조 기능(경기 정보·사진 분석)이 넣음 → 그대로 실려 간다
+- 수정하기 → 기존 기분 그대로, 모르는 값도 보존
+- 취소 → 아무것도 저장되지 않는다
+
+`RecordEditorDraft.saveTags`는 이제 빈 태그를 빼고 남긴다. 값이 있는 태그의
+순서와 뜻은 하나도 바뀌지 않는다. 도메인의 뜻을 넓히지 않았다 — 하이라이트 기본
+태그(`직관`)는 이번 패스의 범위가 아니어서 그대로 두었다.
+
+### 생성 보조 기능 파리티
+
+지금 편집기가 이미 가진 네 가지를 흐름에서도 쓸 수 있다. 새 기능도, 새 서비스도,
+새 제공자도, 새 키도 만들지 않았다.
+
+| 기능 | 자리 | 서비스 | 매핑 |
+|------|------|--------|------|
+| 티켓에서 불러오기 | 1단계 `기록 도우미` | `TicketOCRView` | `RecordEditorAssistance.applyTicketSuggestion` |
+| 경기 자동 찾기 | 1단계 `기록 도우미` | `appData.fetchKBOGameCandidates` | `RecordEditorAssistance.applyKBOGameCandidate` |
+| 사진 분석 | 3단계 사진 영역 | `appData.analyzePhotos` | `RecordEditorAssistance.applyPhotoAnalysis` |
+| AI 초안 | 3단계 일기 옆 | `appData.createDiaryDraft` | `RecordEditorAssistance.makeDiaryDraftRequest` |
+
+매핑은 `RecordEditorAssistance` **한 곳**에 있고 지금 편집기도 같은 곳을 부른다.
+어휘 목록도 하나다. 어떤 보조 동작도 스스로 저장하지 않으며, 실패하면 초안과
+사진이 그대로 남는다. 사전 고지·출처 고지·덮어쓰기 확인은 지금 규칙 그대로다.
+
+의도한 차이 하나: 지금 편집기는 날짜가 바뀔 때마다 스스로 경기를 조회하지만,
+흐름에서는 **사용자가 눌렀을 때만** 조회한다. 1단계가 authored 본문이고 도우미는
+부차적인 영역이므로, 화면을 여는 것만으로 네트워크를 부르지 않는다.
+
+3단계의 다섯 가지 기분과 보조 기능의 여섯 가지 어휘는 여전히 다른 목록이다.
+억지로 합치면 지금까지 저장해 온 값의 뜻이 바뀐다. 서로 모르는 값은 지우지 않고
+그대로 보존한다.
+
+### 의도한 차이 (제품 통합)
+
+- **도우미는 1단계 본문 아래.** 티켓 OCR이 채우는 값이 위에 있지만, authored
+  본문이 먼저 읽히도록 도움은 아래에 부차적으로 둔다.
+- **경기 후보는 언제나 선택 시트.** 지금 편집기는 한 건이면 인라인 카드를 그리지만,
+  좁은 1단계에서는 같은 시트로 모아 두는 편이 짧고 일관된다. 시트 자체는 지금
+  쓰던 것 그대로다.
+- **`recordCreate.origin.*` 표식.** 어느 경로에서 열렸는지 UI 테스트와 캡처가
+  확인할 수 있게 읽히지 않는 1×1 표식을 둔다. 저장되지 않고 읽히지 않는다.
+- **`-VFUITestRecordCreateInitialStep`.** 1단계가 빈 채로 마지막 단계에 서 있는
+  상태는 제품 흐름으로 만들 수 없다. 그래도 완성 버튼은 스스로 막아야 하므로,
+  **제품 진입 경로 위에서** 그 방어를 확인할 수 있게 시작 위치만 옮기는 DEBUG
+  인자를 두었다. 화면 루트를 바꾸지 않으므로 진입은 여전히 실제 경로다.

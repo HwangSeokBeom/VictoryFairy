@@ -80,7 +80,14 @@ struct RecordCreateStep3View: View {
                 if let saveMessage { notice(saveMessage, identifier: "recordCreate.step3.saveMessage") }
             }
             .padding(.horizontal, VFSpacing.xl)
-            .padding(.bottom, VFSpacing.lg)
+            // 아래 고정 액션이 차지하는 만큼 스크롤 여유를 둔다.
+            //
+            // `safeAreaInset`만으로는 부족했다(실측: iPhone 17 Pro에서 사진이 한 장
+            // 있을 때 마지막 요소인 `AI 초안`이 y 762–803, 고정 막대가 713–764 —
+            // 버튼이 막대 뒤에 깔린 채 더 스크롤되지 않았다. XCUI는 그 상태도
+            // `isHittable`로 보고했다). 본문 길이와 상관없이 마지막 요소를 막대 위로
+            // 올릴 수 있도록 액션 높이만큼의 여백을 직접 둔다.
+            .padding(.bottom, VFControl.buttonHeight + VFSpacing.xl)
         }
         // 별점과 글자 수를 만들지 않아 이 단계도 Pencil보다 짧다. 2단계와 같은 이유로
         // 마지막 액션을 아래에 고정한다 — 위는 입력, 아래는 완성.
@@ -322,6 +329,14 @@ struct RecordCreateStep3View: View {
                 .foregroundStyle(VFColor.bodySecondary)
                 .accessibilityHidden(true)
 
+            // 지금 편집기가 이미 가진 AI 초안. 일기 칸 **바로 위**에 한 줄로 둔다.
+            //
+            // 일기 칸 아래에 두었을 때는 화면 맨 끝이 되어 고정 액션 막대에 깔렸고
+            // (실측: 버튼 762–803, 막대 713–764), 라벨과 한 줄에 묶었을 때는 아래
+            // `TextEditor`가 그 자리를 덮어 누를 수 없었다(실측: 609–649에 보이는데도
+            // `isHittable`이 거짓). 사진 분석과 같은 모양의 독립된 한 줄이 안전하다.
+            aiDraftAction
+
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $draft.diary)
                     .frame(minHeight: 120)
@@ -347,19 +362,20 @@ struct RecordCreateStep3View: View {
                         .accessibilityHidden(true)
                 }
             }
-
-            // 지금 편집기가 이미 가진 AI 초안. 일기 칸 바로 옆에, 부차적으로 둔다.
-            // 만들어진 글은 시트에서 확인하고 고칠 수 있으며, 저장되지 않는다.
-            assistanceAction(
-                title: assistance.isGeneratingAIDraft ? "AI 초안 만드는 중" : "AI 초안",
-                systemImage: "sparkles",
-                identifier: "recordCreate.step3.aiDraft",
-                hint: "경기 정보로 일기 초안을 만들어요. 확인하고 고친 뒤에 저장돼요.",
-                isEnabled: !assistance.isGeneratingAIDraft,
-                action: onGenerateAIDraft
-            )
         }
         .id(RecordEditorField.diary.rawValue)
+    }
+
+    /// 만들어진 글은 시트에서 확인하고 고칠 수 있으며, 저장되지 않는다.
+    private var aiDraftAction: some View {
+        assistanceAction(
+            title: assistance.isGeneratingAIDraft ? "AI 초안 만드는 중" : "AI 초안",
+            systemImage: "sparkles",
+            identifier: "recordCreate.step3.aiDraft",
+            hint: "경기 정보로 일기 초안을 만들어요. 확인하고 고친 뒤에 저장돼요.",
+            isEnabled: !assistance.isGeneratingAIDraft,
+            action: onGenerateAIDraft
+        )
     }
 
     /// 부차적인 보조 동작 하나. 본문 입력보다 약하게 보이도록 같은 모양을 함께 쓴다.

@@ -324,9 +324,13 @@ final class RecordCreateStep3UITests: XCTestCase {
         XCTAssertFalse(app.buttons["임시저장"].exists, "임시저장 버튼이 생겼다")
     }
 
-    func test18_noInventedAIOrAnalysisSurface() {
+    func test18_assistanceParityIsPresentAndNothingElseIsInvented() {
         let app = launchStep3()
-        for forbidden in ["AI 초안", "AI 후기", "사진 분석", "경기 선택", "티켓", "KBO"] {
+        // 지금 편집기가 이미 가진 두 가지는 3단계에서도 닿을 수 있다.
+        XCTAssertTrue(node(app, "recordCreate.step3.analyzePhotos").exists, "사진 분석에 닿을 수 없다")
+        XCTAssertTrue(node(app, "recordCreate.step3.aiDraft").exists, "AI 초안에 닿을 수 없다")
+        // 1단계가 맡은 것과 없는 기능은 여전히 여기 없다.
+        for forbidden in ["경기 선택", "티켓", "KBO", "날씨", "응원 준비물"] {
             XCTAssertFalse(text(app, forbidden).exists, "\(forbidden) 표면을 지어냈다")
         }
     }

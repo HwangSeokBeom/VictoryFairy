@@ -82,6 +82,30 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
                        "편집기가 둘이다", file: file, line: line)
     }
 
+    /// 생성 경로가 여는 세 단계 흐름의 1단계인지.
+    private func assertWizardIsOpen(_ app: XCUIApplication, origin: String,
+                                    file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(waits(node(app, "recordCreate.origin.\(origin)")),
+                      "\(origin) 경로로 열리지 않았다", file: file, line: line)
+        XCTAssertTrue(waits(node(app, "recordCreate.step1.root")), "1단계가 열리지 않았다", file: file, line: line)
+        XCTAssertFalse(text(app, "필수 정보").exists, "생성 경로가 아직 한 장짜리 폼을 연다", file: file, line: line)
+        for forbidden in ["임시저장", "날씨", "먹은 것", "응원 준비물", "0 / 500"] {
+            XCTAssertFalse(text(app, forbidden).exists, "\(forbidden)이 생겼다", file: file, line: line)
+        }
+    }
+
+    /// 눈에 보이는 취소로 흐름을 닫는다. 제스처는 큰 글자에서 통하지 않는다.
+    private func cancelWizard(_ app: XCUIApplication) {
+        if app.keyboards.element.exists {
+            app.swipeDown()
+            _ = app.keyboards.element.waitForNonExistence(timeout: 4)
+        }
+        let cancel = node(app, "recordCreate.cancel")
+        XCTAssertTrue(waits(cancel), "흐름에 눈에 보이는 취소가 없다")
+        XCTAssertTrue(cancel.isHittable, "취소를 누를 수 없다 — 화면 밖으로 밀렸다")
+        cancel.tap()
+    }
+
     /// 실제 사용자 이탈 동작으로 시트를 내린다.
     ///
     /// 화면 가운데에서 아래로 쓸면 편집기 `ScrollView`가 제스처를 먹는다(측정으로
@@ -214,21 +238,28 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
         let app = launch(["-VFUITestInitialTab", "feed", "-VFUITestFeedFixture", "empty"])
         XCTAssertTrue(waits(node(app, "feed.empty")), "빈 피드 픽스처가 적용되지 않았다")
         scrollIntoView(app, node(app, "feed.addRecord")).tap()
-        assertEditorIsOpen(app, editing: false)
+        assertWizardIsOpen(app, origin: "feed")
 
-        let seat = scrollIntoView(app, app.textFields["좌석"].firstMatch)
-        seat.tap()
-        seat.typeText("만들다 취소")
-        if app.buttons["Return"].exists { app.buttons["Return"].tap() }
+        // 값을 적고 키보드를 띄운 채로 나간다.
+        let score = scrollIntoView(app, node(app, "recordCreate.score.our"))
+        score.tap()
+        XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 8), "키보드가 올라오지 않았다")
+        score.typeText("7")
+        node(app, "recordCreate.score.done").tap()
         _ = app.keyboards.element.waitForNonExistence(timeout: 6)
-        app.swipeUp()
 
-        dismissSheetFromNavigationBar(app)
+        cancelWizard(app)
 
-        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
-                      "생성 편집기를 닫지 못했다")
+        XCTAssertTrue(node(app, "recordCreate.step1.root").waitForNonExistence(timeout: 10),
+                      "생성 흐름을 닫지 못했다")
         XCTAssertTrue(waits(node(app, "screen.feed")), "취소 후 피드로 돌아오지 못했다")
         XCTAssertTrue(node(app, "feed.empty").exists, "취소했는데 기록이 생겼다")
+
+        // 다시 열면 새 초안이다 — 앞서 적은 값이 되살아나지 않는다.
+        scrollIntoView(app, node(app, "feed.addRecord")).tap()
+        assertWizardIsOpen(app, origin: "feed")
+        XCTAssertEqual(scrollIntoView(app, node(app, "recordCreate.score.our")).value as? String ?? "", "",
+                       "취소한 값이 다음 생성에 되살아났다")
     }
 
     // MARK: - 3. 시즌 아카이브 상세 진입
@@ -252,14 +283,16 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS %@", "첫 직관 기록하기")).firstMatch
         scrollIntoView(app, cta).tap()
 
-        assertEditorIsOpen(app, editing: false)
-        // 구장을 지어내지 않는다.
+        assertWizardIsOpen(app, origin: "statisticsStadium")
+        // 구장을 지어내지 않는다. 1단계는 여전히 직접 고르라고 말한다.
         XCTAssertFalse(text(app, "잠실야구장").exists, "없는 구장을 지어냈다")
         XCTAssertFalse(text(app, "대구 삼성 라이온즈 파크").exists, "주 관람 구장을 끌어왔다")
+        XCTAssertEqual(scrollIntoView(app, node(app, "recordCreate.field.stadium")).value as? String ?? "",
+                       "선택하지 않음", "구장이 미리 채워졌다")
 
-        cancelEditorFromToolbar(app)
-        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
-                      "큰 글자에서 편집기를 빠져나갈 수 없다")
+        cancelWizard(app)
+        XCTAssertTrue(node(app, "recordCreate.step1.root").waitForNonExistence(timeout: 10),
+                      "흐름을 빠져나갈 수 없다")
         XCTAssertTrue(waits(text(app, "아직 구장별 통계가 없어요")), "취소 후 구장 상세로 돌아오지 못했다")
     }
 
@@ -278,15 +311,17 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
             NSPredicate(format: "label CONTAINS %@", "첫 직관 기록하기")).firstMatch
         scrollIntoView(app, cta).tap()
 
-        assertEditorIsOpen(app, editing: false)
+        assertWizardIsOpen(app, origin: "statisticsOpponent")
         // 상대팀을 지어내지 않는다.
         for fabricated in ["KIA 타이거즈", "LG 트윈스", "두산 베어스"] {
             XCTAssertFalse(text(app, fabricated).exists, "없는 상대팀 \(fabricated)을 지어냈다")
         }
+        XCTAssertEqual(scrollIntoView(app, node(app, "recordCreate.field.opponentTeam")).value as? String ?? "",
+                       "선택하지 않음", "상대팀이 미리 채워졌다")
 
-        cancelEditorFromToolbar(app)
-        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
-                      "큰 글자에서 편집기를 빠져나갈 수 없다")
+        cancelWizard(app)
+        XCTAssertTrue(node(app, "recordCreate.step1.root").waitForNonExistence(timeout: 10),
+                      "흐름을 빠져나갈 수 없다")
         XCTAssertTrue(waits(text(app, "아직 상대팀별 통계가 없어요")), "취소 후 상대팀 상세로 돌아오지 못했다")
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(waits(node(app, "statistics.root")), "뒤로 가기가 되지 않는다")
@@ -333,21 +368,6 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
         return baseline
     }
 
-    /// 눈에 보이는 이탈 수단으로 편집기를 닫는다.
-    ///
-    /// 제스처는 AccessibilityXXXL에서 통하지 않는다(실측). 화면에 보이는 취소가
-    /// 있어야 한다는 것 자체가 이 테스트가 지키는 약속이다.
-    private func cancelEditorFromToolbar(_ app: XCUIApplication) {
-        if app.keyboards.element.exists {
-            app.swipeDown()
-            _ = app.keyboards.element.waitForNonExistence(timeout: 4)
-        }
-        let cancel = node(app, "logEditor.cancel")
-        XCTAssertTrue(waits(cancel), "편집기에 눈에 보이는 취소가 없다")
-        XCTAssertTrue(cancel.isHittable, "취소를 누를 수 없다 — 큰 글자에서 화면 밖으로 밀렸다")
-        cancel.tap()
-    }
-
     /// 구장 빈 상태 경로를 큰 글자에서 확인한다.
     func testStadiumEmptyRouteAtAccessibilityXXXL() {
         let baseline = assertAccessibilityCategoryApplied("noStadium",
@@ -367,11 +387,11 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
         XCTAssertLessThanOrEqual(settled(cta).maxX, screen.maxX + 0.5, "CTA가 가로로 잘렸다")
         cta.tap()
 
-        assertEditorIsOpen(app, editing: false)
+        assertWizardIsOpen(app, origin: "statisticsStadium")
         XCTAssertFalse(text(app, "잠실야구장").exists, "없는 구장을 지어냈다")
-        cancelEditorFromToolbar(app)
-        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
-                      "큰 글자에서 편집기를 빠져나갈 수 없다")
+        cancelWizard(app)
+        XCTAssertTrue(node(app, "recordCreate.step1.root").waitForNonExistence(timeout: 10),
+                      "큰 글자에서 흐름을 빠져나갈 수 없다")
         XCTAssertTrue(waits(text(app, "아직 구장별 통계가 없어요")), "취소 후 구장 상세로 돌아오지 못했다")
     }
 
@@ -394,13 +414,13 @@ final class RecordCreateRouteRepairUITests: XCTestCase {
         XCTAssertLessThanOrEqual(settled(cta).maxX, screen.maxX + 0.5, "CTA가 가로로 잘렸다")
         cta.tap()
 
-        assertEditorIsOpen(app, editing: false)
+        assertWizardIsOpen(app, origin: "statisticsOpponent")
         for fabricated in ["KIA 타이거즈", "LG 트윈스", "두산 베어스"] {
             XCTAssertFalse(text(app, fabricated).exists, "없는 상대팀 \(fabricated)을 지어냈다")
         }
-        cancelEditorFromToolbar(app)
-        XCTAssertTrue(app.staticTexts["직관 기록 추가"].waitForNonExistence(timeout: 10),
-                      "큰 글자에서 편집기를 빠져나갈 수 없다")
+        cancelWizard(app)
+        XCTAssertTrue(node(app, "recordCreate.step1.root").waitForNonExistence(timeout: 10),
+                      "큰 글자에서 흐름을 빠져나갈 수 없다")
         XCTAssertTrue(waits(text(app, "아직 상대팀별 통계가 없어요")), "취소 후 상대팀 상세로 돌아오지 못했다")
     }
 

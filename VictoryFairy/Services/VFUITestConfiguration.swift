@@ -654,11 +654,26 @@ enum VFUITestConfiguration {
         #endif
     }
 
-    /// 스테이징 흐름이 시작할 단계. 저장되는 값이 아니라 시작 위치일 뿐이다.
+    /// 흐름이 시작할 단계. 저장되는 값이 아니라 **시작 위치**일 뿐이다.
+    ///
+    /// 두 가지가 이 값을 정할 수 있다.
+    /// - 검증용 스테이징 픽스처 `incompleteAtMemory`
+    /// - 독립 인자 `-VFUITestRecordCreateInitialStep`
+    ///
+    /// 두 번째가 필요한 이유: 1단계가 비어 있는 채로 마지막 단계에 서 있는 상태는
+    /// 제품 흐름으로 만들 수 없다(1단계의 `다음`이 이미 막는다). 그런데 마지막
+    /// 완성 버튼은 저장 직전에 스스로 검증해야 하고, 그 방어를 **제품 진입 경로에서**
+    /// 확인하려면 시작 위치만 옮길 수단이 필요하다. 이 인자는 화면 루트를 바꾸지
+    /// 않으므로 진입은 여전히 홈·기록 같은 실제 경로다.
+    ///
     /// Release에는 이 개념 자체가 없다.
     static var recordCreateStagedInitialStep: RecordCreateStep? {
         #if DEBUG
-        return recordCreateStagedFixture == .incompleteAtMemory ? .memory : nil
+        if recordCreateStagedFixture == .incompleteAtMemory { return .memory }
+        guard isActive,
+              let raw = value(for: "-VFUITestRecordCreateInitialStep", in: ProcessInfo.processInfo.arguments)
+        else { return nil }
+        return RecordCreateStep(rawValue: raw)
         #else
         return nil
         #endif

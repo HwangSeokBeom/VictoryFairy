@@ -94,6 +94,21 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         }
     }
 
+    /// 세 단계 흐름의 1단계가 열렸는지. 생성 경로는 이제 여기로 온다.
+    private func assertWizardStep1ReadyForCapture(_ app: XCUIApplication, origin: String,
+                                                  file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(waits(node(app, "recordCreate.origin.\(origin)")),
+                      "\(origin) 경로로 열리지 않았다", file: file, line: line)
+        XCTAssertTrue(waits(node(app, "recordCreate.step1.root")), "1단계가 열리지 않았다", file: file, line: line)
+        XCTAssertTrue(waits(exactText(app, "어떤 경기였나요?")), "1단계 제목이 없다", file: file, line: line)
+        // 지금 편집기의 한 장짜리 폼이 아니다.
+        XCTAssertFalse(exactText(app, "필수 정보").exists, "생성 경로가 아직 한 장짜리 폼을 연다", file: file, line: line)
+        for forbidden in ["임시저장", "날씨", "먹은 것", "응원 준비물", "0 / 500", "몇 점이었나요"] {
+            XCTAssertFalse(text(app, forbidden).exists,
+                           "\(forbidden)이 화면에 있다 — 찍으면 안 되는 상태다", file: file, line: line)
+        }
+    }
+
     /// 시트를 실제 사용자 동작으로 내린다.
     ///
     /// 화면 가운데에서 아래로 쓸면 편집기 `ScrollView`가 제스처를 먹는다(측정으로
@@ -153,7 +168,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
     private func openFeedCreate(_ app: XCUIApplication) {
         XCTAssertTrue(waits(node(app, "screen.feed")))
         scrollIntoView(app, node(app, "feed.addRecord")).tap()
-        assertEditorReadyForCapture(app, editing: false)
+        assertWizardStep1ReadyForCapture(app, origin: "feed")
     }
 
     private func openRecordDetailEdit(_ app: XCUIApplication) {
@@ -174,7 +189,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         let home = homeApp()
         XCTAssertTrue(waits(node(home, "screen.home")))
         scrollIntoView(home, node(home, "home.recordCTA")).tap()
-        assertEditorReadyForCapture(home, editing: false)
+        assertWizardStep1ReadyForCapture(home, origin: "home")
         capture("01-home-standard-create")
         home.terminate()
 
@@ -186,7 +201,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         let calendar = calendarApp()
         XCTAssertTrue(waits(node(calendar, "calendar.scenario.selectedEmptyDate")))
         scrollIntoView(calendar, node(calendar, "calendar.detailAddRecord")).tap()
-        assertEditorReadyForCapture(calendar, editing: false)
+        assertWizardStep1ReadyForCapture(calendar, origin: "calendar")
         capture("04-calendar-create-initialDate")
         calendar.terminate()
 
@@ -241,8 +256,10 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
     // MARK: - 8~11 기능 진입면
 
     func testCapture08to11_featureSurfaces() {
+        // 지금 편집기의 기능 진입면은 수정 경로에서 본다. 생성은 세 단계 흐름으로
+        // 옮겨 갔고, 그쪽 진입면은 통합 캡처 모음이 따로 찍는다.
         let ocr = feedApp()
-        openFeedCreate(ocr)
+        openRecordDetailEdit(ocr)
         scrollIntoView(ocr, ocr.buttons["티켓으로 작성하기"].firstMatch).tap()
         _ = waits(ocr.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "티켓")).firstMatch, 8)
@@ -256,7 +273,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
         photo.terminate()
 
         let ai = feedApp()
-        openFeedCreate(ai)
+        openRecordDetailEdit(ai)
         scrollIntoView(ai, ai.buttons.matching(
             NSPredicate(format: "label CONTAINS %@", "AI로 후기 초안 만들기")).firstMatch)
         capture("10-aiDiary-entry")
@@ -264,7 +281,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
 
         // 경기 추천 자리. 서버가 없으면 "가져오지 못했어요" 안내까지가 현재 동작이다.
         let kbo = feedApp()
-        openFeedCreate(kbo)
+        openRecordDetailEdit(kbo)
         scrollIntoView(kbo, exactText(kbo, "경기 날짜"))
         capture("11-kboSuggestion-entry")
     }
@@ -284,7 +301,7 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
     func testCapture13and14_compactAndKeyboard() {
         let app = feedApp()
         let width = app.windows.firstMatch.frame.width
-        openFeedCreate(app)
+        openRecordDetailEdit(app)
         // 현재 폼이 실제로 보이는지 확인한 뒤 찍는다.
         scrollIntoView(app, app.buttons["저장하기"].firstMatch)
         app.swipeDown(); app.swipeDown()
@@ -307,16 +324,17 @@ final class RecordCreateFoundationCaptureUITests: XCTestCase {
 
     func testCapture15_accessibilityXXXL() {
         let app = feedApp(accessibilitySize: true)
-        openFeedCreate(app)
+        openRecordDetailEdit(app)
         capture("15-accessibilityXXXL")
     }
 
     // MARK: - 16~17 저장 안내
 
     func testCapture16and17_saveValidationAndSaveOutcome() {
+        // 막히는 저장은 이제 1단계에만 있다 — 수정 경로의 기록은 이미 유효하다.
         let invalid = feedApp()
         openFeedCreate(invalid)
-        scrollIntoView(invalid, invalid.buttons["저장하기"].firstMatch).tap()
+        scrollIntoView(invalid, node(invalid, "recordCreate.next")).tap()
         let warning = invalid.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@", "선택해 주세요")).firstMatch
         XCTAssertTrue(waits(warning, 8), "검증 안내가 뜨지 않았다")
