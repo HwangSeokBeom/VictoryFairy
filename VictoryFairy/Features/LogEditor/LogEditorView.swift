@@ -1005,20 +1005,12 @@ struct LogEditorView: View {
             selectedPhotoItems = []
         }
 
-        let remainingSlots = max(0, 10 - draft.photo.refs.count)
-        guard remainingSlots > 0 else {
-            validationMessage = "사진은 최대 10장까지 추가할 수 있어요."
-            return
-        }
-
-        let service = PhotoAttachmentService()
-        for item in selectedPhotoItems.prefix(remainingSlots) {
-            do {
-                let ref = try await service.savePhoto(from: item)
-                draft.photo.append(ref)
-            } catch {
-                validationMessage = error.localizedDescription
-            }
+        // 규칙은 `RecordEditorPhotoAttachment` 한 곳에 있다. 최대 장수·남은 자리·
+        // 실패해도 나머지를 계속 받는 것·이미 있던 사진을 지우지 않는 것 모두 그대로다.
+        let result = await RecordEditorPhotoAttachment.importItems(selectedPhotoItems, into: draft.photo)
+        draft.photo = result.photo
+        if let message = result.outcome.message {
+            validationMessage = message
         }
     }
 
