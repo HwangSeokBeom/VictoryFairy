@@ -22,6 +22,8 @@ struct RecordCreateStep1View: View {
     @Binding var draft: RecordEditorDraft
     /// 새로 만들기인지 수정인지. 지금 이 화면은 새로 만들기에만 쓰인다.
     let mode: RecordEditorMode
+    /// 열자마자 검증 안내를 띄울지. 마지막 단계에서 완성이 막혀 되돌아온 경우다.
+    var showsValidationOnAppear = false
     /// 선택 가능한 팀 이름. 저장소가 들고 있는 실제 목록을 받는다.
     let teamNames: [String]
     /// 선택 가능한 구장 이름.
@@ -36,6 +38,7 @@ struct RecordCreateStep1View: View {
     /// 사용자가 진행을 시도한 횟수. 시도 전에는 안내를 띄우지 않고, 시도할 때마다
     /// 다시 첫 번째로 막힌 값으로 데려간다.
     @State private var proceedAttempts = 0
+    @State private var didSeedValidation = false
     @FocusState private var focusedScore: ScoreSide?
 
     private enum ScoreSide: Hashable { case ours, theirs }
@@ -71,6 +74,12 @@ struct RecordCreateStep1View: View {
                     Button("완료") { focusedScore = nil }
                         .accessibilityIdentifier("recordCreate.score.done")
                 }
+            }
+            .onAppear {
+                // 완성이 1단계에서 막혀 되돌아왔으면, 무엇이 빠졌는지 바로 보인다.
+                guard showsValidationOnAppear, !didSeedValidation else { return }
+                didSeedValidation = true
+                proceedAttempts += 1
             }
             .onChange(of: proceedAttempts) {
                 guard proceedAttempts > 0, let field = validation.firstInvalidField else { return }

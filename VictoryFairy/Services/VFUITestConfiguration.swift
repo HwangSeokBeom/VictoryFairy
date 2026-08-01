@@ -1,4 +1,7 @@
 import Foundation
+#if DEBUG
+import UIKit
+#endif
 
 /// UI 테스트가 결정적인 시작 상태를 만들기 위해 쓰는 실행 인자 처리기.
 ///
@@ -578,6 +581,12 @@ enum VFUITestConfiguration {
         case fresh
         /// 캘린더처럼 날짜를 정해 주는 진입점에서 온 경우.
         case initialDate
+        /// 1단계가 아직 비어 있는 채로 마지막 단계에 서 있는 상태.
+        ///
+        /// 제품 흐름에서는 1단계의 `다음`이 막혀 여기에 닿을 수 없다. 그래도 마지막
+        /// 완성 버튼은 저장 직전에 스스로 검증해야 하므로, 그 방어 경로를 눈으로
+        /// 확인할 수 있게 시작 위치만 옮겨 주는 픽스처다.
+        case incompleteAtMemory
     }
 
     /// 실행 인자가 지정한 스테이징 픽스처. Release에는 이 개념 자체가 없다.
@@ -605,6 +614,51 @@ enum VFUITestConfiguration {
         components.month = 4
         components.day = 16
         return Calendar.current.date(from: components)
+        #else
+        return nil
+        #endif
+    }
+
+    /// 스테이징 3단계가 시작할 때 들고 있을 사진 수.
+    ///
+    /// 시뮬레이터 사진 피커는 자동화가 불안정하다. 그래서 사진 상태만은 피커를
+    /// 거치지 않고 심되, **실제 사진 파이프라인**(`PhotoAttachmentService`)으로
+    /// 진짜 파일을 만들어 넣는다 — 디코딩·썸네일·삭제가 모두 제품 경로 그대로 돈다.
+    /// Release에는 이 개념 자체가 없다.
+    static func recordCreateStagedPhotoRefs() -> [String] {
+        #if DEBUG
+        guard isActive,
+              let raw = value(for: "-VFUITestRecordCreateStagedPhotos", in: ProcessInfo.processInfo.arguments)
+        else { return [] }
+        let count: Int
+        switch raw {
+        case "one": count = 1
+        case "many": count = 2
+        default: count = 0
+        }
+        guard count > 0 else { return [] }
+
+        let service = PhotoAttachmentService()
+        let palette: [UIColor] = [.systemTeal, .systemOrange]
+        return (0..<count).compactMap { index in
+            let size = CGSize(width: 320, height: 320)
+            let renderer = UIGraphicsImageRenderer(size: size)
+            let image = renderer.image { context in
+                palette[index % palette.count].setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+            }
+            return try? service.saveImage(image)
+        }
+        #else
+        return []
+        #endif
+    }
+
+    /// 스테이징 흐름이 시작할 단계. 저장되는 값이 아니라 시작 위치일 뿐이다.
+    /// Release에는 이 개념 자체가 없다.
+    static var recordCreateStagedInitialStep: RecordCreateStep? {
+        #if DEBUG
+        return recordCreateStagedFixture == .incompleteAtMemory ? .memory : nil
         #else
         return nil
         #endif

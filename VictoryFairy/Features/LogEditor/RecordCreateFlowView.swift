@@ -27,10 +27,19 @@ struct RecordCreateFlowView: View {
 
     @State private var draft: RecordEditorDraft
     /// 지금 단계. 저장하지 않는다.
-    @State private var step: RecordCreateStep = .game
+    ///
+    /// 시작 위치만 UI 테스트 픽스처가 정할 수 있다(Release에서는 언제나 `nil`이라
+    /// 첫 단계에서 시작한다). 그 뒤의 이동은 제품 경로 그대로 흐르고, 어디에도
+    /// 저장되지 않는다.
+    @State private var step: RecordCreateStep =
+        VFUITestConfiguration.recordCreateStagedInitialStep ?? .game
     @State private var isSaving = false
     @State private var saveMessage: String?
     @State private var didFinishSaving = false
+    /// 마지막 완성 시도가 1단계 검증에서 막혔는가.
+    ///
+    /// 막혔을 때만 1단계가 안내를 이미 띄운 채로 열린다. 저장되지 않는 화면 상태다.
+    @State private var didFailFinalValidation = false
 
     init(initialDate: Date? = nil, onFinish: (() -> Void)? = nil) {
         self.initialDate = initialDate
@@ -56,6 +65,7 @@ struct RecordCreateFlowView: View {
                 RecordCreateStep1View(
                     draft: $draft,
                     mode: mode,
+                    showsValidationOnAppear: didFailFinalValidation,
                     teamNames: appData.teams.map(\.name),
                     stadiumNames: KBOSeed.stadiums,
                     isSaving: isSaving,
@@ -73,7 +83,13 @@ struct RecordCreateFlowView: View {
                     onSkip: { advance() }
                 )
             case .memory:
-                stagedBoundary
+                RecordCreateStep3View(
+                    draft: $draft,
+                    isSaving: isSaving,
+                    saveMessage: saveMessage,
+                    onBack: { goBack() },
+                    onComplete: { Task { await completeRecord() } }
+                )
             }
         }
         .navigationTitle(mode.navigationTitle)
@@ -106,6 +122,12 @@ struct RecordCreateFlowView: View {
             // 지금 편집기와 같은 규칙: 새로 만들 때만, 아직 비어 있을 때만 응원팀을 채운다.
             if draft.favoriteTeamName.isEmpty {
                 draft.favoriteTeamName = appData.team(id: preferences.favoriteTeamID)?.name ?? ""
+            }
+            // UI 테스트가 요청했을 때만, 그리고 아직 사진이 없을 때만 심는다.
+            // Release에서는 언제나 빈 배열이라 이 가지는 아무 일도 하지 않는다.
+            if draft.photo.refs.isEmpty {
+                let seeded = VFUITestConfiguration.recordCreateStagedPhotoRefs()
+                if !seeded.isEmpty { draft.photo = RecordEditorPhotoDraft(originalRefs: [], refs: seeded) }
             }
         }
     }
@@ -140,6 +162,11 @@ struct RecordCreateFlowView: View {
     private func saveMinimalRecord() async {
         guard !isSaving else { return }
         guard RecordEditorValidation.validate(draft, step: .game).isValid else { return }
+        await save()
+    }
+
+    /// 저장 경계는 하나뿐이다. 최소 저장과 완성 저장이 같은 길을 쓴다.
+    private func save() async {
         guard let saveInput = draft.makeSaveInput() else { return }
         isSaving = true
         let didSave = await appData.saveAttendanceLog(
@@ -155,34 +182,26 @@ struct RecordCreateFlowView: View {
         saveMessage = appData.lastSaveMessage
         // `saveAttendanceLog`는 서버 동기화가 실패하면 `false`를 돌려주지만 기록은
         // 이미 기기에 저장돼 있다(지금 편집기도 그때 그대로 닫는다). 저장이 아예
-        // 이뤄지지 않은 경우에만 화면에 남는다.
+        // 이뤄지지 않은 경우에만 화면에 남는다 — 초안과 사진은 그대로다.
         guard appData.lastSaveMessage != nil else { return }
         didFinishSaving = didSave
         finish()
     }
 
-    /// 2단계 자리. **권위 있는 Pencil 레이아웃이 아니다.**
+    /// "기록 완성하기" — 세 단계에서 모은 값으로 **완결된 보통 기록** 하나를 만든다.
     ///
-    /// 이 경계는 스테이징 호스트에서만 보인다. 실제 사용자 여정에는 들어가지 않는다.
-    private var stagedBoundary: some View {
-        VStack(spacing: VFSpacing.md) {
-            Text("여기부터는 아직 만들지 않았어요")
-                .font(VFTypography.sectionTitle)
-                .foregroundStyle(VFColor.bodyPrimary)
-            Text("\(step.accessibilityTitle) 화면은 다음 패스에서 만듭니다. 이 자리는 검증용 경계이고 사용자에게 열리지 않아요.")
-                .font(VFTypography.supporting)
-                .foregroundStyle(VFColor.bodySecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            VFSecondaryButton(title: "이전 단계로", systemImage: "chevron.left") { goBack() }
-                .accessibilityIdentifier("recordCreate.back")
+    /// 1단계 요구 조건만 저장을 막는다. 2·3단계 값은 있으면 함께 실려 가고 없으면
+    /// 비어 있는 그대로다. 저장 경계는 최소 저장과 똑같은 한 곳이다.
+    private func completeRecord() async {
+        guard !isSaving else { return }
+        // 막히면 저장하지 않고 1단계로 되돌린다. 2·3단계 값과 사진은 그대로 남는다.
+        guard RecordEditorValidation.validate(draft).isValid else {
+            didFailFinalValidation = true
+            step = .game
+            return
         }
-        .padding(VFSpacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .vfScreenBackground()
-        // `.contain`이 없으면 이 식별자가 안쪽 버튼의 식별자를 덮어쓴다(측정으로 확인).
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("recordCreate.stagedBoundary")
+        didFailFinalValidation = false
+        await save()
     }
 }
 
