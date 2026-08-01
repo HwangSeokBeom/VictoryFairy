@@ -76,7 +76,7 @@ final class RecordCreateStep1Tests: XCTestCase {
         RecordEditorDraft.make(
             mode: .create(initialDate: initialDate),
             preferredFavoriteTeamName: preferredTeam,
-            defaultMoodTag: RecordCreateFlowView.defaultMoodTag,
+            defaultMoodTag: RecordCreateFlowView.newRecordMoodTag,
             defaultHighlightTag: RecordCreateFlowView.defaultHighlightTag,
             fallbackDate: Self.calendarDate
         )
@@ -543,8 +543,8 @@ final class RecordCreateStep1GovernanceTests: XCTestCase {
         return output
     }
 
-    /// 일곱 개 사용자 경로는 여전히 지금 편집기를 띄운다.
-    func testSevenProductionRoutesStillPresentTheCurrentEditor() throws {
+    /// 수정하기 두 경로만 지금 편집기를 띄운다.
+    func testOnlyTheTwoEditRoutesPresentTheCurrentEditor() throws {
         var callSites: [String] = []
         for entry in try productionSources() {
             for line in entry.body.split(separator: "\n") where line.contains("LogEditorView(") {
@@ -552,20 +552,21 @@ final class RecordCreateStep1GovernanceTests: XCTestCase {
             }
         }
         let production = callSites.filter { !$0.hasPrefix("LogEditorView.swift") }
-        XCTAssertEqual(production.count, 7, "진입점 수가 달라졌다: \(production)")
+        XCTAssertEqual(production.count, 2, "수정 진입점 수가 달라졌다: \(production)")
+        XCTAssertTrue(production.allSatisfy { $0.contains("editingLog:") }, "생성 경로가 지금 편집기에 남았다")
     }
 
-    /// 그 어떤 사용자 경로도 아직 새 흐름으로 가지 않는다.
-    func testNoProductionRouteEntersTheStagedFlow() throws {
+    /// 다섯 개 생성 경로가 세 단계 흐름으로 간다.
+    func testFiveProductionCreateRoutesEnterTheFlow() throws {
         var callSites: [String] = []
         for entry in try productionSources() where entry.name != "RecordCreateFlowView.swift" {
             for line in entry.body.split(separator: "\n") where line.contains("RecordCreateFlowView(") {
                 callSites.append("\(entry.name):\(line.trimmingCharacters(in: .whitespaces))")
             }
         }
-        XCTAssertTrue(callSites.isEmpty, "새 흐름을 직접 부르는 곳이 생겼다: \(callSites)")
+        XCTAssertEqual(callSites.count, 5, "생성 진입점 수가 달라졌다: \(callSites)")
 
-        // 유일한 진입은 스테이징 호스트이고, 그 호스트를 부르는 곳도 한 군데뿐이다.
+        // 검증용 스테이징 호스트를 부르는 곳은 여전히 한 군데뿐이다.
         var hostSites: [String] = []
         for entry in try productionSources() where entry.name != "RecordCreateFlowView.swift" {
             for line in entry.body.split(separator: "\n") where line.contains("RecordCreateStagedHostView(") {

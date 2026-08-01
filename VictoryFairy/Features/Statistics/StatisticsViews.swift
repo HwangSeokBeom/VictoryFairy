@@ -1069,7 +1069,9 @@ struct StadiumStatsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isShowingLogEditor) {
             NavigationStack {
-                LogEditorView()
+                // 보고 있던 화면이 구장별 통계라고 해서 구장을 미리 채우지 않는다.
+                // 어느 구장이었는지는 사용자만 안다 — 1단계에서 직접 고른다.
+                RecordCreateFlowView(context: .statisticsStadium())
             }
         }
         .vfScreenBackground()
@@ -1122,7 +1124,8 @@ struct OpponentStatsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isShowingLogEditor) {
             NavigationStack {
-                LogEditorView()
+                // 상대팀도 지어내지 않는다. 1단계에서 직접 고른다.
+                RecordCreateFlowView(context: .statisticsOpponent())
             }
         }
         .vfScreenBackground()

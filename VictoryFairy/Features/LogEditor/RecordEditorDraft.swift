@@ -214,8 +214,13 @@ struct RecordEditorDraft: Equatable {
     }
 
     /// 저장에 실려 나갈 태그. 지금 저장 경로가 쓰던 규칙 그대로다.
+    ///
+    /// 비어 있는 값은 실어 보내지 않는다. 새로 만들기의 기분은 사용자가 고르기
+    /// 전까지 비어 있는데, 그것을 그대로 내보내면 **이름 없는 태그**라는 없는 사실이
+    /// 기록에 남는다. 값이 있는 태그의 순서와 뜻은 하나도 바뀌지 않는다.
     var saveTags: [String] {
-        [moodTag] + (appliedHighlightTags.isEmpty ? [highlightTag] : appliedHighlightTags)
+        let tags = [moodTag] + (appliedHighlightTags.isEmpty ? [highlightTag] : appliedHighlightTags)
+        return tags.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     /// 초안 → 지금 쓰는 저장 입력. 저장 자체는 여기서 하지 않는다.

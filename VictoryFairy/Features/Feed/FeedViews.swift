@@ -114,7 +114,7 @@ struct FeedView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isShowingLogEditor) {
             NavigationStack {
-                LogEditorView()
+                RecordCreateFlowView(context: .feed())
             }
         }
         .sheet(isPresented: $isShowingSeasonPicker) {

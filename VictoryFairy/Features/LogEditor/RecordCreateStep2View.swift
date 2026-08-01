@@ -335,8 +335,8 @@ private struct RecordCreateStep2Preview: View {
     let companion: String
     @State private var draft = RecordEditorDraft.make(
         mode: .create,
-        defaultMoodTag: "설렘",
-        defaultHighlightTag: "직관",
+        defaultMoodTag: RecordCreateFlowView.newRecordMoodTag,
+        defaultHighlightTag: RecordCreateFlowView.defaultHighlightTag,
         fallbackDate: Date()
     )
 

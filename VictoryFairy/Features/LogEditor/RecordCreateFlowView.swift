@@ -1,24 +1,81 @@
 import SwiftUI
 
-/// 개정 Pencil `08_RecordCreate_Step1~3`의 세 단계 흐름 껍데기.
+/// 다섯 개 제품 생성 경로가 세 단계 기록 작성 흐름을 여는 **하나뿐인 입구**.
 ///
-/// **아직 사용자에게 열리지 않았다.** 지금 사용자에게 보이는 편집기는 여전히
-/// `LogEditorView`(한 장짜리 스크롤 폼)이고, 일곱 개 제품 진입점은 그대로다.
-/// 2·3단계가 없는 상태에서 이 흐름을 제품 경로에 붙이면 사용자를 빈 화면으로
-/// 보내게 되므로, 이번 패스에서는 DEBUG 픽스처로만 띄운다.
+/// 경로마다 초안을 따로 만들지 않는다. 여기서 만드는 것은 언제나 정본
+/// `RecordEditorDraft` 하나이고, 지어내는 값이 없다 — 상대팀·구장·결과·점수·좌석·
+/// 동행·사진·일기 어느 것도 미리 채우지 않는다. 만드는 것만으로는 아무것도 저장되지
+/// 않는다.
+struct RecordCreateLaunchContext: Equatable {
+    /// 어느 화면에서 열렸는가.
+    ///
+    /// 화면에 보이지 않고 기록에도 저장되지 않는다. 경로별 동작(캘린더가 정해 준
+    /// 날짜)과 UI 테스트가 "정말 그 경로에서 열렸는지"를 확인하는 데만 쓴다.
+    enum Origin: String, CaseIterable {
+        case home
+        case feed
+        case calendar
+        case statisticsStadium
+        case statisticsOpponent
+    }
+
+    let origin: Origin
+    /// 이 경로가 정해 주는 시작 날짜. 정해 주지 않으면 흐름이 오늘을 쓴다.
+    let initialDate: Date?
+
+    private init(origin: Origin, initialDate: Date?) {
+        self.origin = origin
+        self.initialDate = initialDate
+    }
+
+    /// 홈의 "오늘의 직관 남기기". 날짜를 정해 주지 않는다.
+    static func home() -> Self { Self(origin: .home, initialDate: nil) }
+    /// 기록(피드) 탭의 추가 버튼.
+    static func feed() -> Self { Self(origin: .feed, initialDate: nil) }
+    /// 캘린더에서 고른 날짜로 여는 경로. 그 날짜를 그대로 넘긴다.
+    static func calendar(date: Date) -> Self { Self(origin: .calendar, initialDate: date) }
+    /// 구장별 통계의 빈 상태. **구장을 지어내지 않는다** — 1단계에서 직접 고른다.
+    static func statisticsStadium() -> Self { Self(origin: .statisticsStadium, initialDate: nil) }
+    /// 상대팀별 통계의 빈 상태. **상대팀을 지어내지 않는다.**
+    static func statisticsOpponent() -> Self { Self(origin: .statisticsOpponent, initialDate: nil) }
+
+    /// 정본 초안을 만드는 하나뿐인 길.
+    ///
+    /// 응원팀은 여기서 넣지 않는다 — 사용자 설정은 화면이 떠야 읽을 수 있으므로
+    /// 흐름이 `onAppear`에서 지금 편집기와 똑같은 규칙으로 채운다.
+    func makeDraft(today: Date) -> RecordEditorDraft {
+        RecordEditorDraft.make(
+            mode: .create(initialDate: initialDate),
+            preferredFavoriteTeamName: nil,
+            defaultMoodTag: RecordCreateFlowView.newRecordMoodTag,
+            defaultHighlightTag: RecordCreateFlowView.defaultHighlightTag,
+            fallbackDate: today
+        )
+    }
+
+    /// UI 테스트와 캡처가 "어느 경로로 들어왔는지"를 화면에서 확인하는 표식.
+    var routeIdentifier: String { "recordCreate.origin.\(origin.rawValue)" }
+}
+
+/// 개정 Pencil `08_RecordCreate_Step1~3`의 세 단계 기록 작성 흐름.
 ///
-/// 이 껍데기가 지키는 것:
+/// 이 흐름은 **다섯 개 제품 생성 경로**(홈·기록·캘린더·구장 통계·상대팀 통계)가
+/// 쓴다. 수정하기 두 경로(홈 AI 사전 점검·기록 상세)는 그대로
+/// `LogEditorView`(한 장짜리 스크롤 폼)를 쓴다 — 이 흐름에는 수정 모드가 없다.
+///
+/// 이 흐름이 지키는 것:
 /// - 초안은 `RecordEditorDraft` 하나뿐이다. 두 번째 초안도 DTO도 만들지 않는다.
 /// - 현재 단계는 **메모리에만** 있다. SwiftData·서버·UserDefaults 어디에도 넣지 않는다.
 /// - 다음으로 넘어가는 것만으로는 아무것도 저장되지 않는다.
+/// - 보조 기능(티켓 OCR·경기 자동 찾기·사진 분석·AI 초안)도 스스로 저장하지 않는다.
 /// - 저장은 기존 저장 경계(`AppDataStore.saveAttendanceLog`)만 쓴다.
 struct RecordCreateFlowView: View {
     @EnvironmentObject private var appData: AppDataStore
     @EnvironmentObject private var preferences: UserPreferencesStore
     @Environment(\.dismiss) private var dismiss
 
-    /// 이 흐름이 만드는 기록의 시작 날짜. 캘린더처럼 날짜를 정해 주는 진입점을 위한 것.
-    let initialDate: Date?
+    /// 이 흐름을 연 경로. 시작 날짜도 여기서 온다.
+    let context: RecordCreateLaunchContext
     /// 흐름이 끝났음(취소 또는 저장 완료)을 띄운 쪽에 알린다.
     ///
     /// 제품 경로에서 화면을 닫는 것은 `dismiss()`다. 이 닫힘은 띄운 쪽이 관찰할 수
@@ -40,23 +97,27 @@ struct RecordCreateFlowView: View {
     ///
     /// 막혔을 때만 1단계가 안내를 이미 띄운 채로 열린다. 저장되지 않는 화면 상태다.
     @State private var didFailFinalValidation = false
+    /// 보조 기능의 일시적인 화면 상태. 사용자가 쓴 값은 하나도 들어 있지 않다.
+    @StateObject private var assistance = RecordCreateAssistanceState()
 
-    init(initialDate: Date? = nil, onFinish: (() -> Void)? = nil) {
-        self.initialDate = initialDate
+    init(context: RecordCreateLaunchContext, onFinish: (() -> Void)? = nil) {
+        self.context = context
         self.onFinish = onFinish
-        _draft = State(initialValue: RecordEditorDraft.make(
-            mode: .create(initialDate: initialDate),
-            defaultMoodTag: RecordCreateFlowView.defaultMoodTag,
-            defaultHighlightTag: RecordCreateFlowView.defaultHighlightTag,
-            fallbackDate: Date()
-        ))
+        _draft = State(initialValue: context.makeDraft(today: Date()))
     }
 
-    /// 지금 편집기가 쓰는 기본 태그와 같은 값. 여기서 새 기본값을 만들지 않는다.
-    static let defaultMoodTag = "설렘"
+    /// 새 기록의 기분은 **비어 있다.**
+    ///
+    /// 예전에는 다섯 가지 authored 선택지 어디에도 없는 값이 미리 들어가 있었다.
+    /// 화면에는 아무것도 선택되지 않은 것으로 보이는데 저장에는 그 값이 실려 나갔다 —
+    /// 사용자가 고르지 않은 사실이 조용히 기록되는 셈이다. 새로 만들 때는 비워 두고,
+    /// 사용자가 3단계에서 고르거나 보조 기능이 넣어 줄 때만 값이 생긴다.
+    /// 수정하기는 이 값을 쓰지 않는다 — 기존 기록의 기분은 그대로 유지된다.
+    static let newRecordMoodTag = ""
+    /// 하이라이트 기본 태그. 지금 흐름이 쓰던 값 그대로다.
     static let defaultHighlightTag = "직관"
 
-    private var mode: RecordEditorMode { .create(initialDate: initialDate) }
+    private var mode: RecordEditorMode { .create(initialDate: context.initialDate) }
 
     var body: some View {
         Group {
@@ -70,6 +131,8 @@ struct RecordCreateFlowView: View {
                     stadiumNames: KBOSeed.stadiums,
                     isSaving: isSaving,
                     saveMessage: saveMessage,
+                    assistance: assistance,
+                    onFindGames: { Task { await lookupKBOGameCandidates() } },
                     onNext: { advance() },
                     onSaveMinimal: { Task { await saveMinimalRecord() } }
                 )
@@ -87,11 +150,15 @@ struct RecordCreateFlowView: View {
                     draft: $draft,
                     isSaving: isSaving,
                     saveMessage: saveMessage,
+                    assistance: assistance,
+                    onAnalyzePhotos: { startPhotoAnalysis() },
+                    onGenerateAIDraft: { startAIDraft() },
                     onBack: { goBack() },
                     onComplete: { Task { await completeRecord() } }
                 )
             }
         }
+        .overlay(alignment: .topLeading) { routeMarker }
         .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -118,6 +185,7 @@ struct RecordCreateFlowView: View {
                 }
             }
         }
+        .recordCreateAssistance(draft: $draft, state: assistance)
         .onAppear {
             // 지금 편집기와 같은 규칙: 새로 만들 때만, 아직 비어 있을 때만 응원팀을 채운다.
             if draft.favoriteTeamName.isEmpty {
@@ -130,6 +198,15 @@ struct RecordCreateFlowView: View {
                 if !seeded.isEmpty { draft.photo = RecordEditorPhotoDraft(originalRefs: [], refs: seeded) }
             }
         }
+    }
+
+    /// 어느 경로에서 열렸는지 알려 주는 표식. 읽히는 이름은 없다.
+    private var routeMarker: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityIdentifier(context.routeIdentifier)
+            .accessibilityLabel(Text(verbatim: ""))
     }
 
     private var cancelButton: some View {
@@ -154,6 +231,70 @@ struct RecordCreateFlowView: View {
         guard let previous = step.previous else { return }
         step = previous
     }
+
+    // MARK: - 보조 기능 (저장하지 않는다)
+
+    private var currentFavoriteTeamID: String? {
+        KBOSeed.team(named: draft.favoriteTeamName)?.id
+            ?? KBOSeed.normalizedTeamID(preferences.favoriteTeamID)
+    }
+
+    /// "경기 자동 찾기". 지금 편집기가 쓰는 조회 서비스를 그대로 부른다.
+    ///
+    /// 지금 편집기는 날짜가 바뀔 때마다 스스로 조회하지만, 이 흐름에서는 사용자가
+    /// 눌렀을 때만 조회한다. 후보가 없으면 없다고 말할 뿐 경기를 지어내지 않는다.
+    private func lookupKBOGameCandidates() async {
+        guard let favoriteTeamID = currentFavoriteTeamID else {
+            assistance.clearKBOLookup()
+            return
+        }
+        let lookupDate = draft.date
+        assistance.kboLookupState = .loading
+        assistance.kboCandidates = []
+        assistance.kboLookupSource = nil
+        assistance.kboLookupSourceLabel = nil
+        assistance.kboLookupSourceDisclosure = nil
+
+        do {
+            let response = try await appData.fetchKBOGameCandidates(date: lookupDate, favoriteTeamID: favoriteTeamID)
+            guard Calendar.current.isDate(lookupDate, inSameDayAs: draft.date) else { return }
+            assistance.kboLookupSource = response.source
+            assistance.kboLookupSourceLabel = response.sourceLabel
+            assistance.kboLookupSourceDisclosure = response.sourceDisclosure
+            assistance.kboCandidates = response.items
+            assistance.kboLookupState = response.items.isEmpty ? .empty : .loaded
+            // 후보가 있으면 지금 편집기와 같은 선택 시트를 띄운다. 고르는 것만으로는
+            // 저장되지 않는다.
+            assistance.isShowingKBOCandidateSelection = !response.items.isEmpty
+        } catch {
+            guard Calendar.current.isDate(lookupDate, inSameDayAs: draft.date) else { return }
+            assistance.clearKBOLookup()
+            assistance.kboLookupState = .failed
+        }
+    }
+
+    /// "사진 분석". 고른 사진이 있어야 열린다 — 지금 편집기와 같은 조건이다.
+    private func startPhotoAnalysis() {
+        guard !draft.photo.refs.isEmpty else {
+            assistance.message = "분석할 사진을 먼저 골라 주세요."
+            return
+        }
+        assistance.message = nil
+        assistance.isShowingPhotoAnalysisSelection = true
+    }
+
+    /// "AI 초안". 지금 편집기와 같은 입력 경계를 요구하고, 같은 사전 고지를 먼저 띄운다.
+    private func startAIDraft() {
+        let result = RecordEditorValidation.validate(draft)
+        guard result.isValid else {
+            assistance.message = result.blockingMessage
+            return
+        }
+        assistance.message = nil
+        assistance.isShowingAIPreflight = true
+    }
+
+    // MARK: - 저장
 
     /// "여기까지만 저장할게요" — 1단계 값만으로 **완결된 보통 기록** 하나를 만든다.
     ///
@@ -207,10 +348,9 @@ struct RecordCreateFlowView: View {
 
 /// 스테이징 전용 호스트.
 ///
-/// 이 흐름은 제품에서도 언제나 **시트**로 뜬다. 검증도 같은 모양이어야 취소와
-/// 저장 뒤 닫힘을 그대로 시험할 수 있으므로, 여기서도 시트로 띄운다.
-/// 이 호스트는 `#if DEBUG` 픽스처가 있을 때만 화면에 올라온다 — 사용자에게
-/// 열리는 여덟 번째 경로가 아니다.
+/// 세 단계 화면 자체를 좁은 폭·큰 글자·사진 상태까지 결정적으로 시험하기 위한
+/// 자리다. `#if DEBUG` 픽스처가 있을 때만 화면에 올라오며 **사용자 경로가 아니다** —
+/// 사용자에게 열리는 다섯 개 생성 경로는 각자의 호스트가 시트로 띄운다.
 struct RecordCreateStagedHostView: View {
     let initialDate: Date?
     @State private var didFinish = false
@@ -224,7 +364,7 @@ struct RecordCreateStagedHostView: View {
                         .font(VFTypography.sectionTitle)
                         .foregroundStyle(VFColor.bodyPrimary)
                         .accessibilityIdentifier("recordCreate.host.closed")
-                    Text("사용자 경로가 아니다. 사용자에게 보이는 편집기는 그대로다.")
+                    Text("검증용 호스트예요. 사용자 경로는 각 화면의 시트가 띄웁니다.")
                         .font(VFTypography.supporting)
                         .foregroundStyle(VFColor.bodySecondary)
                         .multilineTextAlignment(.center)
@@ -234,18 +374,21 @@ struct RecordCreateStagedHostView: View {
                 .vfScreenBackground()
             } else {
                 NavigationStack {
-                    RecordCreateFlowView(initialDate: initialDate) { didFinish = true }
+                    // 날짜를 정해 주는 경로와 정해 주지 않는 경로를 같은 입구로 흉내낸다.
+                    RecordCreateFlowView(
+                        context: initialDate.map { .calendar(date: $0) } ?? .home()
+                    ) { didFinish = true }
                 }
             }
         }
     }
 }
 
-#Preview("기록 작성 흐름 · 스테이징") {
+#Preview("기록 작성 흐름 · 홈") {
     let preferences = UserPreferencesStore.preview(suiteName: "RecordCreateFlowPreview")
     let appData = AppDataStore(preferences: preferences)
     return NavigationStack {
-        RecordCreateFlowView()
+        RecordCreateFlowView(context: .home())
             .environmentObject(appData)
             .environmentObject(preferences)
     }

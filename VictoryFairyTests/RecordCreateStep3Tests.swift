@@ -81,7 +81,7 @@ final class RecordCreateStep3Tests: XCTestCase {
         var value = RecordEditorDraft.make(
             mode: .create,
             preferredFavoriteTeamName: KBOSeed.teams[0].name,
-            defaultMoodTag: RecordCreateFlowView.defaultMoodTag,
+            defaultMoodTag: RecordCreateFlowView.newRecordMoodTag,
             defaultHighlightTag: RecordCreateFlowView.defaultHighlightTag,
             fallbackDate: Date.vfDate(year: 2026, month: 4, day: 16)
         )
@@ -345,9 +345,14 @@ final class RecordCreateStep3Tests: XCTestCase {
                      "Features/LogEditor/RecordEditorDraft.swift",
                      "Domain/VFDomain.swift", "Domain/APIDTOs.swift"] {
             let body = try executableSource(path)
-            for needle in ["rating", "별점", "starCount", "score5", "몇 점이었나요"] {
+            for needle in ["별점", "starCount", "score5", "몇 점이었나요"] {
                 XCTAssertFalse(body.contains(needle), "\(path)에 별점 \(needle)이 들어갔다")
             }
+            // 낱말로서의 `rating`만 찾는다. `isGeneratingAIDraft` 속의 철자는 별점이 아니다.
+            XCTAssertNil(
+                body.range(of: "(?<![A-Za-z])rating", options: [.regularExpression, .caseInsensitive]),
+                "\(path)에 별점 rating이 들어갔다"
+            )
         }
         let mirror = Mirror(reflecting: validDraft())
         for label in mirror.children.compactMap(\.label) {
@@ -440,7 +445,7 @@ final class RecordCreateStep3Tests: XCTestCase {
 
     // MARK: - 33~35. 경계
 
-    func test33_sevenProductionRoutesRemainUnchanged() throws {
+    func test33_productionRouteSplitRemainsFiveCreateAndTwoEdit() throws {
         var callSites: [String] = []
         for case let url as URL in FileManager.default.enumerator(
             at: Self.appSourceRoot, includingPropertiesForKeys: nil
@@ -451,7 +456,19 @@ final class RecordCreateStep3Tests: XCTestCase {
                 callSites.append("\(url.lastPathComponent):\(line.trimmingCharacters(in: .whitespaces))")
             }
         }
-        XCTAssertEqual(callSites.count, 7, "진입점 수가 달라졌다: \(callSites)")
+        XCTAssertEqual(callSites.count, 2, "수정 진입점 수가 달라졌다: \(callSites)")
+
+        var createSites: [String] = []
+        for case let url as URL in FileManager.default.enumerator(
+            at: Self.appSourceRoot, includingPropertiesForKeys: nil
+        )!.allObjects as! [URL] where url.pathExtension == "swift" {
+            guard url.lastPathComponent != "RecordCreateFlowView.swift" else { continue }
+            let body = try String(contentsOf: url, encoding: .utf8)
+            for line in body.split(separator: "\n") where line.contains("RecordCreateFlowView(context:") {
+                createSites.append("\(url.lastPathComponent):\(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+        XCTAssertEqual(createSites.count, 5, "생성 진입점 수가 달라졌다: \(createSites)")
     }
 
     func test34_stagedFixtureIsUnavailableInRelease() throws {
@@ -499,8 +516,13 @@ final class RecordCreateStep3Tests: XCTestCase {
         XCTAssertEqual(RecordCreateStep.memory.accessibilityTitle, "나의 이야기")
     }
 
-    func test38_noInventedAISurfaceAndNoLocalTokens() {
-        for invented in ["AI 초안", "AI 후기", "사진 분석", "경기 선택", "KBO 경기", "티켓"] {
+    func test38_assistanceParityIsPresentAndNothingElseIsInvented() {
+        // 지금 편집기가 이미 가진 두 가지는 3단계에서도 닿을 수 있어야 한다.
+        for parity in ["사진 분석", "AI 초안"] {
+            XCTAssertTrue(step3ScreenSource.contains(parity), "3단계에서 \(parity)에 닿을 수 없다")
+        }
+        // 1단계가 맡은 것과 없는 기능은 여전히 여기 없다.
+        for invented in ["경기 선택", "KBO 경기", "티켓", "날씨", "응원 준비물"] {
             XCTAssertFalse(step3ScreenSource.contains(invented), "3단계가 \(invented) 표면을 지어냈다")
         }
         for hardCoded in ["Color(hex:", "#F2B63C", "#14171F", "#8B909E", "#E2E3E1"] {

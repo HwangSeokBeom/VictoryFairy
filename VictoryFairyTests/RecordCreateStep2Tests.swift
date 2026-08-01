@@ -71,7 +71,7 @@ final class RecordCreateStep2Tests: XCTestCase {
         var value = RecordEditorDraft.make(
             mode: .create,
             preferredFavoriteTeamName: KBOSeed.teams[0].name,
-            defaultMoodTag: RecordCreateFlowView.defaultMoodTag,
+            defaultMoodTag: RecordCreateFlowView.newRecordMoodTag,
             defaultHighlightTag: RecordCreateFlowView.defaultHighlightTag,
             fallbackDate: Date.vfDate(year: 2026, month: 4, day: 16)
         )
@@ -322,7 +322,7 @@ final class RecordCreateStep2Tests: XCTestCase {
 
     // MARK: - 28~30. 경계가 그대로다
 
-    func test28_sevenProductionRoutesRemainUnchanged() throws {
+    func test28_productionRouteSplitRemainsFiveCreateAndTwoEdit() throws {
         var callSites: [String] = []
         for case let url as URL in FileManager.default.enumerator(
             at: Self.appSourceRoot, includingPropertiesForKeys: nil
@@ -333,7 +333,19 @@ final class RecordCreateStep2Tests: XCTestCase {
                 callSites.append("\(url.lastPathComponent):\(line.trimmingCharacters(in: .whitespaces))")
             }
         }
-        XCTAssertEqual(callSites.count, 7, "진입점 수가 달라졌다: \(callSites)")
+        XCTAssertEqual(callSites.count, 2, "수정 진입점 수가 달라졌다: \(callSites)")
+
+        var createSites: [String] = []
+        for case let url as URL in FileManager.default.enumerator(
+            at: Self.appSourceRoot, includingPropertiesForKeys: nil
+        )!.allObjects as! [URL] where url.pathExtension == "swift" {
+            guard url.lastPathComponent != "RecordCreateFlowView.swift" else { continue }
+            let body = try String(contentsOf: url, encoding: .utf8)
+            for line in body.split(separator: "\n") where line.contains("RecordCreateFlowView(context:") {
+                createSites.append("\(url.lastPathComponent):\(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+        XCTAssertEqual(createSites.count, 5, "생성 진입점 수가 달라졌다: \(createSites)")
     }
 
     func test29_stagedFixtureIsUnavailableInRelease() throws {

@@ -59,7 +59,9 @@ struct HomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isShowingLogEditor) {
-            NavigationStack { LogEditorView() }
+            // 새로 만들기는 세 단계 흐름이다. 수정하기는 아래 시트가 그대로
+            // `LogEditorView`를 쓴다 — 이 흐름에는 수정 모드가 없다.
+            NavigationStack { RecordCreateFlowView(context: .home()) }
         }
         .sheet(isPresented: $isShowingAIHelper) {
             HomeAIHelperSheet(

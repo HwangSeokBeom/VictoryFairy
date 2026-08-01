@@ -32,6 +32,10 @@ struct RecordCreateStep1View: View {
     let isSaving: Bool
     /// 마지막 저장 시도가 남긴 안내. 실패해도 초안은 그대로 남는다.
     let saveMessage: String?
+    /// 보조 기능의 일시적인 화면 상태. 사용자가 쓴 값은 들어 있지 않다.
+    @ObservedObject var assistance: RecordCreateAssistanceState
+    /// "경기 자동 찾기". 조회 서비스를 부르는 것은 흐름이 한다.
+    let onFindGames: () -> Void
     let onNext: () -> Void
     let onSaveMinimal: () -> Void
 
@@ -58,6 +62,13 @@ struct RecordCreateStep1View: View {
                     stadiumField
                     teamRow
                     scoreBlock
+                    // 지금 편집기가 이미 가진 도움을 여기서도 쓸 수 있게 한다.
+                    // authored 본문 아래, 액션 위 — 시각적으로 부차적인 자리다.
+                    RecordCreateStep1AssistanceSection(
+                        state: assistance,
+                        canLookUpGames: !draft.favoriteTeamName.isEmpty,
+                        onFindGames: onFindGames
+                    )
                     if let message = validationMessage { validationBanner(message) }
                     if let saveMessage { saveNotice(saveMessage) }
                     bottomActions
@@ -500,10 +511,11 @@ private struct RecordCreateStep1Preview: View {
     let fillsTeams: Bool
     @State private var draft = RecordEditorDraft.make(
         mode: .create,
-        defaultMoodTag: "설렘",
-        defaultHighlightTag: "직관",
+        defaultMoodTag: RecordCreateFlowView.newRecordMoodTag,
+        defaultHighlightTag: RecordCreateFlowView.defaultHighlightTag,
         fallbackDate: Date()
     )
+    @StateObject private var assistance = RecordCreateAssistanceState()
 
     var body: some View {
         RecordCreateStep1View(
@@ -513,6 +525,8 @@ private struct RecordCreateStep1Preview: View {
             stadiumNames: KBOSeed.stadiums,
             isSaving: false,
             saveMessage: nil,
+            assistance: assistance,
+            onFindGames: {},
             onNext: {},
             onSaveMinimal: {}
         )

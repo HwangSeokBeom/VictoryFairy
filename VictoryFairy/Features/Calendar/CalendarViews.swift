@@ -153,8 +153,12 @@ struct AttendanceCalendarView: View {
     @AppStorage("calendarViewMode") private var calendarViewModeRaw = CalendarViewMode.basic.rawValue
     @State private var selectedDay: CalendarSelectedDay?
     @State private var detailRoute: AttendanceLogViewState?
-    @State private var editorDate: Date?
-    @State private var isShowingLogEditor = false
+    /// 캘린더가 정해 준 날짜로 여는 기록 작성 경로.
+    ///
+    /// 예전에는 날짜(`Date?`)와 표시 여부(`Bool`) 두 값으로 나뉘어 있어, 날짜 없이
+    /// 열릴 수 있는 상태가 타입에 남아 있었다. 하나로 합치면 그 상태가 사라진다 —
+    /// 시트가 열렸다는 것은 곧 날짜가 있다는 뜻이다.
+    @State private var createRoute: CalendarCreateRoute?
     @State private var isShowingFilters = false
     @State private var isShowingMonthPicker = false
     @State private var resultFilter: CalendarResultFilter = .all
@@ -226,9 +230,10 @@ struct AttendanceCalendarView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isShowingLogEditor) {
+        .sheet(item: $createRoute) { route in
             NavigationStack {
-                LogEditorView(initialDate: editorDate)
+                // 고른 날짜를 그대로 넘긴다. 오늘로 바꾸지 않는다.
+                RecordCreateFlowView(context: .calendar(date: route.date))
             }
         }
         .onAppear(perform: applyFixturePreselectionIfNeeded)
@@ -268,9 +273,8 @@ struct AttendanceCalendarView: View {
 
     private func openEditor(date: Date) {
         selectedDay = nil
-        editorDate = date
         DispatchQueue.main.async {
-            isShowingLogEditor = true
+            createRoute = CalendarCreateRoute(date: date)
         }
     }
 
@@ -1322,6 +1326,14 @@ private struct CalendarResultDot: View {
             .frame(width: size, height: size)
             .accessibilityLabel(result.title)
     }
+}
+
+/// 캘린더가 고른 날짜로 기록 작성을 여는 경로.
+///
+/// 날짜가 곧 정체성이다. 같은 날짜로 다시 열어도 새 시트가 겹쳐 뜨지 않는다.
+private struct CalendarCreateRoute: Identifiable {
+    var id: Date { date }
+    let date: Date
 }
 
 private struct CalendarSelectedDay: Identifiable {

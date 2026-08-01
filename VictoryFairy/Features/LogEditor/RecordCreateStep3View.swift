@@ -28,6 +28,12 @@ struct RecordCreateStep3View: View {
     let isSaving: Bool
     /// 마지막 저장 시도가 남긴 안내. 실패해도 초안과 사진은 그대로 남는다.
     let saveMessage: String?
+    /// 보조 기능의 일시적인 화면 상태. 사용자가 쓴 값은 들어 있지 않다.
+    @ObservedObject var assistance: RecordCreateAssistanceState
+    /// "사진 분석". 지금 편집기와 같은 서비스를 부르는 것은 흐름이 한다.
+    let onAnalyzePhotos: () -> Void
+    /// "AI 초안". 사전 고지 시트를 여는 것은 흐름이 한다.
+    let onGenerateAIDraft: () -> Void
     let onBack: () -> Void
     let onComplete: () -> Void
 
@@ -68,6 +74,9 @@ struct RecordCreateStep3View: View {
                 moodBlock
                 diaryBlock
                 if let message = photoMessage { notice(message, identifier: "recordCreate.step3.photoMessage") }
+                if let message = assistance.message {
+                    notice(message, identifier: "recordCreate.assist.message")
+                }
                 if let saveMessage { notice(saveMessage, identifier: "recordCreate.step3.saveMessage") }
             }
             .padding(.horizontal, VFSpacing.xl)
@@ -146,6 +155,16 @@ struct RecordCreateStep3View: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(VFColor.bodyTertiary)
+
+            // 지금 편집기가 이미 가진 사진 분석. 사진 영역 안에, 부차적으로 둔다.
+            assistanceAction(
+                title: assistance.isAnalyzingPhotos ? "사진 분석 중" : "사진 분석",
+                systemImage: "sparkle.magnifyingglass",
+                identifier: "recordCreate.step3.analyzePhotos",
+                hint: "고른 사진에서 분위기와 한마디를 찾아 제안해요. 저장은 하지 않아요.",
+                isEnabled: !draft.photo.refs.isEmpty && !assistance.isAnalyzingPhotos,
+                action: onAnalyzePhotos
+            )
         }
         .id(RecordEditorField.photos.rawValue)
         .accessibilityElement(children: .contain)
@@ -328,8 +347,52 @@ struct RecordCreateStep3View: View {
                         .accessibilityHidden(true)
                 }
             }
+
+            // 지금 편집기가 이미 가진 AI 초안. 일기 칸 바로 옆에, 부차적으로 둔다.
+            // 만들어진 글은 시트에서 확인하고 고칠 수 있으며, 저장되지 않는다.
+            assistanceAction(
+                title: assistance.isGeneratingAIDraft ? "AI 초안 만드는 중" : "AI 초안",
+                systemImage: "sparkles",
+                identifier: "recordCreate.step3.aiDraft",
+                hint: "경기 정보로 일기 초안을 만들어요. 확인하고 고친 뒤에 저장돼요.",
+                isEnabled: !assistance.isGeneratingAIDraft,
+                action: onGenerateAIDraft
+            )
         }
         .id(RecordEditorField.diary.rawValue)
+    }
+
+    /// 부차적인 보조 동작 하나. 본문 입력보다 약하게 보이도록 같은 모양을 함께 쓴다.
+    private func assistanceAction(
+        title: String,
+        systemImage: String,
+        identifier: String,
+        hint: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: VFSpacing.xs) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .medium))
+                Text(title)
+                    .font(Font.system(.footnote, design: .default).weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(VFColor.bodySecondary)
+            .padding(.horizontal, VFSpacing.sm)
+            .frame(maxWidth: .infinity, minHeight: VFControl.minimumTouchTarget, alignment: .leading)
+            .background(VFColor.subtleSurface)
+            .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.55)
+        .accessibilityLabel(title)
+        .accessibilityHint(hint)
+        .accessibilityIdentifier(identifier)
     }
 
     // MARK: - 안내
@@ -382,12 +445,16 @@ private struct RecordCreateStep3Preview: View {
         defaultHighlightTag: "",
         fallbackDate: Date()
     )
+    @StateObject private var assistance = RecordCreateAssistanceState()
 
     var body: some View {
         RecordCreateStep3View(
             draft: $draft,
             isSaving: false,
             saveMessage: nil,
+            assistance: assistance,
+            onAnalyzePhotos: {},
+            onGenerateAIDraft: {},
             onBack: {},
             onComplete: {}
         )

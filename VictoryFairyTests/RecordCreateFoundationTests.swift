@@ -650,18 +650,26 @@ final class RecordCreateFoundationTests: XCTestCase {
         }
         // 미리보기를 뺀 제품 호출부.
         let production = callSites.filter { !$0.hasPrefix("LogEditorView.swift") }
-        // 일곱 곳이다. 예전에는 홈 AI 시트 안에 최근 기록이 없을 때를 위한 여덟 번째
-        // 호출부가 있었지만 구조적으로 도달할 수 없어 걷어냈다.
-        XCTAssertEqual(production.count, 7, "진입점 수가 달라졌다: \(production)")
-        XCTAssertTrue(production.contains { $0.contains("LogEditorView(initialDate:") }, "캘린더 진입점이 사라졌다")
+        // 이제 **두 곳**이다 — 수정하기만 남았다. 다섯 개 생성 경로는 세 단계 흐름으로
+        // 옮겨 갔고, 캘린더도 그중 하나다. 지금 편집기는 여전히 수정의 주인이다.
+        XCTAssertEqual(production.count, 2, "수정 진입점 수가 달라졌다: \(production)")
         XCTAssertTrue(production.contains { $0.contains("LogEditorView(editingLog:") }, "수정 진입점이 사라졌다")
         XCTAssertTrue(production.contains { $0.contains("startsAIPreflightOnAppear: true") }, "AI 사전 진입점이 사라졌다")
+        XCTAssertFalse(production.contains { $0.contains("LogEditorView()") }, "빈 생성 편집기가 되살아났다")
+
+        var createSites: [String] = []
+        for entry in try productionSources() where entry.name != "RecordCreateFlowView.swift" {
+            for line in entry.body.split(separator: "\n") where line.contains("RecordCreateFlowView(context:") {
+                createSites.append("\(entry.name):\(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+        XCTAssertEqual(createSites.count, 5, "생성 진입점 수가 달라졌다: \(createSites)")
     }
 
     func testNoDuplicateNavigationStackIsIntroduced() throws {
         let body = try executableSource("Features/LogEditor/LogEditorView.swift")
         // 편집기 자신은 NavigationStack을 만들지 않는다. 진입점이 감싼다.
-        let editorBody = body[body.index(body.startIndex, offsetBy: 0)..<(body.range(of: "private struct KBOGameFavoritePerspective")?.lowerBound ?? body.endIndex)]
+        let editorBody = body[body.index(body.startIndex, offsetBy: 0)..<(body.range(of: "struct KBOGameFavoritePerspective")?.lowerBound ?? body.endIndex)]
         XCTAssertFalse(editorBody.contains("NavigationStack {"), "편집기가 두 번째 내비게이션 컨테이너를 만든다")
     }
 
