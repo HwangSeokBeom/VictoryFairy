@@ -271,8 +271,19 @@ final class RecordCreateFoundationTests: XCTestCase {
         for entry in try productionSources() {
             guard entry.body.contains("RecordCreateStep") else { continue }
             XCTAssertFalse(entry.body.contains("@AppStorage"), "\(entry.name)이 단계를 설정에 저장한다")
-            XCTAssertFalse(entry.body.contains("UserDefaults"), "\(entry.name)이 단계를 저장소에 쓴다")
             XCTAssertFalse(entry.body.contains("@Model"), "\(entry.name)이 단계를 SwiftData에 넣는다")
+            // UI 테스트 인자 처리기는 실행 인자에서 시작 단계를 **읽기만** 한다.
+            // 같은 파일이 다른 설정값을 쓰기 때문에 파일 단위 금지로는 가릴 수 없다.
+            // 실제로 단계를 저장하는지는 아래에서 줄 단위로 확인한다.
+            guard entry.name != "VFUITestConfiguration.swift" else { continue }
+            XCTAssertFalse(entry.body.contains("UserDefaults"), "\(entry.name)이 단계를 저장소에 쓴다")
+        }
+        // 어떤 파일도 단계를 저장소 키로 쓰지 않는다.
+        for entry in try productionSources() {
+            for line in entry.body.split(separator: "\n") where line.contains(".set(") {
+                XCTAssertFalse(line.contains("Step") || line.contains("step"),
+                               "\(entry.name)이 단계를 저장한다: \(line.trimmingCharacters(in: .whitespaces))")
+            }
         }
         let preferences = try executableSource("Services/UserPreferencesStore.swift")
         XCTAssertFalse(preferences.contains("RecordCreateStep"), "사용자 설정이 단계를 저장한다")

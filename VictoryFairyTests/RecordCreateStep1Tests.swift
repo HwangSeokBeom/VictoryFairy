@@ -627,23 +627,27 @@ final class RecordCreateStep1GovernanceTests: XCTestCase {
         XCTAssertFalse(root.contains("Button(\"기록 작성 흐름\""), "사용자가 누를 수 있는 진입점이 생겼다")
     }
 
-    /// 3단계의 권위 있는 레이아웃은 아직 없다.
+    /// 각 단계의 문구는 자기 화면에만 있다.
     ///
-    /// 2단계는 2026-08-01 패스에서 실제로 만들었으므로 그 문구는 이제 제품에 있다.
-    /// 어디에 있어야 하는지까지 함께 못박아, 다른 화면으로 새어 나가지 않게 한다.
-    func testNoVisibleStep3LayoutExistsAndStep2CopyStaysInStep2() throws {
+    /// 세 단계가 모두 만들어졌으므로 이제 금지가 아니라 **자리**를 못박는다.
+    /// 어느 문구도 다른 화면으로 새어 나가면 안 된다.
+    func testEachStepCopyStaysInItsOwnScreen() throws {
+        let owners = ["그날의 디테일을 더해볼까요": "RecordCreateStep2View.swift",
+                      "오늘의 이야기를 남겨주세요": "RecordCreateStep3View.swift",
+                      "어떤 경기였나요?": "RecordCreateStep1View.swift"]
         for entry in try productionSources() {
             let body = stripComments(entry.body)
-            for authored in ["오늘의 이야기를 남겨주세요", "0 / 500"] {
-                XCTAssertFalse(body.contains(authored),
-                               "\(entry.name)에 3단계 문구 \(authored)가 생겼다")
+            for (copy, owner) in owners where entry.name != owner {
+                XCTAssertFalse(body.contains(copy), "\(entry.name)에 \(owner)의 문구가 새어 나갔다")
             }
-            if entry.name != "RecordCreateStep2View.swift" {
-                XCTAssertFalse(body.contains("그날의 디테일을 더해볼까요"),
-                               "\(entry.name)에 2단계 제목이 새어 나갔다")
+            // 아직 만들지 않은 것은 여전히 없다.
+            for unsupported in ["0 / 500", "임시저장"] {
+                XCTAssertFalse(body.contains(unsupported), "\(entry.name)에 \(unsupported)이 생겼다")
             }
         }
+        // 네 번째 단계는 없다.
         XCTAssertNil(RecordCreateStep.memory.next)
+        XCTAssertEqual(RecordCreateStep.allCases.count, 3)
     }
 
     /// 접근성 취소는 두 화면 모두에 살아 있다.
