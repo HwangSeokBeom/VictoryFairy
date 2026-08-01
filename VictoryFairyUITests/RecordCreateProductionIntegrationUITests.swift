@@ -41,9 +41,59 @@ final class RecordCreateProductionIntegrationUITests: XCTestCase {
         start.press(forDuration: 0.05, thenDragTo: end)
     }
 
+    /// 지금 화면 아래를 고정으로 차지하고 있는 액션 막대의 자리. 없으면 `nil`.
+    ///
+    /// 고정 막대는 **3단계에만** 있다. 1·2단계에 없는 것은 결함이 아니라 맞는 배치다.
+    /// 그래서 여기서는 `exists`를 먼저 묻고, 있을 때만 `frame`을 읽는다. 없는 요소의
+    /// `frame`을 읽으면 XCUI가 스냅샷 오류를 던지고 테스트는 그 자리에서 죽는다
+    /// (실측: 그 접근 하나가 P13의 진짜 원인이던 "닫히지 않은 OCR 시트"를 통째로 가렸다).
+    private func pinnedActionBarFrame(_ app: XCUIApplication) -> CGRect? {
+        let bar = app.buttons.matching(identifier: "recordCreate.step3.complete").firstMatch
+        guard bar.exists else { return nil }
+        return bar.frame
+    }
+
+    /// 실패 문구를 만든다. **여기서는 무엇도 던지지 않는다.**
+    ///
+    /// 사라진 요소에서 `frame`·`label`·`identifier`를 읽으면 XCUI가 오류를 던지고,
+    /// 그 오류가 원래 알리려던 실패를 덮어쓴다. 그래서 모든 접근을 `exists` 뒤에
+    /// 두고, 없으면 값 대신 `NOT_PRESENT`·`NONE`을 적는다.
+    private func scrollDiagnostics(_ app: XCUIApplication, _ element: XCUIElement,
+                                   window: CGRect, swipes: Int) -> String {
+        let exists = element.exists
+        let identifier = exists ? element.identifier : "NOT_PRESENT"
+        let label = exists ? element.label : "NOT_PRESENT"
+        let frame = exists ? "\(element.frame)" : "NOT_PRESENT"
+        let hittable = exists ? "\(element.isHittable)" : "NOT_PRESENT"
+        let obstruction = pinnedActionBarFrame(app).map { "\($0)" } ?? "NONE"
+        return "스크롤해도 뷰포트 안으로 들어오지 않는다 — "
+            + "id=\"\(identifier)\" label=\"\(label)\" exists=\(exists) hittable=\(hittable) "
+            + "frame=\(frame) window=\(window) 고정막대=\(obstruction) "
+            + "스와이프=\(swipes) 떠있는시트=\(presentedSurfaces(app))"
+    }
+
+    /// 지금 앞을 덮고 있는 표면의 이름. 없으면 `NONE`.
+    ///
+    /// 시트가 떠 있으면 뒤에 깔린 화면은 계층에 남아 있어도 누를 수 없다. 실패
+    /// 문구가 그 사실을 바로 말해 주면 다음 사람이 두 시간을 아낀다.
+    private func presentedSurfaces(_ app: XCUIApplication) -> String {
+        let bars = app.navigationBars
+        var names: [String] = []
+        for index in 0..<min(bars.count, 4) {
+            let bar = bars.element(boundBy: index)
+            guard bar.exists else { continue }
+            let name = bar.identifier.isEmpty ? bar.label : bar.identifier
+            if !name.isEmpty { names.append(name) }
+        }
+        return names.isEmpty ? "NONE" : names.joined(separator: " | ")
+    }
+
     /// 아래에 고정된 액션 막대 밑에 깔린 요소도 XCUI는 `isHittable`로 본다(실측).
     /// 그래서 닿을 수 있는지만 묻지 않고 **그 막대 위에 담겨 있는지**까지 보고,
     /// 지나쳤으면 되돌아온다 — 한쪽으로만 쓸면 위에 있는 것을 영영 놓친다.
+    ///
+    /// 끝내 닿지 못하면 `isHittable`만으로 통과시키지 않는다. 담김까지 함께 요구하고,
+    /// 읽을 수 있는 XCTest 실패로 끝낸다.
     @discardableResult
     private func scrollIntoView(_ app: XCUIApplication, _ element: XCUIElement,
                                 maximumSwipes: Int = 16,
@@ -52,20 +102,33 @@ final class RecordCreateProductionIntegrationUITests: XCTestCase {
         let pinned = ["recordCreate.step3.complete", "recordCreate.step2.next",
                       "recordCreate.step2.skip", "recordCreate.back", "recordCreate.cancel"]
         let window = app.windows.firstMatch.frame
+
+        /// 이 요소가 지금 실제로 쓸 수 있는 뷰포트 안에 담겨 있고 누를 수 있는가.
+        func settledInsideViewport() -> Bool {
+            guard element.exists else { return false }
+            let frame = element.frame
+            let obstruction = pinned.contains(element.identifier) ? nil : pinnedActionBarFrame(app)
+            let ceiling = obstruction.map { min(window.maxY, $0.minY) } ?? window.maxY
+            return element.isHittable && frame.minY >= window.minY && frame.maxY <= ceiling
+        }
+
+        var swipes = 0
         for _ in 0..<maximumSwipes {
             // 방금 끈 스크롤이 아직 멈추지 않았으면 XCUI는 보이는 요소도
             // `isHittable`이 아니라고 답한다. 재기 전에 가라앉기를 기다린다.
             usleep(250_000)
+            if settledInsideViewport() { return element }
+            guard element.exists else { edgeSwipe(app, up: true); swipes += 1; continue }
             let frame = element.frame
-            let bar = app.buttons.matching(identifier: "recordCreate.step3.complete").firstMatch
-            let ceiling = (pinned.contains(element.identifier) || !bar.exists)
-                ? window.maxY : min(window.maxY, bar.frame.minY)
-            if element.isHittable, frame.minY >= window.minY, frame.maxY <= ceiling { return element }
+            let obstruction = pinned.contains(element.identifier) ? nil : pinnedActionBarFrame(app)
+            let ceiling = obstruction.map { min(window.maxY, $0.minY) } ?? window.maxY
             edgeSwipe(app, up: frame.maxY > ceiling)
+            swipes += 1
         }
-        XCTAssertTrue(element.isHittable,
-                      "스크롤해도 누를 수 없다 — label=\"\(element.label)\" frame=\(element.frame) "
-                      + "window=\(window) bar=\(app.buttons.matching(identifier: "recordCreate.step3.complete").firstMatch.frame)",
+
+        usleep(250_000)
+        XCTAssertTrue(settledInsideViewport(),
+                      scrollDiagnostics(app, element, window: window, swipes: swipes),
                       file: file, line: line)
         return element
     }
@@ -73,11 +136,98 @@ final class RecordCreateProductionIntegrationUITests: XCTestCase {
     /// 고정 액션 막대 위에 **담겨 있는지**까지 본다. `isHittable`만으로는 부족하다.
     private func assertContainedAboveActionBar(_ app: XCUIApplication, _ element: XCUIElement, _ name: String,
                                                file: StaticString = #filePath, line: UInt = #line) {
-        let bar = app.buttons.matching(identifier: "recordCreate.step3.complete").firstMatch
-        guard bar.exists else { return }
-        XCTAssertLessThanOrEqual(element.frame.maxY, bar.frame.minY + 0.5,
-                                 "\(name)이 고정 액션 막대에 가린다 — \(name)=\(element.frame) 막대=\(bar.frame)",
+        guard let bar = pinnedActionBarFrame(app) else { return }
+        XCTAssertLessThanOrEqual(element.frame.maxY, bar.minY + 0.5,
+                                 "\(name)이 고정 액션 막대에 가린다 — \(name)=\(element.frame) 막대=\(bar)",
                                  file: file, line: line)
+    }
+
+    // MARK: - 보조 기능 시트
+
+    /// 시트를 알아보는 유일한 표면 — 그 시트만 가진 내비게이션 막대.
+    private func sheet(_ app: XCUIApplication, titled title: String) -> XCUIElement {
+        app.navigationBars[title]
+    }
+
+    /// 흐름 자신의 화면 틀에 있는 취소들. 시트를 닫을 때 **집으면 안 되는** 버튼이다.
+    private static let flowChromeCancelIdentifiers = ["recordCreate.cancel", "logEditor.cancel"]
+
+    /// 그 시트가 실제로 가진 닫기 컨트롤.
+    ///
+    /// `TicketOCRView`는 도구 막대의 `닫기`,
+    /// `PhotoAnalysisSelectionSheet`·`AIPreflightDisclosureSheet`는 본문의 `취소`를 쓴다.
+    /// 그래서 먼저 그 시트의 내비게이션 막대 안을 보고, 없으면 본문에서 찾는다 —
+    /// 이때 흐름의 화면 틀 취소는 **명시적으로 뺀다.**
+    private func sheetCloseControl(_ app: XCUIApplication, titled title: String,
+                                   closeLabel: String) -> XCUIElement {
+        let inNavigationBar = sheet(app, titled: title).buttons[closeLabel].firstMatch
+        if inNavigationBar.exists { return inNavigationBar }
+        return app.buttons.matching(
+            NSPredicate(format: "label == %@ AND NOT (identifier IN %@)",
+                        closeLabel, Self.flowChromeCancelIdentifiers)).firstMatch
+    }
+
+    /// 시트를 **그 시트 자신의 컨트롤**로 닫는다.
+    ///
+    /// 예전에는 `app.buttons["취소"].firstMatch`를 눌렀다. 흐름의 화면 틀에 있는
+    /// `recordCreate.cancel`도 라벨이 `취소`이고 계층에서 시트보다 **앞**에 오기 때문에,
+    /// 그 질의는 언제나 시트 뒤에 깔린 화면 틀 버튼을 집었다. 시트에 덮여 있어 눌리지도
+    /// 않았다(실측: `Computed hit point {-1, -1}`). 아무것도 닫히지 않았고, 뒤에 그대로
+    /// 남아 있던 `recordCreate.stepN.root`가 "돌아왔다"는 거짓 증거가 됐다.
+    /// `TicketOCRView`에는 애초에 `취소`라는 것이 없다 — `닫기`뿐이다.
+    private func dismissPresentedSheet(_ app: XCUIApplication, titled title: String, closeLabel: String,
+                                       file: StaticString = #filePath, line: UInt = #line) {
+        let presented = sheet(app, titled: title)
+        XCTAssertTrue(waits(presented, 10),
+                      "\(title) 시트가 떠 있지 않다 — 지금 표면=\(presentedSurfaces(app))",
+                      file: file, line: line)
+
+        let close = sheetCloseControl(app, titled: title, closeLabel: closeLabel)
+        XCTAssertTrue(waits(close, 10),
+                      "\(title) 시트에 \(closeLabel)가 없다 — 지금 표면=\(presentedSurfaces(app))",
+                      file: file, line: line)
+
+        let window = app.windows.firstMatch.frame
+        XCTAssertTrue(window.contains(close.frame),
+                      "\(closeLabel)가 화면 밖에 있다 — \(closeLabel)=\(close.frame) 창=\(window)",
+                      file: file, line: line)
+        XCTAssertTrue(close.isHittable,
+                      "\(closeLabel)를 누를 수 없다 — \(closeLabel)=\(close.frame) 창=\(window)",
+                      file: file, line: line)
+        close.tap()
+
+        XCTAssertTrue(presented.waitForNonExistence(timeout: 15),
+                      "\(closeLabel)를 눌러도 \(title) 시트가 남아 있다 — 지금 표면=\(presentedSurfaces(app))",
+                      file: file, line: line)
+    }
+
+    /// 시트를 닫고 **그 단계가 앞면으로 돌아왔는지**를 증명한다.
+    ///
+    /// `recordCreate.stepN.root`의 `exists`만으로는 증명이 되지 않는다. 시트가 떠 있는
+    /// 동안에도 뒤에 깔린 단계는 계층에 그대로 남기 때문이다. 그래서 시트 고유 표면이
+    /// 사라졌는지, 그리고 흐름 자신의 컨트롤을 **실제로 누를 수 있는지**까지 본다
+    /// (덮여 있을 때 XCUI는 그 컨트롤의 hit point를 {-1, -1}로 계산했다).
+    private func assertReturnedToFlow(_ app: XCUIApplication, root: String, dismissed title: String,
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(sheet(app, titled: title).waitForNonExistence(timeout: 15),
+                      "\(title) 시트가 아직 떠 있다 — 지금 표면=\(presentedSurfaces(app))",
+                      file: file, line: line)
+        XCTAssertTrue(waits(node(app, root)), "\(root)이 없다", file: file, line: line)
+
+        let chrome = app.buttons.matching(identifier: "recordCreate.cancel").firstMatch
+        XCTAssertTrue(waits(chrome), "흐름의 화면 틀이 없다", file: file, line: line)
+        XCTAssertTrue(chrome.isHittable,
+                      "흐름이 아직 무언가에 덮여 있다 — 지금 표면=\(presentedSurfaces(app))",
+                      file: file, line: line)
+    }
+
+    /// OCR 시트를 닫고 1단계로 돌아왔음을, 그 시트 고유의 고지까지 함께 확인한다.
+    private func assertReturnedToStepOne(_ app: XCUIApplication,
+                                         file: StaticString = #filePath, line: UInt = #line) {
+        assertReturnedToFlow(app, root: "recordCreate.step1.root", dismissed: "티켓 사진 인식",
+                             file: file, line: line)
+        XCTAssertFalse(text(app, "티켓 이미지는 서버로 전송되지 않아요").exists,
+                       "OCR 고지가 아직 화면에 남아 있다", file: file, line: line)
     }
 
     private func launch(_ extra: [String], accessibilitySize: Bool = false) -> XCUIApplication {
@@ -449,20 +599,41 @@ final class RecordCreateProductionIntegrationUITests: XCTestCase {
         XCTAssertTrue(ocr.isHittable, "티켓 OCR을 누를 수 없다")
         XCTAssertTrue(lookup.isHittable, "경기 자동 찾기를 누를 수 없다")
 
+        // 지금 1단계가 들고 있는 값. 보조 동작은 저장도, 이 값의 변경도 하지 않는다.
+        let stadiumBefore = node(app, "recordCreate.field.stadium").value as? String ?? ""
+        let opponentBefore = node(app, "recordCreate.field.opponentTeam").value as? String ?? ""
+
         // 티켓 OCR은 지금 쓰는 화면을 그대로 연다.
-        ocr.tap()
+        scrollIntoView(app, node(app, "recordCreate.assist.ticketOCR")).tap()
         XCTAssertTrue(waits(text(app, "티켓 이미지는 서버로 전송되지 않아요"), 10),
                       "지금 쓰는 티켓 OCR 화면이 열리지 않았다")
-        app.buttons["취소"].firstMatch.tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.step1.root")), "OCR을 닫고 1단계로 돌아오지 못했다")
+        XCTAssertTrue(waits(sheet(app, titled: "티켓 사진 인식"), 10), "열린 것이 티켓 OCR 시트가 아니다")
+
+        // 그 시트가 실제로 가진 닫기로 닫는다. `취소`는 이 시트에 없다.
+        dismissPresentedSheet(app, titled: "티켓 사진 인식", closeLabel: "닫기")
+        assertReturnedToStepOne(app)
+
+        // 도우미 구역이 다시 정상적으로 스크롤되고, 경기 자동 찾기가 쓸 수 있는
+        // 뷰포트 안으로 들어온다.
+        let findGame = scrollIntoView(app, node(app, "recordCreate.assist.findGame"))
+        let window = app.windows.firstMatch.frame
+        XCTAssertTrue(window.contains(findGame.frame),
+                      "경기 자동 찾기가 뷰포트 밖이다 — 버튼=\(findGame.frame) 창=\(window)")
+        XCTAssertTrue(findGame.isHittable, "경기 자동 찾기를 누를 수 없다")
 
         // 경기 자동 찾기는 결과가 없어도 무엇이 일어났는지 말한다.
-        scrollIntoView(app, node(app, "recordCreate.assist.findGame")).tap()
+        findGame.tap()
         let status = node(app, "recordCreate.assist.lookupStatus")
         XCTAssertTrue(waits(status, 20), "경기 찾기가 결과를 말하지 않는다")
         XCTAssertFalse(status.label.isEmpty, "결과 안내가 비어 있다")
-        // 어느 쪽도 저장하지 않는다 — 1단계는 그대로 열려 있다.
+
+        // 어느 쪽도 저장하지 않는다 — 1단계는 그대로 열려 있고, 초안도 그대로다.
         XCTAssertTrue(node(app, "recordCreate.step1.root").exists, "보조 동작이 흐름을 닫았다")
+        XCTAssertFalse(sheet(app, titled: "티켓 사진 인식").exists, "OCR 시트가 되살아났다")
+        XCTAssertEqual(node(app, "recordCreate.field.stadium").value as? String ?? "", stadiumBefore,
+                       "보조 동작이 구장 값을 바꿨다")
+        XCTAssertEqual(node(app, "recordCreate.field.opponentTeam").value as? String ?? "", opponentBefore,
+                       "보조 동작이 상대팀 값을 바꿨다")
     }
 
     func testP14_photoAnalysisAndAIDraftAreReachableInStepThree() {
@@ -480,8 +651,11 @@ final class RecordCreateProductionIntegrationUITests: XCTestCase {
         analyze.tap()
         XCTAssertTrue(waits(text(app, "사진 분석을 위해 선택한 사진이 서버로 전송돼요"), 10),
                       "지금 쓰는 사진 분석 고지 화면이 열리지 않았다")
-        app.buttons["취소"].firstMatch.tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")), "사진 분석을 닫고 3단계로 돌아오지 못했다")
+        XCTAssertTrue(waits(sheet(app, titled: "사진 분석"), 10), "열린 것이 사진 분석 시트가 아니다")
+
+        // 그 시트 자신의 취소로 닫는다 — 흐름 화면 틀의 취소가 아니라.
+        dismissPresentedSheet(app, titled: "사진 분석", closeLabel: "취소")
+        assertReturnedToFlow(app, root: "recordCreate.step3.root", dismissed: "사진 분석")
         XCTAssertTrue(node(app, "recordCreate.step3.removePhoto.1").exists, "사진이 사라졌다")
 
         // AI 초안 — 사전 고지를 먼저 띄운다.
@@ -489,8 +663,10 @@ final class RecordCreateProductionIntegrationUITests: XCTestCase {
         assertContainedAboveActionBar(app, ai, "AI 초안")
         ai.tap()
         XCTAssertTrue(waits(text(app, "AI 초안을 만들기 전에"), 10), "AI 사전 고지가 뜨지 않았다")
-        app.buttons["취소"].firstMatch.tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")), "AI 초안을 닫고 3단계로 돌아오지 못했다")
+        XCTAssertTrue(waits(sheet(app, titled: "AI 초안"), 10), "열린 것이 AI 사전 고지 시트가 아니다")
+
+        dismissPresentedSheet(app, titled: "AI 초안", closeLabel: "취소")
+        assertReturnedToFlow(app, root: "recordCreate.step3.root", dismissed: "AI 초안")
 
         // 어느 쪽도 저장하지 않았다.
         XCTAssertTrue(node(app, "recordCreate.step3.complete").exists, "보조 동작이 흐름을 닫았다")
