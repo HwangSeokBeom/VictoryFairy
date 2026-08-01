@@ -166,3 +166,25 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next pass: `RECORD_CREATE_STEP3_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT`
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-01 17:11 KST — RECORD_CREATE_STEP3_VISIBLE_LAYOUT_IMPLEMENTED_AND_VERIFIED
+
+- Task: Record Create Step 3 — product decisions and staged visible layout
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `54e8d17f7e7d000d9767ca031ed6508499868b60`
+- Ending HEAD: `__ENDING_HEAD__`
+- Archive report: `docs/ai-reports/archive/2026-08-01_1711_record-create-step3-staged-layout_implemented.md`
+- Latest report: `docs/ai-reports/LATEST_REPORT.md`
+- Built: `RecordCreateStep3View` completing the staged three-step flow; still unrouted to users
+- Decided: photos, memorable moment → shortMemo, five authored moods, diary; final CTA saves one ordinary record through the existing boundary
+- Deferred: `STEP3_RATING`, `STEP3_DIARY_LENGTH_LIMIT`, `RESUMABLE_TEMPORARY_SAVE`, visible highlight/AI/photo-analysis/KBO placement
+- Photo rules extracted to `RecordEditorPhotoAttachment` and shared with the current editor (behaviour unchanged)
+- Fresh counts: unit 727/0 failed/0 skipped · affected classes 102 (7 width-gated skips) · SE 3 39/39 no skips · full primary UI suite 508 · Step 3 captures 18
+- Full primary suite ran because the current LogEditor's photo import changed; its 6 failures were Step 1/2 tests asserting the removed staging boundary, retargeted and re-run to 0
+- Production source changed: yes (two new files; flow, Step 1 input, LogEditor photo delegation, two DEBUG fixtures)
+- Pushed: no
+- Merged: no
+- Next pass: `RECORD_CREATE_THREE_STEP_PRODUCTION_INTEGRATION`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
