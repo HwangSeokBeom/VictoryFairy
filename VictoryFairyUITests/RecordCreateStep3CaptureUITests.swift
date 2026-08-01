@@ -135,8 +135,11 @@ final class RecordCreateStep3CaptureUITests: XCTestCase {
         XCTAssertTrue(node(app, "recordCreate.step3.title").exists, "3단계 제목이 없다")
         XCTAssertEqual(node(app, "recordCreate.step3.title").label, "오늘의 이야기를 남겨주세요")
         XCTAssertEqual(node(app, "recordCreate.progress").label, "3단계 중 3단계, 나의 이야기")
+        // 사진 분석과 AI 초안은 지금 편집기가 이미 가진 능력이고, 제품 통합에서
+        // 3단계에도 놓였다. 지어낸 표면이 아니므로 여기서 막지 않는다 — 대신 1단계가
+        // 맡은 것과 없는 기능만 여전히 없어야 한다.
         for forbidden in ["별점", "몇 점이었나요", "0 / 500", "임시저장",
-                          "AI 초안", "AI 후기", "사진 분석", "경기 선택", "티켓"] {
+                          "경기 선택", "티켓", "날씨", "응원 준비물"] {
             XCTAssertFalse(text(app, forbidden).exists, "\(forbidden)이 화면에 있다")
         }
     }
