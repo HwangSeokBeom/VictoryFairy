@@ -217,17 +217,16 @@ final class RecordCreateStep2CaptureUITests: XCTestCase {
 
     // MARK: - 10~11. 다음과 건너뛰기
 
-    func testCapture10_nextBoundary() {
+    func testCapture10_nextReachesStep3() {
         let app = launchStep2()
         scrollIntoView(app, node(app, "recordCreate.step2.next")).tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "경계로 가지 않았다")
-        XCTAssertTrue(text(app, "아직 만들지 않았어요").exists, "경계 안내가 없다")
-        XCTAssertFalse(text(app, "오늘의 이야기를 남겨주세요").exists, "3단계를 만든 척한다")
-        XCTAssertFalse(node(app, "recordCreate.saveMessage").exists, "다음이 저장했다")
-        capture("10-next-boundary")
+        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")), "3단계로 가지 않았다")
+        XCTAssertEqual(node(app, "recordCreate.step3.title").label, "오늘의 이야기를 남겨주세요")
+        XCTAssertFalse(node(app, "recordCreate.step3.saveMessage").exists, "다음이 저장했다")
+        capture("10-next-reaches-step3")
     }
 
-    func testCapture11_skipBoundaryKeepsValues() {
+    func testCapture11_skipReachesStep3KeepingValues() {
         let app = launchStep2()
         let seat = scrollIntoView(app, node(app, "recordCreate.field.seat"))
         seat.tap(); seat.typeText("3루 K열")
@@ -235,9 +234,9 @@ final class RecordCreateStep2CaptureUITests: XCTestCase {
         scrollIntoView(app, button(app, "recordCreate.companion.alone")).tap()
 
         scrollIntoView(app, node(app, "recordCreate.step2.skip")).tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "건너뛰기가 경계로 가지 않았다")
-        XCTAssertFalse(node(app, "recordCreate.saveMessage").exists, "건너뛰기가 저장했다")
-        capture("11-skip-boundary")
+        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")), "건너뛰기가 3단계로 가지 않았다")
+        XCTAssertFalse(node(app, "recordCreate.step3.saveMessage").exists, "건너뛰기가 저장했다")
+        capture("11-skip-reaches-step3")
 
         // 값이 그대로 남아 있는지 눈으로도 확인한다.
         node(app, "recordCreate.back").tap()

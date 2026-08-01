@@ -262,16 +262,18 @@ final class RecordCreateStep1UITests: XCTestCase {
         XCTAssertTrue(node(app, "recordCreate.result.feedback").exists, "돌아오니 결과가 사라졌다")
     }
 
-    /// 검증용 경계는 3단계 자리로 물러났고, 여전히 만든 척하지 않는다.
-    func testStagedBoundaryNowSitsAfterStep2() {
+    /// 세 단계가 모두 만들어졌다. 1단계에서 끝까지 걸어갈 수 있다.
+    func testFlowWalksAllThreeSteps() {
         let app = launch()
         fillValidStep1(app)
         scrollIntoView(app, node(app, "recordCreate.next")).tap()
         XCTAssertTrue(waits(node(app, "recordCreate.step2.root")), "2단계로 가지 않았다")
         scrollIntoView(app, node(app, "recordCreate.step2.next")).tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "경계로 가지 않았다")
-        XCTAssertTrue(text(app, "아직 만들지 않았어요").exists, "경계 안내가 없다")
-        XCTAssertFalse(text(app, "오늘의 이야기를 남겨주세요").exists, "3단계를 만든 척한다")
+        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")), "3단계로 가지 않았다")
+        XCTAssertEqual(node(app, "recordCreate.progress").label, "3단계 중 3단계, 나의 이야기")
+        // 검증용 경계는 더 이상 없다 — 만든 척하던 자리가 실제 화면으로 바뀌었다.
+        XCTAssertFalse(node(app, "recordCreate.stagedBoundary").exists, "검증용 경계가 남아 있다")
+        XCTAssertFalse(text(app, "아직 만들지 않았어요").exists, "미완성 안내가 남아 있다")
     }
 
     // MARK: - 15~16. 최소 저장 · 취소

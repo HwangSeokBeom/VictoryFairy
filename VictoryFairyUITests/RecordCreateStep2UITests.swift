@@ -239,25 +239,23 @@ final class RecordCreateStep2UITests: XCTestCase {
         XCTAssertTrue(button(app, "recordCreate.companion.family").isSelected, "동행 선택이 사라졌다")
     }
 
-    func test13_nextReachesOnlyTheMemoryBoundary() {
+    func test13_nextReachesStep3() {
         let app = enterStep2(launchStagedFlow())
         scrollIntoView(app, node(app, "recordCreate.step2.next")).tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "경계로 가지 않았다")
-        XCTAssertTrue(text(app, "아직 만들지 않았어요").exists, "경계 안내가 없다")
-        // 권위 있는 3단계 레이아웃은 없다.
-        XCTAssertFalse(text(app, "오늘의 이야기를 남겨주세요").exists, "3단계를 만든 척한다")
-        XCTAssertFalse(text(app, "0 / 500").exists, "3단계 글자 수 제한이 생겼다")
+        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")), "3단계로 가지 않았다")
+        XCTAssertEqual(node(app, "recordCreate.step3.title").label, "오늘의 이야기를 남겨주세요")
         XCTAssertFalse(node(app, "recordCreate.saveMessage").exists, "다음이 저장을 했다")
+        XCTAssertFalse(node(app, "recordCreate.step3.saveMessage").exists, "다음이 저장을 했다")
     }
 
-    func test14_skipReachesTheSameBoundaryAndKeepsValues() {
+    func test14_skipReachesStep3AndKeepsValues() {
         let app = enterStep2(launchStagedFlow())
         typeInto(app, "recordCreate.field.seat", "외야 자유석")
         scrollIntoView(app, button(app, "recordCreate.companion.alone")).tap()
 
         scrollIntoView(app, node(app, "recordCreate.step2.skip")).tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")), "건너뛰기가 경계로 가지 않았다")
-        XCTAssertFalse(node(app, "recordCreate.saveMessage").exists, "건너뛰기가 저장을 했다")
+        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")), "건너뛰기가 3단계로 가지 않았다")
+        XCTAssertFalse(node(app, "recordCreate.step3.saveMessage").exists, "건너뛰기가 저장을 했다")
 
         node(app, "recordCreate.back").tap()
         XCTAssertTrue(waits(node(app, "recordCreate.step2.root")), "2단계로 돌아오지 못했다")
@@ -268,10 +266,9 @@ final class RecordCreateStep2UITests: XCTestCase {
 
     func test15_repeatedNextTapsDoNotStack() {
         let app = enterStep2(launchStagedFlow())
-        let next = scrollIntoView(app, node(app, "recordCreate.step2.next"))
-        next.tap()
-        XCTAssertTrue(waits(node(app, "recordCreate.stagedBoundary")))
-        // 경계에서 이전으로 한 번만 누르면 2단계로 돌아온다 — 목적지가 쌓이지 않았다.
+        scrollIntoView(app, node(app, "recordCreate.step2.next")).tap()
+        XCTAssertTrue(waits(node(app, "recordCreate.step3.root")))
+        // 한 번만 뒤로 누르면 2단계로 돌아온다 — 목적지가 겹쳐 쌓이지 않았다.
         node(app, "recordCreate.back").tap()
         XCTAssertTrue(waits(node(app, "recordCreate.step2.root")), "목적지가 여러 겹 쌓였다")
     }
