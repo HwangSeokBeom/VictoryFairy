@@ -234,3 +234,28 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next pass: `PROFILE_MY`
 - Project status: `RECORD_CREATE_THREE_STEP_PRODUCTION_INTEGRATION_IMPLEMENTED_AND_VERIFIED`
+
+---
+
+## 2026-08-02 17:58 KST — PROFILE_MY_AUDIT_COMPLETE_READY_FOR_IMPLEMENTATION
+
+- Task: Profile / My — authoritative Pencil frame audit, product audit and decision matrix; implementation deliberately not started
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `36c071e895004e88027a8d2b4b36f336a9e718b8`
+- Ending HEAD: `d3bd5460ba57135749372771d2316329b43c431d` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-02_1758_profile-my-implementation-audit_handoff.md`
+- Latest report: `docs/ai-reports/LATEST_REPORT.md`
+- Pencil source verified: 1,882,899 bytes, SHA-256 `8e055d8a…3d6db2`, both matching the expected revision
+- MCP limitation: the active canvas is `InhouseMaker.pen` and `filePath` did not switch documents, so the `.pen` was read directly as plain UTF-8 JSON (version 2.14) and identity confirmed from its node inventory; no live MCP inspection or screenshot of VictoryFairy is claimed, and neither `.pen` was modified
+- Authoritative frame: `08_Profile_Settings` / `NffPV`, 393pt wide, `$paper`, the only Profile frame in the document — unambiguous
+- Key premise correction: Team Selector is **already implemented**. `ProfileSettingsView` presents a real `TeamSelectionView` bound to canonical `appData.teams` and `appData.updateFavoriteTeam(_:)`. The working `응원 팀 변경` entry is preserved, recorded as `EXISTING_PRODUCT_CONTRACT: PROFILE_TEAM_CHANGE_ENTRY_PRESERVED`; the earlier deferment is withdrawn
+- `MainTab.my` already renders a real 785-line production screen, so the next pass revises an existing route rather than creating one
+- Genuinely absent and deferred: notification preferences, export/backup, photo-library management, logout (no auth boundary), and the destructive account-deletion operation — distinct from the supported informational `계정 삭제 안내` legal link
+- Defects recorded for the implementation pass: hard-coded `승리요정 0.1.0` version, `추후 제공` placeholder row, and a meaningless tab-root `.toolbar` 닫기 button
+- Fairy mapping established: authored `Fairy48_Victory` maps to existing `VFFairyKind.victory` at `VFFairySize.compact`
+- Tests run this session: none. No result is claimed
+- Production source changed: no — this session committed documentation only
+- Pushed: no
+- Merged: no
+- Next pass: `PROFILE_MY_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT` (implementation), then `TEAM_SELECTOR_PRODUCT_AUDIT_AND_VISIBLE_LAYOUT`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
