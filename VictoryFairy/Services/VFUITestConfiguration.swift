@@ -21,6 +21,8 @@ enum VFUITestConfiguration {
         static let stadiumID = "-VFUITestStadiumID"
         /// 온보딩 완료 플래그를 미리 심는다.
         static let onboardingCompleted = "-VFUITestOnboardingCompleted"
+        /// 표시 이름을 미리 심는다. 사용자가 직접 정할 수 있는 값과 같은 자리다.
+        static let displayName = "-VFUITestDisplayName"
     }
 
     /// 이 앱이 UserDefaults에 직접 쓰는 키 전체. 초기화 대상은 여기까지다.
@@ -63,6 +65,9 @@ enum VFUITestConfiguration {
         if let completed = value(for: Argument.onboardingCompleted, in: arguments) {
             defaults.set(completed == "1" || completed.lowercased() == "true",
                          forKey: "hasCompletedOnboarding")
+        }
+        if let name = value(for: Argument.displayName, in: arguments) {
+            defaults.set(name, forKey: "userDisplayName")
         }
 
         #if DEBUG

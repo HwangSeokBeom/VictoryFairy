@@ -126,6 +126,7 @@ struct ProfileSettingsView: View {
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(theme.primary)
                         .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("프로필 수정")
@@ -146,14 +147,17 @@ struct ProfileSettingsView: View {
                 .font(.subheadline)
                 .foregroundStyle(VFColor.bodySecondary)
                 .fixedSize(horizontal: false, vertical: true)
+                // 라벨과 식별자는 글자 자신이 든다. `children: .combine`으로 묶으면
+                // XCUI에서 식별자가 사라진다(실측).
+                .accessibilityLabel(hasFavoriteTeam
+                                    ? "응원 팀 \(favoriteTeamSummary)"
+                                    : "응원 팀을 아직 고르지 않았어요")
+                .accessibilityIdentifier("profile.team")
         }
         .padding(.horizontal, VFSpacing.sm)
         .padding(.vertical, VFSpacing.xs)
         .background(VFColor.subtleSurface)
         .clipShape(Capsule())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(hasFavoriteTeam ? "응원 팀 \(favoriteTeamSummary)" : "응원 팀을 아직 고르지 않았어요")
-        .accessibilityIdentifier("profile.team")
     }
 
     // MARK: - 쓸 수 있는 설정

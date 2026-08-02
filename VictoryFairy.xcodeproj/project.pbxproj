@@ -50,6 +50,7 @@
 		B1C2D3E4F5061728394APF11 /* ProfileSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394APF10 /* ProfileSettingsTests.swift */; };
 		B1C2D3E4F5061728394A8B11 /* RecordCreateStep3UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A8B10 /* RecordCreateStep3UITests.swift */; };
 		B1C2D3E4F5061728394A9B11 /* RecordCreateProductionIntegrationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A9B10 /* RecordCreateProductionIntegrationUITests.swift */; };
+		B1C2D3E4F5061728394APU11 /* ProfileSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394APU10 /* ProfileSettingsUITests.swift */; };
 		B1C2D3E4F5061728394A9C11 /* RecordCreateProductionIntegrationResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A9C10 /* RecordCreateProductionIntegrationResponsiveUITests.swift */; };
 		B1C2D3E4F5061728394A9D11 /* RecordCreateProductionIntegrationCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A9D10 /* RecordCreateProductionIntegrationCaptureUITests.swift */; };
 		B1C2D3E4F5061728394A8C11 /* RecordCreateStep3ResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A8C10 /* RecordCreateStep3ResponsiveUITests.swift */; };
@@ -125,6 +126,7 @@
 		B1C2D3E4F5061728394APF10 /* ProfileSettingsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileSettingsTests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A8B10 /* RecordCreateStep3UITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep3UITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A9B10 /* RecordCreateProductionIntegrationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateProductionIntegrationUITests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394APU10 /* ProfileSettingsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileSettingsUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A9C10 /* RecordCreateProductionIntegrationResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateProductionIntegrationResponsiveUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A9D10 /* RecordCreateProductionIntegrationCaptureUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateProductionIntegrationCaptureUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A8C10 /* RecordCreateStep3ResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep3ResponsiveUITests.swift; sourceTree = "<group>"; };
@@ -263,6 +265,7 @@
 				B1C2D3E4F5061728394A7D10 /* RecordCreateStep2CaptureUITests.swift */,
 				B1C2D3E4F5061728394A8B10 /* RecordCreateStep3UITests.swift */,
 				B1C2D3E4F5061728394A9B10 /* RecordCreateProductionIntegrationUITests.swift */,
+				B1C2D3E4F5061728394APU10 /* ProfileSettingsUITests.swift */,
 				B1C2D3E4F5061728394A9C10 /* RecordCreateProductionIntegrationResponsiveUITests.swift */,
 				B1C2D3E4F5061728394A9D10 /* RecordCreateProductionIntegrationCaptureUITests.swift */,
 				B1C2D3E4F5061728394A8C10 /* RecordCreateStep3ResponsiveUITests.swift */,
@@ -447,6 +450,7 @@
 				B1C2D3E4F5061728394A7D11 /* RecordCreateStep2CaptureUITests.swift in Sources */,
 				B1C2D3E4F5061728394A8B11 /* RecordCreateStep3UITests.swift in Sources */,
 				B1C2D3E4F5061728394A9B11 /* RecordCreateProductionIntegrationUITests.swift in Sources */,
+				B1C2D3E4F5061728394APU11 /* ProfileSettingsUITests.swift in Sources */,
 				B1C2D3E4F5061728394A9C11 /* RecordCreateProductionIntegrationResponsiveUITests.swift in Sources */,
 				B1C2D3E4F5061728394A9D11 /* RecordCreateProductionIntegrationCaptureUITests.swift in Sources */,
 				B1C2D3E4F5061728394A8C11 /* RecordCreateStep3ResponsiveUITests.swift in Sources */,
