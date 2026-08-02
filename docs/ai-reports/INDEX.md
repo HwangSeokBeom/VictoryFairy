@@ -303,3 +303,24 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next: the final Profile / My verification pipeline, in the order recorded in the report
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 01:32 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Profile / My final verification pipeline — responsive and capture classes, DEBUG no-team fixture, full matrices, builds, gates and archive
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `81dd027` · Ending HEAD: `3e2292d` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_0132_profile-my-final-verification_partial.md`
+- Frame `08_Profile_Settings` / `NffPV`; Pencil size and SHA-256 re-verified; MCP still attached to InhouseMaker, no live inspection claimed
+- Added: `ProfileSettingsResponsiveUITests` (22 tests), `ProfileSettingsCaptureUITests` (9 tests, 18 captures), and a DEBUG-only `-VFUITestProfileFixture noTeam` that renders the real production view without weakening onboarding
+- Fresh results, each from its own run: final complete primary UI suite 606 executed, 529 passed, 0 failed, 77 skipped, 0 unexpected, 9,260.703 s, `** TEST SUCCEEDED **`, finalized `Passed`; compact matrix on SE 3 163 executed, 163 passed, 0 failed, 0 skipped; unit suite 807 executed, 0 failures; Profile responsive 22 executed, 4 skips, 0 failures; captures 9 executed, 0 failures, 18/18 valid
+- Skip accounting: all 77 width-gated skips paired mechanically by exact class and method; **unpaired 0**
+- Builds and gates: Debug and Release both `** BUILD SUCCEEDED **`; app icon, release readiness, secret scan and fixture exclusion all pass; Fairy contracts 100 executed, 0 failures; `git diff --check` clean
+- Archive: `** ARCHIVE SUCCEEDED **`, bundle id `com.hwangseokbeom.victoryfairy`, version 1.1.0 (1), no test bundles, DEBUG no-team fixture absent, every unsupported row and hard-coded version absent
+- **Gap**: `-VFUITestDisplayName`, added this pass, ships in the Release binary alongside the pre-existing `-VFUITest` seam. The status rule requires test-only launch arguments to be absent, so this is not reported as verified. Closing it means moving the argument behind `#if DEBUG` and rerunning the final suite, compact matrix and archive
+- The earlier 575-test run remains interim regression evidence and is never merged into the final count
+- Production source changed: yes — DEBUG-only fixture plumbing only
+- Pushed: no · Merged: no
+- Next: close the launch-argument gap, then `TEAM_SELECTOR_PRODUCT_AUDIT_AND_VISIBLE_LAYOUT`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
