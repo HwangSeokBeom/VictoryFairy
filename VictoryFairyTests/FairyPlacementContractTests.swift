@@ -195,7 +195,10 @@ final class FairyPlacementContractTests: XCTestCase {
         ],
         "CalendarViews.swift": [("VFFairyGlyph(kind", "선택일 미리보기 > 선택일 승리 페어리")],
         "StatisticsViews.swift": [("VFFairyGlyph(.victory", "시즌 커버 > 시즌 시그니처 페어리")],
-        "VFCoreComponents.swift": [("VFFairyGlyph(fairy.kind", "09_States > 빈 기록 · 빈 시즌 · 오류")]
+        "VFCoreComponents.swift": [("VFFairyGlyph(fairy.kind", "09_States > 빈 기록 · 빈 시즌 · 오류")],
+        // 개정 Pencil `08_Profile_Settings`(NffPV)이 프로필 카드 아바타 자리에
+        // `Fairy48_Victory`를 직접 그려 두었다. 승리 요정의 48px 판이 그대로 온다.
+        "ProfileSettingsView.swift": [("VFFairyGlyph(.victory", "08_Profile_Settings > 프로필 카드 아바타")]
     ]
 
     func testEveryImplementedPlacementIsPresentWhereItWasAuthored() throws {
@@ -235,7 +238,9 @@ final class FairyPlacementContractTests: XCTestCase {
             "CalendarViews.swift": 1,
             "StatisticsViews.swift": 1,
             // 상태 패널은 한 자리에서 세 상태를 그린다. 동시에 나오는 것은 언제나 하나.
-            "VFCoreComponents.swift": 1
+            "VFCoreComponents.swift": 1,
+            // 마이는 프로필 카드 아바타 하나뿐이다.
+            "ProfileSettingsView.swift": 1
         ]
         for entry in try screenSources() {
             guard let expected = counts[entry.name] else { continue }

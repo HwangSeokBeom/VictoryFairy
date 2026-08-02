@@ -654,7 +654,8 @@ final class FairyGlyphContractTests: XCTestCase {
             "VFCoreComponents.swift",   // 09_States 빈 기록 · 빈 시즌 · 오류
             "OnboardingView.swift",     // Onboarding_05_Complete 완료 성공 페어리
             "CalendarViews.swift",      // 선택일 결과 페어리
-            "StatisticsViews.swift"     // 시즌 시그니처 페어리
+            "StatisticsViews.swift",    // 시즌 시그니처 페어리
+            "ProfileSettingsView.swift" // 08_Profile_Settings 프로필 카드 아바타
         ]
         var found: Set<String> = []
         for folder in ["Features", "SharedComponents"] {
