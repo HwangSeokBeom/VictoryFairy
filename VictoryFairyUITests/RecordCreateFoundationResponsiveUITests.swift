@@ -68,94 +68,215 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         return previous
     }
 
-    /// 실제로 쓸 수 있는 구간 — 위쪽 고정 크롬 **아래**, 아래쪽 액션 영역 **위**.
-    ///
-    /// 창 안에 있다는 것만으로는 쓸 수 있다는 뜻이 아니다. 편집기의 내비게이션 막대는
-    /// 창 위쪽을 덮고 있는데, 그 밑에 깔린 요소도 XCUI는 `isHittable`이라고 답한다
-    /// (실측: 좌석 칸이 y 31–53에 서 있고 `직관 기록 수정` 막대가 y 46–100을 덮은
-    /// 상태에서, 탭이 막대에 먹혀 키보드가 끝내 올라오지 않았다).
-    ///
-    /// 아래쪽 액션 영역은 **있을 수도 없을 수도 있다.** 없는 것이 맞는 배치이므로,
-    /// `exists`를 먼저 묻고 있을 때만 `frame`을 읽는다 — 없는 요소의 `frame`을 읽으면
-    /// XCUI가 스냅샷 오류를 던져 진짜 원인을 통째로 가린다.
-    private func usableViewport(_ app: XCUIApplication) -> CGRect {
-        let window = app.windows.firstMatch.frame
+    // MARK: - 쓸 수 있는 구간
 
-        var ceiling = window.minY
+    /// 탭이 실제로 먹히려면 최소한 이만큼은 쓸 수 있는 구간 안에 들어와 있어야 한다.
+    /// 44pt는 애플 휴먼 인터페이스 가이드라인의 최소 터치 목표 크기다. 요소 자체가
+    /// 그보다 작으면 그 요소의 크기가 곧 기준이 된다.
+    private static let minimumInteractiveExtent: CGFloat = 44
+    /// 부동소수점 기하 오차만 흡수한다. 실제 가림을 감추는 값이 아니다.
+    private static let geometryTolerance: CGFloat = 0.5
+
+    /// 왜 아직 쓸 수 없는지.
+    private enum ViewportVerdict: String {
+        case reachable = "REACHABLE"
+        case oversizedButActionable = "OVERSIZED_BUT_ACTIONABLE"
+        case notPresent = "NOT_PRESENT"
+        case aboveViewport = "ABOVE_VIEWPORT"
+        case belowViewport = "BELOW_VIEWPORT"
+        case insufficientVisibleRegion = "INSUFFICIENT_VISIBLE_REGION"
+        case notHittable = "NOT_HITTABLE"
+        case noScrollProgress = "NO_SCROLL_PROGRESS"
+    }
+
+    private enum ScrollDirection: String { case up = "UP", down = "DOWN" }
+
+    /// 위에 붙어 화면을 덮고 있는 크롬. 없으면 `nil`.
+    /// **`exists`를 먼저 묻고 있을 때만 `frame`을 읽는다.**
+    private func topChromeFrame(_ app: XCUIApplication) -> CGRect? {
+        let window = app.windows.firstMatch.frame
+        var result: CGRect?
         let bars = app.navigationBars
         for index in 0..<bars.count {
             let bar = bars.element(boundBy: index)
             guard bar.exists else { continue }
             let frame = bar.frame
-            // 위에 붙어 있는 크롬만 천장으로 센다. 한복판의 막대는 크롬이 아니다.
+            // 위에 붙어 있는 것만 크롬으로 센다. 한복판의 막대는 크롬이 아니다.
             guard frame.minY <= window.midY else { continue }
-            ceiling = max(ceiling, frame.maxY)
+            if let current = result {
+                if frame.maxY > current.maxY { result = frame }
+            } else {
+                result = frame
+            }
         }
+        return result
+    }
 
-        var floor = window.maxY
-        for optional in [app.toolbars.firstMatch, app.keyboards.element] {
-            guard optional.exists else { continue }
-            let frame = optional.frame
+    /// 아래를 가리는 것 — 키보드나 고정 액션 영역. 둘 다 **없을 수 있다.**
+    private func bottomObstructionFrame(_ app: XCUIApplication) -> CGRect? {
+        let window = app.windows.firstMatch.frame
+        var result: CGRect?
+        for candidate in [app.keyboards.element, app.toolbars.firstMatch] {
+            guard candidate.exists else { continue }
+            let frame = candidate.frame
             guard frame.maxY >= window.midY else { continue }
-            floor = min(floor, frame.minY)
+            if let current = result {
+                if frame.minY < current.minY { result = frame }
+            } else {
+                result = frame
+            }
+        }
+        return result
+    }
+
+    /// 위 크롬 아래, 아래 가림 위 — 실제로 손이 닿는 구간.
+    private func usableViewport(_ app: XCUIApplication) -> CGRect {
+        let window = app.windows.firstMatch.frame
+        let top = topChromeFrame(app).map { max(window.minY, $0.maxY) } ?? window.minY
+        let bottom = bottomObstructionFrame(app).map { min(window.maxY, $0.minY) } ?? window.maxY
+        return CGRect(x: window.minX, y: top,
+                      width: window.width, height: max(0, bottom - top))
+    }
+
+    /// 지금 이 요소를 **뜻 있게 쓸 수 있는가**.
+    ///
+    /// 프레임 전체가 구간 안에 담겼는지는 묻지 않는다. AccessibilityXXXL에서는 의미
+    /// 요소 하나가 구간보다 커지기도 하므로(실측: `티켓에서 불러오기`가 567pt 구간
+    /// 안에서 604pt) 전면 포함은 아예 성립하지 않는다. 대신 최소 터치 크기만큼이
+    /// 구간 안에 보이고, 실제로 누를 수 있는지를 본다.
+    private func viewportVerdict(_ app: XCUIApplication,
+                                 _ element: XCUIElement) -> (verdict: ViewportVerdict,
+                                                             frame: CGRect?,
+                                                             intersection: CGRect) {
+        guard element.exists else { return (.notPresent, nil, .null) }
+        let frame = element.frame
+        let viewport = usableViewport(app)
+
+        // 크롬 **자체에 속한** 컨트롤은 거기 고정돼 있다. 스크롤로 구간 안으로 옮길 수
+        // 없고 옮길 필요도 없다 — 편집기의 `취소`가 바로 내비게이션 막대 안에 산다.
+        // 구간 밖이라는 이유로 떨어뜨리면 영원히 닿지 못한다.
+        let pinnedRegions = [topChromeFrame(app), bottomObstructionFrame(app)].compactMap { $0 }
+        for region in pinnedRegions
+        where region.insetBy(dx: -Self.geometryTolerance, dy: -Self.geometryTolerance).contains(frame) {
+            return (element.isHittable ? .reachable : .notHittable, frame, frame)
         }
 
-        return CGRect(x: window.minX, y: ceiling,
-                      width: window.width, height: max(0, floor - ceiling))
+        let intersection = frame.intersection(viewport)
+
+        guard !intersection.isNull, !intersection.isEmpty else {
+            return (frame.maxY <= viewport.minY ? .aboveViewport : .belowViewport, frame, .null)
+        }
+
+        let requiredHeight = min(Self.minimumInteractiveExtent, frame.height)
+        let requiredWidth = min(Self.minimumInteractiveExtent, frame.width)
+        guard intersection.height + Self.geometryTolerance >= requiredHeight,
+              intersection.width + Self.geometryTolerance >= requiredWidth else {
+            if frame.minY < viewport.minY { return (.aboveViewport, frame, intersection) }
+            if frame.maxY > viewport.maxY { return (.belowViewport, frame, intersection) }
+            return (.insufficientVisibleRegion, frame, intersection)
+        }
+
+        guard element.isHittable else { return (.notHittable, frame, intersection) }
+        let oversized = frame.height > viewport.height + Self.geometryTolerance
+        return (oversized ? .oversizedButActionable : .reachable, frame, intersection)
+    }
+
+    /// 한 화면을 통째로 미는 대신 조금만 끈다. 한 번 지나친 뒤의 미세 조정용이다.
+    /// 가로 여백에서 끄는 이유는 본문 한복판의 `TextView`가 제스처를 먹기 때문이다.
+    private func fineDrag(_ app: XCUIApplication, up: Bool) {
+        let window = app.windows.firstMatch
+        let from = window.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: up ? 0.62 : 0.38))
+        let to = window.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: up ? 0.38 : 0.62))
+        from.press(forDuration: 0.05, thenDragTo: to)
     }
 
     /// 실패 문구. **여기서는 무엇도 던지지 않는다.**
     private func viewportDiagnostics(_ app: XCUIApplication, _ element: XCUIElement,
-                                     swipes: Int) -> String {
+                                     state: (verdict: ViewportVerdict, frame: CGRect?, intersection: CGRect),
+                                     reason: ViewportVerdict, direction: ScrollDirection?,
+                                     swipes: Int, progressed: Bool) -> String {
         let exists = element.exists
+        let identifier = exists ? element.identifier : "NOT_PRESENT"
         let label = exists ? element.label : "NOT_PRESENT"
-        let frame = exists ? "\(element.frame)" : "NOT_PRESENT"
         let hittable = exists ? "\(element.isHittable)" : "NOT_PRESENT"
-        return "스크롤해도 쓸 수 있는 구간 안으로 들어오지 않는다 — "
-            + "label=\"\(label)\" exists=\(exists) hittable=\(hittable) frame=\(frame) "
-            + "창=\(app.windows.firstMatch.frame) 구간=\(usableViewport(app)) 스와이프=\(swipes)"
+        let frame = state.frame.map { "\($0)" } ?? "NOT_PRESENT"
+        let intersection = (state.intersection.isNull || state.intersection.isEmpty)
+            ? "NONE" : "\(state.intersection)"
+        let requiredHeight = state.frame.map { "\(min(Self.minimumInteractiveExtent, $0.height))" } ?? "NONE"
+        let requiredWidth = state.frame.map { "\(min(Self.minimumInteractiveExtent, $0.width))" } ?? "NONE"
+        return "쓸 수 있는 구간 안에서 누를 수 있는 상태가 되지 않는다 — "
+            + "사유=\(reason.rawValue) id=\"\(identifier)\" label=\"\(label)\" 존재=\(exists) "
+            + "누를수있음=\(hittable) frame=\(frame) 보이는교집합=\(intersection) "
+            + "필요최소=\(requiredWidth)x\(requiredHeight) 구간=\(usableViewport(app)) "
+            + "위크롬=\(topChromeFrame(app).map { "\($0)" } ?? "NONE") "
+            + "아래가림=\(bottomObstructionFrame(app).map { "\($0)" } ?? "NONE") "
+            + "방향=\(direction?.rawValue ?? "NONE") 스와이프=\(swipes) 진행=\(progressed)"
     }
 
-    /// 쓸 수 있는 구간 안으로 끌어오고, 그 안에 **담겨 있는지**까지 확인한다.
+    /// 쓸 수 있는 구간 안으로 끌어오고, 거기서 **실제로 누를 수 있는지**까지 확인한다.
     ///
-    /// `isHittable`만으로는 통과시키지 않는다 — 위 크롬에 덮여 있어도 참이 되기 때문이다.
+    /// 방향을 매 번 뒤집지 않는다. 한쪽으로만 밀다가 구간을 통째로 지나쳤다는 증거가
+    /// 나왔을 때 딱 한 번 교정하고, 그 뒤로는 한 화면을 통째로 미는 대신 조금씩 끈다
+    /// (실측: 매 번 뒤집으면 좌석 칸이 위 y −51과 아래 y 666.5 사이를 오갔다).
     @discardableResult
     private func scrollIntoView(_ app: XCUIApplication, _ element: XCUIElement,
                                 maximumSwipes: Int = 25,
                                 file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         XCTAssertTrue(waits(element), "요소 자체가 없다", file: file, line: line)
 
-        /// 자리를 잡은 뒤의 좌표로 판단한다. 스크롤이 아직 멈추지 않았으면 XCUI는
-        /// 보이는 요소도 `isHittable`이 아니라고 답한다.
-        func containedInUsableViewport() -> Bool {
-            guard element.exists else { return false }
-            let frame = settled(element, file: file, line: line)
-            let viewport = usableViewport(app)
-            return element.isHittable
-                && frame.minY >= viewport.minY
-                && frame.maxY <= viewport.maxY
-        }
+        var direction: ScrollDirection?
+        var corrections = 0
+        var swipes = 0
+        var stalled = 0
+        var reason = ViewportVerdict.notPresent
 
         // AccessibilityXXXL에서는 폼 전체가 2,300pt를 넘는다. 넉넉히 밀어 본다.
-        var swipes = 0
-        for _ in 0..<maximumSwipes {
-            if containedInUsableViewport() { return element }
-            guard element.exists else { app.swipeUp(); swipes += 1; continue }
-            let frame = element.frame
-            let viewport = usableViewport(app)
-            if frame.maxY > viewport.maxY {
+        while swipes < maximumSwipes {
+            let state = viewportVerdict(app, element)
+            reason = state.verdict
+            if state.verdict == .reachable || state.verdict == .oversizedButActionable {
+                return element
+            }
+
+            let needed: ScrollDirection
+            switch state.verdict {
+            case .aboveViewport: needed = .down
+            case .belowViewport, .notPresent: needed = .up
+            default: needed = direction ?? .up
+            }
+
+            // 첫 역전만 "지나쳤다"는 증거로 받아들이고, 그 뒤로는 미세 조정으로 바꾼다.
+            if let current = direction, current != needed, corrections == 0 { corrections += 1 }
+            let fine = corrections > 0
+            direction = needed
+
+            let before = state.frame?.minY
+            if fine {
+                fineDrag(app, up: needed == .up)
+            } else if needed == .up {
                 app.swipeUp()
-            } else if frame.minY < viewport.minY {
-                // 위 크롬 밑으로 지나쳤다. 되돌린다.
-                app.swipeDown()
             } else {
-                app.swipeUp()
+                app.swipeDown()
             }
             swipes += 1
+
+            // 움직이지 않는 스크롤을 계속 밀어 봐야 소용없다.
+            let after = element.exists ? element.frame.minY : nil
+            if let before, let after, abs(after - before) <= Self.geometryTolerance {
+                stalled += 1
+                if stalled >= 2 { reason = .noScrollProgress; break }
+            } else {
+                stalled = 0
+            }
         }
 
-        XCTAssertTrue(containedInUsableViewport(),
-                      viewportDiagnostics(app, element, swipes: swipes),
+        let final = viewportVerdict(app, element)
+        let accepted = final.verdict == .reachable || final.verdict == .oversizedButActionable
+        XCTAssertTrue(accepted,
+                      viewportDiagnostics(app, element, state: final,
+                                          reason: reason == .noScrollProgress ? reason : final.verdict,
+                                          direction: direction, swipes: swipes,
+                                          progressed: stalled < 2),
                       file: file, line: line)
         return element
     }
