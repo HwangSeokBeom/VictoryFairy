@@ -280,3 +280,26 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next: diagnose the identifier resolution, then run the full verification order
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-02 21:09 KST — PROFILE_MY_ACCESSIBILITY_REPAIR_VERIFIED_READY_FOR_FINAL_PIPELINE
+
+- Task: Profile / My — diagnose and repair the accessibility identifier blocker; final pipeline deliberately not started
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `05fae0bdbb41674acc7d0d009ab9ff624ba49e8e`
+- Ending HEAD: `2f3b787` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-02_2109_profile-my-accessibility-repair_handoff.md`
+- Root cause, proven from the runtime hierarchy: the `profile.card` identifier was applied through a container that stamped it onto every descendant, so `profile.card` resolved to three elements while `profile.name`, `profile.team` and `profile.edit` each resolved to zero. Child labels and button geometry were never the defect, and this was not an XCUI timing issue
+- Repair: the card is made a containing semantic element before it is named, restoring independent child identity. Verified after repair — `profile.card` one container, `profile.name` one StaticText, `profile.team` one StaticText, `profile.edit` one hittable Button
+- Why the earlier two attempts failed: changing `.combine` grouping never touched identifier ownership, and widening the edit hit area changed geometry only
+- Fresh results: `ProfileSettingsUITests` 25 executed, 0 failures, 191.801 s; the focused semantic test 4/4 from fresh app state; all eleven historically failing methods pass; full unit suite 807 executed, 0 failures
+- `INTENTIONAL_CONTRACT_EXTENSION: PROFILE_VICTORY_FAIRY_PLACEMENT` — the Fairy allow-lists predated the revised frame; `08_Profile_Settings` authors `Fairy48_Victory`, mapped to `VFFairyKind.victory` at `VFFairySize.compact`, registered at a density of exactly one. Enforcement unchanged
+- `INTERIM_PRIMARY_UI_REGRESSION` — 575 executed, 502 passed, 0 failed, 73 skipped, 0 unexpected, 8,812.772 s, `** TEST SUCCEEDED **`, exit 0, finalized bundle agrees. Regression evidence only; it predates the responsive and capture classes and is **not** the final Profile / My primary UI result
+- `DEFENSIVE_RENDERING_CONTRACT: PROFILE_NO_TEAM_STATE` — onboarding requires both a team and a stadium, so the no-team state is not production-reachable today; the rendering is kept as defensive and onboarding was not weakened
+- Not run and not claimed: Profile responsive and capture classes, the DEBUG no-team fixture, the 18-capture matrix, the compact matrix, skip pairing, a final primary UI suite, Release build, gates and archive
+- Production source changed: yes — Profile card semantics only
+- Pushed: no
+- Merged: no
+- Next: the final Profile / My verification pipeline, in the order recorded in the report
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
