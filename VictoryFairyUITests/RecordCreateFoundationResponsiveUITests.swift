@@ -68,25 +68,95 @@ final class RecordCreateFoundationResponsiveUITests: XCTestCase {
         return previous
     }
 
-    /// 화면 안으로 끌어와 실제로 누를 수 있는지까지 확인한다.
+    /// 실제로 쓸 수 있는 구간 — 위쪽 고정 크롬 **아래**, 아래쪽 액션 영역 **위**.
+    ///
+    /// 창 안에 있다는 것만으로는 쓸 수 있다는 뜻이 아니다. 편집기의 내비게이션 막대는
+    /// 창 위쪽을 덮고 있는데, 그 밑에 깔린 요소도 XCUI는 `isHittable`이라고 답한다
+    /// (실측: 좌석 칸이 y 31–53에 서 있고 `직관 기록 수정` 막대가 y 46–100을 덮은
+    /// 상태에서, 탭이 막대에 먹혀 키보드가 끝내 올라오지 않았다).
+    ///
+    /// 아래쪽 액션 영역은 **있을 수도 없을 수도 있다.** 없는 것이 맞는 배치이므로,
+    /// `exists`를 먼저 묻고 있을 때만 `frame`을 읽는다 — 없는 요소의 `frame`을 읽으면
+    /// XCUI가 스냅샷 오류를 던져 진짜 원인을 통째로 가린다.
+    private func usableViewport(_ app: XCUIApplication) -> CGRect {
+        let window = app.windows.firstMatch.frame
+
+        var ceiling = window.minY
+        let bars = app.navigationBars
+        for index in 0..<bars.count {
+            let bar = bars.element(boundBy: index)
+            guard bar.exists else { continue }
+            let frame = bar.frame
+            // 위에 붙어 있는 크롬만 천장으로 센다. 한복판의 막대는 크롬이 아니다.
+            guard frame.minY <= window.midY else { continue }
+            ceiling = max(ceiling, frame.maxY)
+        }
+
+        var floor = window.maxY
+        for optional in [app.toolbars.firstMatch, app.keyboards.element] {
+            guard optional.exists else { continue }
+            let frame = optional.frame
+            guard frame.maxY >= window.midY else { continue }
+            floor = min(floor, frame.minY)
+        }
+
+        return CGRect(x: window.minX, y: ceiling,
+                      width: window.width, height: max(0, floor - ceiling))
+    }
+
+    /// 실패 문구. **여기서는 무엇도 던지지 않는다.**
+    private func viewportDiagnostics(_ app: XCUIApplication, _ element: XCUIElement,
+                                     swipes: Int) -> String {
+        let exists = element.exists
+        let label = exists ? element.label : "NOT_PRESENT"
+        let frame = exists ? "\(element.frame)" : "NOT_PRESENT"
+        let hittable = exists ? "\(element.isHittable)" : "NOT_PRESENT"
+        return "스크롤해도 쓸 수 있는 구간 안으로 들어오지 않는다 — "
+            + "label=\"\(label)\" exists=\(exists) hittable=\(hittable) frame=\(frame) "
+            + "창=\(app.windows.firstMatch.frame) 구간=\(usableViewport(app)) 스와이프=\(swipes)"
+    }
+
+    /// 쓸 수 있는 구간 안으로 끌어오고, 그 안에 **담겨 있는지**까지 확인한다.
+    ///
+    /// `isHittable`만으로는 통과시키지 않는다 — 위 크롬에 덮여 있어도 참이 되기 때문이다.
     @discardableResult
     private func scrollIntoView(_ app: XCUIApplication, _ element: XCUIElement,
                                 maximumSwipes: Int = 25,
                                 file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         XCTAssertTrue(waits(element), "요소 자체가 없다", file: file, line: line)
+
+        /// 자리를 잡은 뒤의 좌표로 판단한다. 스크롤이 아직 멈추지 않았으면 XCUI는
+        /// 보이는 요소도 `isHittable`이 아니라고 답한다.
+        func containedInUsableViewport() -> Bool {
+            guard element.exists else { return false }
+            let frame = settled(element, file: file, line: line)
+            let viewport = usableViewport(app)
+            return element.isHittable
+                && frame.minY >= viewport.minY
+                && frame.maxY <= viewport.maxY
+        }
+
         // AccessibilityXXXL에서는 폼 전체가 2,300pt를 넘는다. 넉넉히 밀어 본다.
-        for _ in 0..<maximumSwipes where !element.isHittable {
-            app.swipeUp()
+        var swipes = 0
+        for _ in 0..<maximumSwipes {
+            if containedInUsableViewport() { return element }
+            guard element.exists else { app.swipeUp(); swipes += 1; continue }
+            let frame = element.frame
+            let viewport = usableViewport(app)
+            if frame.maxY > viewport.maxY {
+                app.swipeUp()
+            } else if frame.minY < viewport.minY {
+                // 위 크롬 밑으로 지나쳤다. 되돌린다.
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
+            swipes += 1
         }
-        // 지나쳤으면 위로 되돌린다.
-        if !element.isHittable, element.frame.minY < 0 {
-            for _ in 0..<maximumSwipes where !element.isHittable { app.swipeDown() }
-        }
-        XCTAssertTrue(
-            element.isHittable,
-            "스크롤해도 화면 안으로 들어오지 않는다 — label=\"\(element.label)\" frame=\(element.frame)",
-            file: file, line: line
-        )
+
+        XCTAssertTrue(containedInUsableViewport(),
+                      viewportDiagnostics(app, element, swipes: swipes),
+                      file: file, line: line)
         return element
     }
 
