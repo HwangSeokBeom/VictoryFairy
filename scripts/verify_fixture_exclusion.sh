@@ -116,6 +116,17 @@ absent "StatisticsFixture"         "시즌 시나리오 타입이 없다"
 absent "VFRecordDetailFixtures"    "기록 상세 픽스처 타입이 없다"
 absent "RecordDetailFixture"       "기록 상세 시나리오 타입이 없다"
 
+# --- 1b. 마이 화면의 테스트 전용 실행 인자 ----------------------------------
+#
+# 이 이름들은 결정적 UI 검증에만 쓴다. 런타임 조건으로 동작만 막으면 문자열
+# 리터럴은 그대로 배포 바이너리에 실린다 — 실제로 `-VFUITestDisplayName`이
+# Release 아카이브에서 발견됐다. 그래서 리터럴 자체가 없는지 본다.
+
+echo
+echo "── 마이 화면 테스트 인자"
+absent "-VFUITestDisplayName"    "표시 이름 테스트 인자가 없다"
+absent "-VFUITestProfileFixture" "마이 픽스처 테스트 인자가 없다"
+
 # --- 2. 시나리오 이름 -------------------------------------------------------
 #
 # 'live'나 'scheduled' 같은 흔한 낱말은 쓰지 않는다. 다른 곳에서 정당하게 나올 수

@@ -21,8 +21,6 @@ enum VFUITestConfiguration {
         static let stadiumID = "-VFUITestStadiumID"
         /// 온보딩 완료 플래그를 미리 심는다.
         static let onboardingCompleted = "-VFUITestOnboardingCompleted"
-        /// 표시 이름을 미리 심는다. 사용자가 직접 정할 수 있는 값과 같은 자리다.
-        static let displayName = "-VFUITestDisplayName"
         /// 마이 화면의 방어 상태를 결정적으로 띄운다. DEBUG 전용.
         static let profileFixture = "-VFUITestProfileFixture"
     }
@@ -68,7 +66,7 @@ enum VFUITestConfiguration {
             defaults.set(completed == "1" || completed.lowercased() == "true",
                          forKey: "hasCompletedOnboarding")
         }
-        if let name = value(for: Argument.displayName, in: arguments) {
+        if let name = displayNameOverride(arguments: arguments) {
             defaults.set(name, forKey: "userDisplayName")
         }
 
@@ -697,6 +695,24 @@ enum VFUITestConfiguration {
     }
 
     /// `-Key value` 형태에서 값을 읽는다.
+    /// 결정적 UI 검증을 위해 표시 이름을 미리 심는다. **DEBUG에서만 존재한다.**
+    ///
+    /// 이 인자 이름은 배포 바이너리에 남으면 안 된다. 런타임 조건으로 동작만 막으면
+    /// 문자열 리터럴은 그대로 실려 나간다 — 실제로 Release 아카이브 문자열 스캔에서
+    /// `-VFUITestDisplayName`이 발견됐다. 그래서 리터럴과 파싱을 통째로 `#if DEBUG`
+    /// 안에 두고, Release에서는 이 함수가 언제나 `nil`을 돌려준다.
+    ///
+    /// 제품의 표시 이름은 이것과 무관하게 언제나 저장된 값에서 온다.
+    static func displayNameOverride(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> String? {
+        #if DEBUG
+        return value(for: "-VFUITestDisplayName", in: arguments)
+        #else
+        return nil
+        #endif
+    }
+
     private static func value(for key: String, in arguments: [String]) -> String? {
         guard let index = arguments.firstIndex(of: key),
               arguments.index(after: index) < arguments.endIndex else {
