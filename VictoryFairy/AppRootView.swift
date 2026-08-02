@@ -42,11 +42,23 @@ struct AppRootView: View {
     /// 쓰지 않아 보완 단계에 도달할 방법이 없었다.
     @ViewBuilder
     private var userFacingRoot: some View {
-        if preferences.onboardingEntry == .completed {
+        if preferences.onboardingEntry == .completed || forcesMainTabsForVerification {
             MainTabView()
         } else {
             OnboardingView()
         }
+    }
+
+    /// 응원 팀이 없는 마이 화면의 방어 렌더링을 확인할 때만 참이다.
+    ///
+    /// 온보딩 불변식은 건드리지 않는다. 제품에서는 팀 없이 탭에 닿을 수 없고,
+    /// 이 값은 `#if DEBUG` 안에서만 존재하므로 Release에서는 언제나 거짓이다.
+    private var forcesMainTabsForVerification: Bool {
+        #if DEBUG
+        VFUITestConfiguration.forcesMainTabsForProfileFixture
+        #else
+        false
+        #endif
     }
 }
 

@@ -23,6 +23,8 @@ enum VFUITestConfiguration {
         static let onboardingCompleted = "-VFUITestOnboardingCompleted"
         /// 표시 이름을 미리 심는다. 사용자가 직접 정할 수 있는 값과 같은 자리다.
         static let displayName = "-VFUITestDisplayName"
+        /// 마이 화면의 방어 상태를 결정적으로 띄운다. DEBUG 전용.
+        static let profileFixture = "-VFUITestProfileFixture"
     }
 
     /// 이 앱이 UserDefaults에 직접 쓰는 키 전체. 초기화 대상은 여기까지다.
@@ -703,3 +705,23 @@ enum VFUITestConfiguration {
         return arguments[arguments.index(after: index)]
     }
 }
+
+#if DEBUG
+extension VFUITestConfiguration {
+    /// 응원 팀이 없는 **방어 렌더링**을 결정적으로 확인하기 위한 자리.
+    ///
+    /// 제품에서는 이 상태에 닿을 수 없다. `onboardingEntry`는 팀과 구장이 모두
+    /// 유효할 때만 `.completed`가 되므로, 팀이 없으면 탭이 아니라 온보딩이 뜬다.
+    /// 그렇다고 그 불변식을 느슨하게 만들 수는 없다 — 온보딩은 그대로 두고,
+    /// **검증할 때만** 탭 경로를 띄운다.
+    ///
+    /// 화면 자체는 진짜 `ProfileSettingsView`다. 두 번째 마이 화면을 만들지 않는다.
+    /// 이 인자와 아래 값은 `#if DEBUG` 안에만 있으므로 Release 바이너리에는
+    /// 문자열조차 남지 않는다(아카이브에서 확인한다).
+    static var forcesMainTabsForProfileFixture: Bool {
+        guard isActive else { return false }
+        return value(for: Argument.profileFixture,
+                     in: ProcessInfo.processInfo.arguments) == "noTeam"
+    }
+}
+#endif
