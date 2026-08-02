@@ -259,3 +259,24 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next pass: `PROFILE_MY_PRODUCT_DECISIONS_AND_VISIBLE_LAYOUT` (implementation), then `TEAM_SELECTOR_PRODUCT_AUDIT_AND_VISIBLE_LAYOUT`
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-02 18:25 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Profile / My supported production layout — implemented, verification incomplete
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `cbdb6e37f406f5303f80135e875acd3761089663`
+- Ending HEAD: `756821f` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-02_1825_profile-my-supported-layout_partial.md`
+- Frame: `08_Profile_Settings` / `NffPV`; Pencil size and SHA-256 re-verified
+- Implemented: supported-only layout — Victory Fairy card with canonical display name and team, preserved `ProfileCreationView` edit route, preserved `응원 팀 변경` via existing `TeamSelectionView`, and app information with configured privacy, terms and account-deletion guidance plus a bundle-derived version
+- Removed: hard-coded `승리요정 0.1.0`, `추후 제공` placeholder, tab-root 닫기, the `설정` title the frame does not author; unsupported notification, export, photo-management and logout rows never rendered
+- Product finding: the app cannot reach the tabs without both a favourite team and a stadium, so the no-team Profile state is unreachable by the production route
+- Fresh results: unit `ProfileSettingsTests` 42 executed, 0 failures, 0.080 s; Debug build succeeded
+- **Incomplete**: `ProfileSettingsUITests` 25 executed with 11 failures on unresolved accessibility identifiers inside the profile card, undiagnosed. Responsive, capture, regression, full unit suite, compact matrix, complete primary UI suite, Release build, gates and archive were not run and are not claimed
+- Production source changed: yes
+- Pushed: no
+- Merged: no
+- Next: diagnose the identifier resolution, then run the full verification order
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
