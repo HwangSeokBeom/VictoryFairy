@@ -2882,3 +2882,118 @@ Release에 DEBUG 전용 값이 남지 않는다.
   상태는 제품 흐름으로 만들 수 없다. 그래도 완성 버튼은 스스로 막아야 하므로,
   **제품 진입 경로 위에서** 그 방어를 확인할 수 있게 시작 위치만 옮기는 DEBUG
   인자를 두었다. 화면 루트를 바꾸지 않으므로 진입은 여전히 실제 경로다.
+
+---
+
+# Profile / My — authoritative frame audit and product-decision matrix
+
+## Pencil source proof
+
+`/Users/hwangseokbeom/Documents/VictoryFairy.pen`, 1,882,899 bytes, SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`. Both match
+the expected revision exactly.
+
+The Pencil MCP server could not be pointed at this document. Its active canvas is
+`/Users/hwangseokbeom/Documents/InhouseMaker.pen`, and passing `filePath` to
+`execute` returned that same document's node inventory — Riot account, group
+main, match lobby, team balance and recruit board frames — so document switching
+is not provable through MCP. The `.pen` file is plain UTF-8 JSON at document
+version 2.14, so it was read directly as its JSON source. Identity was confirmed
+from the node inventory itself, which contains the VictoryFairy screen set. The
+file was not modified.
+
+## Authoritative frame
+
+`08_Profile_Settings`, node ID `NffPV`, is the only Profile / My frame in the
+document. A whole-document search for names or labels matching `profile`, `my` or
+`마이` returns exactly three nodes: this frame, its content frame `jgAm6` named
+`마이 콘텐츠`, and the tab-bar instance `k1qxqC` named `탭 마이` inside
+`03_Shared_Components_Core`. There is no competing candidate, so the canonical
+frame is unambiguous and no frame ambiguity blocker applies.
+
+The frame is 393pt wide with height driven by its vertical layout, filled with
+`$paper`, and clipped. Its three direct children are a status-bar instance
+(`lICXi` referencing `RZ9Sw`), the content frame `jgAm6`, and the tab area
+`bb7af` holding the tab-bar instance `bVAjx` referencing `uZf8a`. The frame
+authors no navigation header and no screen title text.
+
+The content frame authors, in order: a profile card `jQqEq`; a `응원 설정` group
+`i5UZV`; a `나의 데이터` group `M56gL3`; an `앱 정보` group `gnFL0`; and a
+`로그아웃` text `Rc02d`.
+
+The profile card contains an avatar frame `i5Jxs` holding `IuiHx`, an instance of
+`KIgZo` named `Fairy48_Victory`; a nickname text `JV4EI` reading `승리요정 민지`; a
+meta text `Uajpt` reading `삼성 라이온즈와 함께한 세 번째 시즌`; a team chip `kbsCJ`
+holding a team badge and the text `삼성 라이온즈`; and a `pencil-line` edit icon
+`w3aKx`.
+
+The `응원 설정` group authors three rows, each with a leading icon, a label, a
+value and a `chevron-right`: `응원 팀 변경` valued `삼성 라이온즈`, `경기 시작 알림`
+valued `켜짐`, and `직관 후 기록 리마인드` valued `경기 다음 날 오전`. The
+`나의 데이터` group authors `기록 내보내기 · 백업` with a chevron and no value, and
+`사진 보관함 관리` valued `128장` with a chevron. The `앱 정보` group authors
+`개인정보 처리방침` and `이용약관`, each with a chevron, and `앱 버전` valued
+`2.0.0` with a chevron.
+
+The frame authors no record-summary or statistics block, no empty state, no
+loading state and no error state, and carries no compact or AccessibilityXXXL
+annotation of its own.
+
+## Current product and code audit
+
+The fifth tab already exists and is already wired. `MainTab.my` in
+`VictoryFairy/AppRootView.swift` carries the title `마이`, the symbol
+`person.crop.circle.fill`, identifiers `tab.my` and `screen.my`, and renders
+`ProfileSettingsView()` inside its own `NavigationStack`. There are exactly five
+tabs and this is the fifth. There is no placeholder Profile root to remove; the
+existing destination is a real 785-line screen that predates the revised frame.
+
+Supporting data that genuinely exists: `UserPreferencesStore.userDisplayName`
+supplies a local display name, `favoriteTeamID` with `favoriteTeam` and
+`favoriteTeamName` supply the favourite team, `AppDataStore.userProfile` supplies
+an optional `UserProfileDTO` loaded from the API, `AppDataStore.legalURL` supplies
+configured terms and privacy destinations, `AppDataStore.feedLogs` is the
+canonical record source already used by Feed and Statistics, and
+`AppDataStore.teamName(id:)` resolves canonical team names. A real profile editor
+and a real team-selection sheet are both already reachable from the existing
+screen, and `BlockedUsersView` exists.
+
+Capabilities that do not exist anywhere in the repository: there is no
+authentication session, no logout boundary and no account-deletion contract; there
+is no notification preference storage and no `UNUserNotificationCenter`
+integration; there is no export or backup capability; and there is no photo
+library management destination. The existing screen currently renders a
+`데이터 내보내기` row valued `추후 제공`, which is a placeholder, and an `앱 정보`
+row hard-coding `승리요정 0.1.0` rather than reading the bundle.
+
+## Product-decision matrix
+
+`SUPPORTED_AND_IMPLEMENT` — the profile identity header, drawing the display name
+from `userDisplayName` with an honest neutral fallback, the favourite-team summary
+from `favoriteTeamName`, and the app version read from the bundle rather than
+hard-coded.
+
+`SUPPORTED_BY_EXISTING_ROUTE` — `개인정보 처리방침` and `이용약관`, both through the
+already configured `AppDataStore.legalURL` destinations.
+
+`READ_ONLY_SUMMARY` — the team chip in the profile card, rendered as summary text
+and team badge with no implied mutation.
+
+`DEFER_TO_TEAM_SELECTOR` — the `응원 팀 변경` row. The dedicated Team Selector pass
+owns this interaction and this pass is explicitly forbidden to begin it, so the
+row is omitted and recorded as `DEFERRED_PRODUCT_DECISION: PROFILE_TEAM_CHANGE_ENTRY`.
+
+`DEFER_NO_PRODUCT_CONTRACT` — `경기 시작 알림` and `직관 후 기록 리마인드`, because no
+notification preference model, storage or scheduling exists; `기록 내보내기 · 백업`,
+because no export capability exists and the current `추후 제공` row is exactly the
+placeholder the decisions forbid; and `사진 보관함 관리` with its authored `128장`,
+because no photo library management destination exists and the count would be a
+fabricated metric.
+
+`OMIT_UNSAFE_OR_FAKE_CONTROL` — `로그아웃`, because the repository contains no
+authentication session or logout boundary and DECISION 7 forbids inventing one for
+a local-only product. Account deletion is not authored in the frame and is not
+introduced; it remains `DEFERRED_PRODUCT_DECISION: ACCOUNT_DELETION`.
+
+The authored frame contains no record-summary block, so DECISION 5 has nothing to
+implement in this pass; no metrics are invented to fill the space.
