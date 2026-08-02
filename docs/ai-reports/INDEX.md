@@ -210,3 +210,27 @@ archive file linked from each entry — never paste a full report here.
 - Merged: no
 - Next pass: `RECORD_CREATE_THREE_STEP_PRODUCTION_INTEGRATION` (completion — repair `testP13`, then re-run unit + full UI)
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-02 16:56 KST — RECORD_CREATE_THREE_STEP_PRODUCTION_INTEGRATION_IMPLEMENTED_AND_VERIFIED
+
+- Task: Record Create production integration — repair the one failing UI test, close compact skip accounting, run final verification
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `268dcb432aae93086779349fab8fe40ebe0666dd`
+- Ending HEAD: `0dcfa52946f317a8d6b710949bb88a6c36cac56b` (plus one documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-02_1656_record-create-production-integration-p13-repair_verified.md`
+- Latest report: `docs/ai-reports/LATEST_REPORT.md`
+- Root cause: `TicketOCRView` has no `취소`, only `닫기`; `app.buttons["취소"].firstMatch` always resolved to the flow's covered chrome button `recordCreate.cancel` at hit point `{-1, -1}`, so no assistance sheet was ever dismissed. The old guard read the underlying step root's continued existence as proof of return, and the old diagnostic read `.frame` from an absent pinned bar, replacing the real failure with an opaque XCUI snapshot error
+- Same defect found in `testP14`; its historical pass was a false pass on sheets that were never dismissed
+- Second defect, exposed by compact skip accounting: `scrollIntoView` used the raw window top as its ceiling, so the `좌석` field at y 31–53 under a nav bar at y 46–100 was accepted and the tap never focused it
+- Contract correction recorded: universal full-frame containment is unsatisfiable at AccessibilityXXXL (a 604pt element inside a 567pt viewport); the helper now verifies meaningful visible intersection of `min(44pt, size)`, real hittability, chrome avoidance and monotonic scroll convergence
+- Fresh counts, each from its own run and never combined: final complete primary UI suite — executed 550, passed 477, failed 0, skipped 73, unexpected 0, `** TEST SUCCEEDED **`, 8,494.635 s; compact matrix on `VF-CalendarCompact-SE3` — 141 executed, 0 failures, 0 skips, 3,249.198 s; unit suite — 765 executed, 0 failures, 8.277 s; `testP13` — 4/4 deterministic; parent class — 16/16, 547.164 s
+- Skip accounting: all 73 width-gated skips paired with fresh passing SE 3 counterparts; zero unpaired
+- Gates: Debug and Release builds succeeded; app icon, release readiness, secret scan and fixture exclusion all passed; `git diff --check` clean
+- Production source changed: no — `git diff 268dcb4 HEAD -- VictoryFairy/` is empty; only two UI test files changed; existing archive reused and source-valid
+- The historical 550-test run that ended `** TEST FAILED **` remains a separate historical failed run
+- Pushed: no
+- Merged: no
+- Next pass: `PROFILE_MY`
+- Project status: `RECORD_CREATE_THREE_STEP_PRODUCTION_INTEGRATION_IMPLEMENTED_AND_VERIFIED`
