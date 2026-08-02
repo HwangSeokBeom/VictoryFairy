@@ -85,13 +85,13 @@ final class ProfileSettingsUITests: XCTestCase {
 
     func testM04_theRealDisplayNameIsShown() {
         let app = populated()
-        XCTAssertEqual(node(app, "profile.displayName").label, "민지", "저장된 이름이 보이지 않는다")
+        XCTAssertEqual(node(app, "profile.name").label, "민지", "저장된 이름이 보이지 않는다")
     }
 
     func testM05_missingDisplayNameShowsNeutralWordingNotAName() {
         let app = openMy(["-VFUITestTeamID", "samsung-lions",
                           "-VFUITestStadiumID", "daegu-lions"])
-        let name = node(app, "profile.displayName")
+        let name = node(app, "profile.name")
         XCTAssertTrue(waits(name), "이름 자리가 없다")
         XCTAssertEqual(name.label, "이름을 정하지 않았어요", "이름이 없는데 이름을 지어냈다")
         assertAbsent(app, "승리요정 민지")
@@ -132,12 +132,37 @@ final class ProfileSettingsUITests: XCTestCase {
             NSPredicate(format: "label == %@ OR label == %@", "취소", "닫기")).firstMatch
         if cancel.exists { cancel.tap() } else { app.swipeDown() }
         XCTAssertTrue(waits(node(app, "profile.root")), "편집기를 닫고 돌아오지 못했다")
-        XCTAssertEqual(node(app, "profile.displayName").label, "민지", "취소했는데 이름이 바뀌었다")
+        XCTAssertEqual(node(app, "profile.name").label, "민지", "취소했는데 이름이 바뀌었다")
     }
 
-    func testM10_editAndTeamChangeAreDistinctActions() {
+    /// 프로필 카드가 자식들을 하나로 뭉개지 않는다.
+    ///
+    /// 컨테이너에 식별자만 붙이면 SwiftUI가 그것을 자식 전부에 덮어써서, 카드
+    /// 하나만 잡히고 이름·팀·수정은 사라진다(실측). 각각이 독립된 요소로 남아야
+    /// 사용자도 VoiceOver도 따로 쓸 수 있다.
+    func testM10_theProfileCardExposesIndependentSemantics() {
         let app = populated()
-        XCTAssertTrue(node(app, "profile.edit").exists, "프로필 수정이 없다")
+
+        for identifier in ["profile.card", "profile.name", "profile.team", "profile.edit"] {
+            let matches = app.descendants(matching: .any).matching(identifier: identifier)
+            XCTAssertEqual(matches.count, 1,
+                           "\(identifier)이 \(matches.count)개로 잡힌다 — 카드가 자식을 덮어썼다")
+        }
+
+        // 수정은 진짜 버튼이고, 팀 요약과 서로 다른 요소다.
+        let edit = app.buttons["profile.edit"]
+        XCTAssertTrue(edit.exists, "프로필 수정이 버튼으로 노출되지 않는다")
+        XCTAssertTrue(edit.isHittable, "프로필 수정을 누를 수 없다")
+        XCTAssertEqual(edit.label, "프로필 수정", "수정 버튼이 자기 뜻을 말하지 않는다")
+
+        let team = node(app, "profile.team")
+        XCTAssertNotEqual(team.frame, edit.frame, "팀과 수정이 같은 요소로 합쳐졌다")
+        XCTAssertTrue(team.label.contains("응원 팀"), "팀 요약이 자기 뜻을 말하지 않는다 — \(team.label)")
+
+        // 카드 자체는 담기만 한다 — 자기 라벨로 자식을 대체하지 않는다.
+        XCTAssertTrue(node(app, "profile.card").label.isEmpty,
+                      "카드가 자식 대신 자기 라벨을 읽는다")
+
         XCTAssertTrue(node(app, "profile.teamChange").exists, "응원 팀 변경이 없다")
     }
 
@@ -264,7 +289,7 @@ final class ProfileSettingsUITests: XCTestCase {
                           "-VFUITestStadiumID", "daegu-lions",
                           "-VFUITestDisplayName",
                           "야구를정말사랑하는아주긴이름을가진사용자입니다"])
-        let name = node(app, "profile.displayName")
+        let name = node(app, "profile.name")
         XCTAssertTrue(waits(name), "긴 이름이 사라졌다")
         let window = app.windows.firstMatch.frame
         XCTAssertLessThanOrEqual(name.frame.maxX, window.maxX + 0.5,
@@ -285,14 +310,14 @@ final class ProfileSettingsUITests: XCTestCase {
     func testM25_openingProfileWritesNothing() {
         let app = populated()
         let teamBefore = node(app, "profile.team").label
-        let nameBefore = node(app, "profile.displayName").label
+        let nameBefore = node(app, "profile.name").label
         // 다른 탭을 들렀다 온다.
         app.buttons["tab.home"].tap()
         XCTAssertTrue(waits(node(app, "screen.home")))
         app.buttons["tab.my"].tap()
         XCTAssertTrue(waits(node(app, "profile.root")))
         XCTAssertEqual(node(app, "profile.team").label, teamBefore, "여닫는 것만으로 팀이 바뀌었다")
-        XCTAssertEqual(node(app, "profile.displayName").label, nameBefore,
+        XCTAssertEqual(node(app, "profile.name").label, nameBefore,
                        "여닫는 것만으로 이름이 바뀌었다")
     }
 }

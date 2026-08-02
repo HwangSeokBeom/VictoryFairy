@@ -113,7 +113,7 @@ struct ProfileSettingsView: View {
                         .font(VFTypography.sectionTitle)
                         .foregroundStyle(VFColor.bodyPrimary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("profile.displayName")
+                        .accessibilityIdentifier("profile.name")
 
                     teamChip
                 }
@@ -133,6 +133,10 @@ struct ProfileSettingsView: View {
                 .accessibilityIdentifier("profile.edit")
             }
         }
+        // 컨테이너에 그냥 식별자를 붙이면 SwiftUI가 그것을 **자식 전부에게 덮어쓴다**
+        // (실측: `profile.card`가 이름·팀·수정 세 요소로 잡히고 자식 식별자는 사라졌다).
+        // 담기만 하는 요소로 만든 뒤 붙여야 자식이 자기 식별자를 지킨다.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.card")
     }
 
