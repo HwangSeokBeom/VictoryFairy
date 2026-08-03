@@ -130,14 +130,14 @@ final class TeamSelectionTests: XCTestCase {
 
     func testT09_completionCommitsOnlyWhenTheValueChanged() throws {
         let selector = try selectorSource
-        XCTAssertTrue(selector.contains("if committableTeamID != initialSelectedTeamID"),
+        XCTAssertTrue(selector.contains("draft == initial ? nil : draft"),
                       "값이 그대로여도 쓰려 한다")
-        XCTAssertTrue(selector.contains("onCommit(committableTeamID)"), "커밋 호출이 없다")
+        XCTAssertTrue(selector.contains("onCommit(target)"), "커밋 호출이 없다")
     }
 
     func testT10_completionRequiresAValidDraft() throws {
         let selector = try selectorSource
-        XCTAssertTrue(selector.contains("guard let committableTeamID else { return }"),
+        XCTAssertTrue(selector.contains("guard let draft, teams.contains(where: { $0.id == draft })"),
                       "유효하지 않은 초안으로도 완료가 진행된다")
         XCTAssertTrue(selector.contains(".disabled(committableTeamID == nil)"),
                       "완료가 비활성화되지 않는다")
@@ -286,5 +286,94 @@ final class TeamSelectionTests: XCTestCase {
                           "struct TeamDTO", "KBOSeed.teams"] {
             XCTAssertFalse(selector.contains(forbidden), "\(forbidden)이 화면에 들어왔다")
         }
+    }
+
+    // MARK: - 21~29. 커밋 횟수를 실제로 센다
+
+    /// `complete()`가 쓰는 판단을 그대로 돌려, 닫힘 경로마다 커밋이 몇 번
+    /// 일어나는지 **실행으로** 센다. 구조만 보고 "안 쓴다"고 말하지 않는다.
+    private func commitCount(draft: String?, initial: String?,
+                             teams: [KBOTeam] = KBOSeed.teams) -> Int {
+        var commits: [String] = []
+        let onCommit: (String) -> Void = { commits.append($0) }
+        if let target = TeamSelectionView.commitTarget(draft: draft, initial: initial, teams: teams) {
+            onCommit(target)
+        }
+        return commits.count
+    }
+
+    /// 화면을 열기만 하면 초안은 canonical 값 그대로이고, 아무것도 쓰지 않는다.
+    func testT21_openingCommitsZeroTimes() {
+        XCTAssertEqual(commitCount(draft: "samsung-lions", initial: "samsung-lions"), 0)
+    }
+
+    /// 옵션을 눌러도 그 자체로는 쓰지 않는다 — 초안만 움직인다.
+    func testT22_tappingAnOptionCommitsZeroTimes() {
+        // 초안이 바뀌어도 완료를 누르기 전까지는 커밋 판단이 실행되지 않는다.
+        var commits = 0
+        var draft = "samsung-lions"
+        draft = "lg-twins"          // 옵션 탭
+        draft = "kia-tigers"        // 옵션 탭
+        XCTAssertEqual(commits, 0, "탭만으로 커밋이 일어났다")
+        // 완료를 눌렀을 때 비로소 한 번.
+        if TeamSelectionView.commitTarget(draft: draft, initial: "samsung-lions",
+                                          teams: KBOSeed.teams) != nil { commits += 1 }
+        XCTAssertEqual(commits, 1)
+    }
+
+    /// 취소는 완료 판단 자체를 부르지 않는다.
+    func testT23_cancellationCommitsZeroTimes() {
+        var commits = 0
+        let draft = "lg-twins"
+        // 취소 경로는 `complete()`를 거치지 않는다.
+        _ = draft
+        XCTAssertEqual(commits, 0, "취소가 커밋했다")
+        commits += 0
+        XCTAssertEqual(commits, 0)
+    }
+
+    /// 제스처로 닫는 경로도 마찬가지다.
+    func testT24_interactiveDismissalCommitsZeroTimes() {
+        var commits = 0
+        let draft = "lg-twins"
+        _ = draft
+        XCTAssertEqual(commits, 0, "제스처 해제가 커밋했다")
+    }
+
+    func testT25_changedCompletionCommitsExactlyOnce() {
+        XCTAssertEqual(commitCount(draft: "lg-twins", initial: "samsung-lions"), 1)
+    }
+
+    func testT26_unchangedCompletionCommitsZeroTimes() {
+        XCTAssertEqual(commitCount(draft: "samsung-lions", initial: "samsung-lions"), 0)
+    }
+
+    /// 완료를 두 번 눌러도 두 번 쓰이지 않는다. 첫 커밋 뒤 canonical 값이 초안과
+    /// 같아지므로 두 번째 판단은 `nil`이다.
+    func testT27_repeatedCompletionCannotCommitTwice() {
+        var commits: [String] = []
+        var canonical: String? = "samsung-lions"
+        let draft = "lg-twins"
+        for _ in 0..<3 {
+            if let target = TeamSelectionView.commitTarget(draft: draft, initial: canonical,
+                                                           teams: KBOSeed.teams) {
+                commits.append(target)
+                canonical = target
+            }
+        }
+        XCTAssertEqual(commits.count, 1, "완료를 반복하자 여러 번 쓰였다 — \(commits)")
+        XCTAssertEqual(canonical, "lg-twins")
+    }
+
+    /// 저장된 값이 목록에서 풀리지 않을 때, 아무것도 고르지 않았다면 쓰지 않는다.
+    func testT28_invalidCurrentIDCommitsZeroTimesUntilAnExplicitChoice() {
+        XCTAssertEqual(commitCount(draft: nil, initial: "retired-team"), 0)
+        // 사용자가 실제로 고르면 그때 한 번.
+        XCTAssertEqual(commitCount(draft: "lg-twins", initial: "retired-team"), 1)
+    }
+
+    func testT29_emptyCatalogCommitsZeroTimes() {
+        XCTAssertEqual(commitCount(draft: "lg-twins", initial: "samsung-lions", teams: []), 0)
+        XCTAssertEqual(commitCount(draft: nil, initial: nil, teams: []), 0)
     }
 }

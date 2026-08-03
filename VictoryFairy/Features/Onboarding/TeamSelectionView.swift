@@ -87,11 +87,25 @@ struct TeamSelectionView: View {
 
     /// 완료. 값이 그대로면 굳이 쓰지 않는다.
     private func complete() {
-        guard let committableTeamID else { return }
-        if committableTeamID != initialSelectedTeamID {
-            onCommit(committableTeamID)
+        guard let target = Self.commitTarget(draft: draftSelectedTeamID,
+                                             initial: initialSelectedTeamID,
+                                             teams: teams) else {
+            // 유효한 초안이 없거나 값이 그대로다 — 쓰지 않고 닫기만 한다.
+            if committableTeamID != nil { dismiss() }
+            return
         }
+        onCommit(target)
         dismiss()
+    }
+
+    /// 완료를 눌렀을 때 **실제로 커밋할 값**. 커밋하지 않아야 하면 `nil`.
+    ///
+    /// 뷰 밖으로 꺼내 둔 이유는 하나다. "몇 번 썼는가"를 실행으로 셀 수 있어야
+    /// 하는데, SwiftUI 뷰의 몸통은 테스트에서 부를 수 없다. 이 함수가 커밋 여부를
+    /// 혼자 정하므로, 테스트가 같은 판단을 그대로 돌려 세어 볼 수 있다.
+    static func commitTarget(draft: String?, initial: String?, teams: [KBOTeam]) -> String? {
+        guard let draft, teams.contains(where: { $0.id == draft }) else { return nil }
+        return draft == initial ? nil : draft
     }
 
     private var emptyCatalog: some View {

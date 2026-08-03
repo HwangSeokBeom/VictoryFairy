@@ -222,6 +222,45 @@ final class ProfileSettingsUITests: XCTestCase {
                        "취소했는데 응원 팀이 바뀌었다")
     }
 
+    /// 시트를 **실제 제스처로** 끌어내려도 canonical 값은 그대로다.
+    ///
+    /// 취소 버튼으로 대신하지 않는다. 인터랙티브 해제는 별도의 경로이고, 그 경로에서
+    /// 초안이 새어 나가지 않는지가 이 검사의 요점이다. XCUI에 "시트를 내린다"는 의미
+    /// 컨트롤이 없어서 좌표를 쓰지만, 절대 좌표를 박아 넣지 않고 **시트 자신의 프레임**
+    /// 에서 상대 위치를 뽑는다. 그리고 정말로 사라졌는지까지 확인한다.
+    func testM14b_interactiveDismissalDiscardsTheDraftAndKeepsTheTeam() {
+        let app = populated()
+        let before = node(app, "profile.team").label
+
+        node(app, "profile.teamChange").tap()
+        let sheet = node(app, "teamSelection.root")
+        XCTAssertTrue(waits(sheet, 10), "팀 선택 시트가 열리지 않았다")
+
+        // 다른 팀을 초안으로 잡아 둔다. 여기서 canonical 값이 움직이면 안 된다.
+        node(app, "teamSelection.team.lg-twins").tap()
+
+        // 시트 프레임에서 상대 좌표를 뽑아 아래로 끌어내린다.
+        let frame = sheet.frame
+        let start = sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02))
+        let end = sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02))
+            .withOffset(CGVector(dx: 0, dy: frame.height))
+        start.press(forDuration: 0.1, thenDragTo: end)
+
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 10),
+                      "제스처로 시트가 닫히지 않았다 — frame=\(frame)")
+        XCTAssertTrue(waits(node(app, "profile.root")), "마이로 돌아오지 못했다")
+        XCTAssertEqual(node(app, "profile.team").label, before,
+                       "제스처로 닫았는데 응원 팀이 바뀌었다")
+
+        // 다시 열면 원래 팀이 그대로 골라져 있다.
+        node(app, "profile.teamChange").tap()
+        XCTAssertTrue(waits(node(app, "teamSelection.root"), 10), "다시 열지 못했다")
+        XCTAssertTrue(node(app, "teamSelection.team.samsung-lions").isSelected,
+                      "원래 팀이 선택돼 있지 않다")
+        XCTAssertFalse(node(app, "teamSelection.team.lg-twins").isSelected,
+                       "버린 초안이 살아남았다")
+    }
+
     // MARK: - 15~18. 앱 정보
 
     func testM15_legalRowsArePresent() {
