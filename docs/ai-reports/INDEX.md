@@ -452,3 +452,19 @@ archive file linked from each entry — never paste a full report here.
 - Production source changed: yes — the DEBUG seam and its call site only
 - Pushed: no · Merged: no
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 15:42 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Team Selector — repair the empty-catalog focused failure; captures and long runs still outstanding
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `ed28bc8` · Ending HEAD: `9a2f66a` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1542_team-selector-empty-catalog-repair_partial.md`
+- **Root cause corrected**: the sheet never disappeared. Checkpoints showed the nav bar `응원 팀 변경`, `취소`, `완료` and the empty copy all present and stable, while `teamSelection.root` matched 2 elements and `teamSelection.empty` matched 0, with the root resolving to a 19pt-tall text. The root `Group`'s identifier was being stamped onto its descendants — the same propagation that caught `profile.card`. My previous report read a stale dump as "the sheet is gone"; that was wrong
+- Repair: `.accessibilityElement(children: .contain)` before the root identifier. Production-correct container semantics, not a test accommodation; no layout, branch, binding or mutation path changed and no assertion weakened
+- Fresh results: `testS06` 4/4 from fresh state (8.691 / 9.180 / 9.132 / 8.886 s); `TeamSelectionResponsiveUITests` 17 executed, 4 width-gated skips, 0 failures, 217.381 s — same executed count as the failing run, no method added to reach it; unit suite 836 executed, 0 failures; `ProfileSettingsUITests` 26 executed, 0 failures
+- **Not run**: capture class and 18 captures, SE 3 responsive run, all regression classes, compact matrix, skip pairing, complete primary UI suite, gates and archive. The focused blocker is cleared, so these are now startable
+- Production source changed: yes — one accessibility container declaration
+- Pushed: no · Merged: no
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
