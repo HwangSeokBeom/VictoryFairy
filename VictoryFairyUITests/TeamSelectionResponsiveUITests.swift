@@ -72,13 +72,24 @@ final class TeamSelectionResponsiveUITests: XCTestCase {
     }
 
     /// 옵션이 보일 때까지만 민다. 스크롤 자체가 커밋을 일으키면 안 된다.
+    /// `LazyVGrid`는 화면 밖 항목을 만들지 않는다. 큰 글자에서 카드가 커지면 아래쪽
+    /// 팀은 계층에 아예 없으므로, **존재를 먼저 기다리면 영원히 실패한다**(실측: SE 3
+    /// AccessibilityXXXL). 그래서 밀면서 나타나기를 기다린다.
     @discardableResult
     private func scrollToOption(_ app: XCUIApplication, _ teamID: String,
                                 file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         let option = node(app, "teamSelection.team.\(teamID)")
-        XCTAssertTrue(waits(option), "\(teamID) 옵션이 없다", file: file, line: line)
-        for _ in 0..<12 where !option.isHittable { app.swipeUp() }
-        XCTAssertTrue(option.isHittable, "\(teamID) 옵션에 닿을 수 없다 — \(option.frame)",
+        for _ in 0..<16 {
+            if option.exists, option.isHittable { return option }
+            app.swipeUp()
+        }
+        // 아래로 지나쳤을 수 있다. 되돌아오며 한 번 더 찾는다.
+        for _ in 0..<16 {
+            if option.exists, option.isHittable { return option }
+            app.swipeDown()
+        }
+        XCTAssertTrue(option.exists && option.isHittable,
+                      "\(teamID) 옵션에 닿을 수 없다 — exists=\(option.exists)",
                       file: file, line: line)
         return option
     }
@@ -139,7 +150,8 @@ final class TeamSelectionResponsiveUITests: XCTestCase {
         scrollToOption(app, "lg-twins").tap()
         for _ in 0..<3 { app.swipeUp() }
         for _ in 0..<3 { app.swipeDown() }
-        XCTAssertTrue(node(app, "teamSelection.team.lg-twins").isSelected,
+        // 지연 격자는 화면 밖 항목을 버린다. 다시 끌어온 뒤에 상태를 읽는다.
+        XCTAssertTrue(scrollToOption(app, "lg-twins").isSelected,
                       "스크롤하자 초안이 사라졌다")
         // 아직 커밋되지 않았다 — 취소하면 원래 팀 그대로다.
         node(app, "teamSelection.cancel").tap()
@@ -259,11 +271,11 @@ final class TeamSelectionResponsiveUITests: XCTestCase {
 
     func testAccessibility01_theCategoryActuallyApplies() {
         let base = openSelector()
-        let baseHeight = settled(node(base, "teamSelection.team.samsung-lions")).height
+        let baseHeight = settled(scrollToOption(base, "samsung-lions")).height
         base.terminate()
 
         let large = openSelector(accessibilitySize: true)
-        let largeHeight = settled(node(large, "teamSelection.team.samsung-lions")).height
+        let largeHeight = settled(scrollToOption(large, "samsung-lions")).height
         XCTAssertGreaterThan(largeHeight, baseHeight * 1.2,
                              "AccessibilityXXXL이 적용되지 않았다 — \(baseHeight) vs \(largeHeight)")
     }
