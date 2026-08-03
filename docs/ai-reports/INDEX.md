@@ -345,3 +345,22 @@ archive file linked from each entry — never paste a full report here.
 - Pushed: no · Merged: no
 - Next pass: `TEAM_SELECTOR_PRODUCT_AUDIT_AND_VISIBLE_LAYOUT`
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 13:21 KST — PARTIAL_WITH_EXPLICIT_PRODUCT_DECISIONS
+
+- Task: Team Selector — Pencil frame inventory and production audit; implementation deliberately not started
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `0f25dc5` · Ending HEAD: `aec6f52` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1321_team-selector-product-audit_partial.md`
+- Pencil size and SHA-256 re-verified; MCP still attached to InhouseMaker, so the file was read as UTF-8 JSON and no live inspection is claimed
+- Frames found: `08_TeamSelector` (`btIPs`, 393pt, onboarding chrome, no route mapping), `Onboarding_03_SelectTeam_Default` (`y4uh3`) and `_Selected` (`dNKwc`) inside `04_Onboarding`, and the `OnboardingTeamCard` component (`t0KQZV`)
+- Authoritative for onboarding: `03_SelectTeam_*`, proven by handoff node `IJXOi` mapping `/onboarding/team → 03_SelectTeam_*`. `08_TeamSelector` is an unrouted variant of the same step, so no frame-ambiguity blocker applies
+- **The Profile team-change sheet is unauthored.** `08_Profile_Settings` draws the `응원 팀 변경` row and chevron; nothing draws the destination
+- `TeamSelectionView` is shared by onboarding and Profile, and Profile passes no overrides — so onboarding copy leaks in, including a subtitle referencing the team theme the completed Profile layout removed, and a footnote telling the user they can change this later in settings while they are in settings changing it. `showsNeutralOption` also lets Profile clear the team, driving onboarding into `.repairTeam`
+- Ownership confirmed intact: `appData.teams` canonical catalog, `favoriteTeamID` canonical identity, `appData.updateFavoriteTeam(_:)` canonical mutation owner
+- Production source changed: no. No tests, captures, suites, builds, gates or archive were run and none is claimed
+- Pushed: no · Merged: no
+- Next: human decisions on which frame governs the shared view, what the Profile sheet should be, the leaked onboarding copy, and whether Profile may clear the team
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
