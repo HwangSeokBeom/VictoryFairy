@@ -381,3 +381,22 @@ archive file linked from each entry — never paste a full report here.
 - Production source changed: no. No tests, captures, suites, builds, gates or archive were run and none is claimed
 - Pushed: no · Merged: no
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 14:40 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Team Selector Profile mode — implemented and focus-verified; long-run pipeline not executed
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `27e1dcc` · Ending HEAD: `da1c1b9` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1440_team-selector-profile-mode_partial.md`
+- Implemented: `TeamSelectionView` is now the Profile-only `응원 팀 변경` sheet with its own `취소`/`완료`, holding a local draft and committing through `appData.updateFavoriteTeam(_:)` exactly once — and not at all when unchanged. Cancellation and interactive dismissal write nothing
+- Removed: the write-through binding, the `선택 안 함` card that cleared the favourite team and pushed `onboardingEntry` into `.repairTeam`, and all leaked onboarding copy. No `TeamSelectionContext` was introduced
+- Safe states: an unresolvable stored ID opens with nothing selected and `완료` disabled, with no repair write; an empty catalog shows an honest state and disables `완료`
+- Onboarding: `OnboardingView.swift` byte-unchanged; only two production files changed
+- Fresh results: `ProfileSettingsUITests` 25 executed, 0 failures, 220.272 s; complete unit suite 807 executed, 0 failures, 10.705 s; Debug build succeeded
+- Test corrections recorded: M11–M14 asserted the old title and flow; P16 asserted the old call shape. A scoping mistake in my own first P16 fix was caught and corrected
+- **Not run and not claimed**: responsive and capture classes, DEBUG fixtures and their Release guard, the 18-capture matrix, the three determinism sets, all regression classes, the compact matrix, skip pairing, a complete primary UI suite, Release build, gates and archive. Historical-record immutability was reasoned but not proven by test
+- Production source changed: yes — two files
+- Pushed: no · Merged: no
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
