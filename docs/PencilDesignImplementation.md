@@ -3109,3 +3109,40 @@ parameters is not answerable from the document.
 `08_TeamSelector` authors a selected-team preview with a Fairy, the home stadium and
 a start button. None of that belongs in a Profile change sheet, and the home-stadium
 line in particular is onboarding context.
+
+## Correction — TeamSelectionView is not shared
+
+The audit above stated that `TeamSelectionView` is shared by onboarding and Profile.
+That is wrong, and the correction matters because the approved product decisions
+were written on that premise.
+
+`TeamSelectionView` has exactly one production consumer: `ProfileSettingsView`
+line 58. Onboarding does not use it. The onboarding team step is
+`OnboardingTeamStepView` in `VictoryFairy/Features/Onboarding/OnboardingView.swift`
+line 184, documented as Pencil `Onboarding_03_SelectTeam`, with its own
+`OnboardingTeamCard` at line 219 and its own `LazyVGrid`. It reads
+`viewModel.selectedTeamID` and calls `viewModel.selectTeam(_:)`, has its own
+`onboarding.team.next` primary action and its own step identifier.
+
+`TeamSelectionView` merely lives in the `Features/Onboarding` folder and carries
+onboarding-flavoured default copy. Nothing else consumes it.
+
+What this changes. Changing `TeamSelectionView` cannot affect onboarding, so the
+concern that aligning it would alter a closed flow does not apply. There is no
+`.onboarding` consumer to pass a route context to. Making Profile-appropriate values
+the view's own configuration is sufficient, and a two-case context enum would leave
+its onboarding case without a production caller.
+
+What this does not change. Both defects the audit found are real and still present.
+Profile renders the onboarding-flavoured defaults, including the subtitle
+`선택한 팀 컬러가 앱 테마에 반영돼요.` referencing the removed team theme and the
+footnote `나중에 설정에서 변경할 수 있어요.` shown while the user is in settings
+changing the team. The neutral `선택 안 함` card is rendered in Profile and sets
+`selectedTeamID = nil`, and the Profile binding writes straight through
+`appData.updateFavoriteTeam(_:)`, so tapping it clears the favourite team
+immediately with no draft and no confirmation, driving `onboardingEntry` to
+`.repairTeam`.
+
+The approved Profile-mode specification — `응원 팀 변경` title, `취소` and `완료`
+actions, no onboarding copy, no neutral option, draft-then-commit — remains correct
+and is now simpler to implement safely.
