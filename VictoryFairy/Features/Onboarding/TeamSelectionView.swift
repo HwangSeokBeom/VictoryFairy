@@ -66,6 +66,10 @@ struct TeamSelectionView: View {
                 }
             }
         }
+        // 컨테이너에 그냥 식별자를 붙이면 SwiftUI가 그것을 자식에게 덮어쓴다.
+        // 빈 목록일 때 `teamSelection.empty`가 사라지고 `teamSelection.root`가 두 개로
+        // 잡혔다(실측). 담기만 하는 요소로 만든 뒤 붙여야 자식이 자기 이름을 지킨다.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("teamSelection.root")
         .navigationTitle("응원 팀 변경")
         .navigationBarTitleDisplayMode(.inline)
