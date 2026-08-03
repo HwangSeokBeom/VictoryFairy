@@ -434,3 +434,21 @@ archive file linked from each entry — never paste a full report here.
 - **Not run and not claimed**: responsive and capture classes, DEBUG fixtures and their exclusion tokens, the 18-capture matrix, all regression classes, the compact matrix, skip pairing, a complete primary UI suite, Release build, gates and archive
 - Pushed: no · Merged: no
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 15:17 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Team Selector — DEBUG fixtures and responsive coverage; one focused failure blocks the long runs
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `3db8c3a` · Ending HEAD: `7adea20` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1517_team-selector-fixtures-responsive_partial.md`
+- Added `-VFUITestTeamCatalog` (`empty`, `longNames`, `maximum`) reusing the existing seam idiom — DEBUG-only literal and parser with a Release pass-through, swapping only the list the real sheet receives. `longNames` keeps stable IDs so selection identity is untouched; `maximum` returns the canonical list rather than inventing teams
+- Release guard extended and proven in both directions: the Debug negative control fails on all three Profile/Team tokens
+- `TeamSelectionResponsiveUITests` added: 17 executed, 4 width-gated skips, **1 failure**, 202.995 s. Passing coverage includes draft preservation across scrolling with no commit, the invalid-team state with completion disabled, long-name wrapping, full-catalog reachability, stable identifiers with selected traits, and AccessibilityXXXL
+- **Open failure**: `testS06` — with an empty catalog the sheet root resolves and then the sheet is absent from the hierarchy moments later. Diagnosed to that point only; left failing rather than weakened
+- Fresh results: full unit suite 836 executed, 0 failures, 13.323 s; `TeamSelectionTests` 29 executed, 0 failures; Debug and Release builds both succeeded
+- **Not run**: capture class and 18 captures, SE 3 responsive run, all regression classes, compact matrix, skip pairing, complete primary UI suite, remaining gates, archive — long runs deliberately not started while a focused failure stands
+- Production source changed: yes — the DEBUG seam and its call site only
+- Pushed: no · Merged: no
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
