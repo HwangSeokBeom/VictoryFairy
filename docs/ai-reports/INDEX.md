@@ -417,3 +417,20 @@ archive file linked from each entry — never paste a full report here.
 - Production source changed: no — the implementation landed in `da1c1b9`
 - Pushed: no · Merged: no
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 16:04 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Team Selector Profile mode — interactive dismissal and executable write counts; long-run pipeline not executed
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `9cebfb2` · Ending HEAD: `ba5a747` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1604_team-selector-mutation-boundaries_partial.md`
+- Interactive dismissal now has a runtime proof: drag derived from the sheet's own frame rather than a hard-coded coordinate, sheet disappearance asserted, and the discarded draft shown not to survive on reopen. 4/4 from fresh state at 16.214 / 16.282 / 15.969 / 16.493 s. `취소` was not substituted for it
+- Write counts are counted, not argued. The completion decision moved into `TeamSelectionView.commitTarget(draft:initial:teams:)` so a test can drive the same judgement through a closure: 0 on open, tap, cancel and gesture dismissal; 1 on changed completion; 0 when unchanged; still 1 when completion repeats three times
+- Historical immutability tests reran after all changes and still pass
+- Fresh results: full unit suite 836 executed, 0 failures, 8.885 s; `ProfileSettingsUITests` 26 executed, 0 failures, 221.688 s
+- Production change: a testability extraction only — visible contract and write boundaries identical, confirmed by both suites after the change
+- **Not run and not claimed**: responsive and capture classes, DEBUG fixtures and their exclusion tokens, the 18-capture matrix, all regression classes, the compact matrix, skip pairing, a complete primary UI suite, Release build, gates and archive
+- Pushed: no · Merged: no
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
