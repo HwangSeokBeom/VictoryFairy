@@ -324,3 +324,24 @@ archive file linked from each entry — never paste a full report here.
 - Pushed: no · Merged: no
 - Next: close the launch-argument gap, then `TEAM_SELECTOR_PRODUCT_AUDIT_AND_VISIBLE_LAYOUT`
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 12:06 KST — PROFILE_MY_VISIBLE_LAYOUT_IMPLEMENTED_AND_VERIFIED
+
+- Task: Profile / My — close the Release test-seam gap and regenerate all invalidated evidence
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `0f5e04b` · Ending HEAD: `82bdd93` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1206_profile-my-release-seam-closure_verified.md`
+- Gap closed: `-VFUITestDisplayName` was reaching the Release binary. One production occurrence (`VFUITestConfiguration.swift:25`) with one consumer; the literal and its parsing now live entirely inside `#if DEBUG` behind `displayNameOverride(arguments:)`, which returns nil in Release. A runtime guard would have left the literal in place — that is exactly how it survived the previous pass
+- Proof: fresh archive scans 0 matches for both Profile test arguments, with `-VFUITest` and a Korean UI string matching at 1 as sensitivity controls in the same scan. The simulator-products scan was discarded as unreliable (58 KB stub binary reports everything absent)
+- Regression guard: `verify_fixture_exclusion.sh` now rejects both tokens by exact name, and is proven to detect presence — it fails against the Debug build where they legitimately remain
+- Fresh results, each from its own run: final complete primary UI suite 606 executed, 529 passed, 0 failed, 77 skipped, 0 unexpected, 9,708.599 s, `** TEST SUCCEEDED **`, finalized `Passed`; compact matrix 163 executed, 163 passed, 0 failed, 0 skipped; unit suite 807 executed, 0 failures; Profile UI 25, responsive 22 with 4 width-gated skips, captures 9 with 18/18 regenerated and validated — all 0 failures
+- Skip accounting: 77 width-gated skips paired mechanically by exact class and method; **unpaired 0**
+- Builds and gates: Debug and Release both succeeded; app icon, release readiness, secret scan and fixture exclusion all pass; Fairy contracts 100 executed, 0 failures; `git diff --check` clean
+- Archive: `** ARCHIVE SUCCEEDED **`, `com.hwangseokbeom.victoryfairy` 1.1.0 (1), zero test bundles, every forbidden token at 0 matches and every expected production string at 1
+- Prior runs preserved but not reused: the 606-test run at 9,260.703 s (pre-closure source) and the 575-test interim run
+- Production source changed: yes — `VFUITestConfiguration.swift` only
+- Pushed: no · Merged: no
+- Next pass: `TEAM_SELECTOR_PRODUCT_AUDIT_AND_VISIBLE_LAYOUT`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
