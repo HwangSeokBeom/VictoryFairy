@@ -94,7 +94,8 @@ final class TeamSelectionTests: XCTestCase {
 
     func testT05_profilePassesTheCanonicalCatalogAndIdentity() throws {
         let profile = try profileSource
-        XCTAssertTrue(profile.contains("teams: appData.teams"), "canonical 목록을 넘기지 않는다")
+        XCTAssertTrue(profile.contains("appData.teams"), "canonical 목록을 넘기지 않는다")
+        XCTAssertFalse(profile.contains("teams: KBOSeed.teams"), "씨앗 목록을 대신 넘긴다")
         XCTAssertTrue(profile.contains("initialSelectedTeamID: preferences.favoriteTeamID"),
                       "canonical 선택 값을 넘기지 않는다")
         XCTAssertTrue(profile.contains("appData.updateFavoriteTeam("), "갱신 주인이 바뀌었다")

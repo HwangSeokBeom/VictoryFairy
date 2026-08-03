@@ -164,8 +164,12 @@ final class ProfileSettingsTests: XCTestCase {
     func testP15_teamSelectionReceivesTheCanonicalTeamList() throws {
         let source = try profileSource
         XCTAssertTrue(source.contains("TeamSelectionView("), "기존 팀 선택 화면을 쓰지 않는다")
-        XCTAssertTrue(source.contains("teams: appData.teams"),
-                      "canonical 팀 목록을 넘기지 않는다")
+        // Release에서는 그대로 통과시키는 DEBUG 이음새가 감싸고 있어도, 목록의
+        // 출처는 여전히 canonical `appData.teams` 하나뿐이다.
+        XCTAssertTrue(source.contains("appData.teams"), "canonical 팀 목록을 넘기지 않는다")
+        // 같은 파일의 프로필 편집기는 자기 기본값으로 씨앗을 쓴다. 마이 본문만 본다.
+        XCTAssertFalse(try profileScreenBody.contains("KBOSeed.teams"),
+                       "마이가 씨앗 목록을 대신 넘긴다")
     }
 
     func testP16_theExistingUpdateOwnerIsPreserved() throws {

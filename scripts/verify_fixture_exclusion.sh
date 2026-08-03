@@ -126,6 +126,7 @@ echo
 echo "── 마이 화면 테스트 인자"
 absent "-VFUITestDisplayName"    "표시 이름 테스트 인자가 없다"
 absent "-VFUITestProfileFixture" "마이 픽스처 테스트 인자가 없다"
+absent "-VFUITestTeamCatalog"    "팀 목록 테스트 인자가 없다"
 
 # --- 2. 시나리오 이름 -------------------------------------------------------
 #

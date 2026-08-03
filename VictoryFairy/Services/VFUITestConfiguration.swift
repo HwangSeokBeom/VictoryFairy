@@ -741,3 +741,49 @@ extension VFUITestConfiguration {
     }
 }
 #endif
+
+#if DEBUG
+extension VFUITestConfiguration {
+    /// 응원 팀 변경 시트가 받을 팀 목록을 결정적으로 바꾼다. **DEBUG 전용.**
+    ///
+    /// 빈 목록·아주 긴 이름·최대 개수는 제품 경로로 만들 수 없다. 그렇다고 화면을
+    /// 하나 더 만들지 않는다 — 진짜 `TeamSelectionView`가 받는 값만 이 자리에서
+    /// 갈아 끼운다. 인자 이름과 이 분기는 `#if DEBUG` 안에만 있으므로 Release
+    /// 바이너리에는 문자열조차 남지 않는다(아카이브에서 확인한다).
+    static func teamCatalog(_ teams: [KBOTeam]) -> [KBOTeam] {
+        guard isActive,
+              let raw = value(for: "-VFUITestTeamCatalog",
+                              in: ProcessInfo.processInfo.arguments) else {
+            return teams
+        }
+        switch raw {
+        case "empty":
+            return []
+        case "longNames":
+            // 이름만 길게 바꾼다. ID는 그대로라 선택 정체성은 흔들리지 않는다.
+            return teams.map { team in
+                KBOTeam(id: team.id,
+                        name: "아주아주긴이름을가진구단이름테스트용" + team.shortName,
+                        shortName: team.shortName,
+                        city: team.city,
+                        homeStadiumName: team.homeStadiumName,
+                        primaryColorHex: team.primaryColorHex,
+                        secondaryColorHex: team.secondaryColorHex,
+                        accentColorHex: team.accentColorHex,
+                        textOnPrimaryHex: team.textOnPrimaryHex,
+                        active: team.active)
+            }
+        case "maximum":
+            // 지금 제품이 아는 최대치가 곧 canonical 목록이다. 팀을 지어내지 않는다.
+            return teams
+        default:
+            return teams
+        }
+    }
+}
+#else
+extension VFUITestConfiguration {
+    /// Release에서는 인자를 그대로 돌려준다. 제품 경로에는 아무 영향이 없다.
+    static func teamCatalog(_ teams: [KBOTeam]) -> [KBOTeam] { teams }
+}
+#endif

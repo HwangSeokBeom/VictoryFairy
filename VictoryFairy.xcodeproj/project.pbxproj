@@ -51,6 +51,7 @@
 		B1C2D3E4F5061728394APF11 /* ProfileSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394APF10 /* ProfileSettingsTests.swift */; };
 		B1C2D3E4F5061728394A8B11 /* RecordCreateStep3UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A8B10 /* RecordCreateStep3UITests.swift */; };
 		B1C2D3E4F5061728394A9B11 /* RecordCreateProductionIntegrationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A9B10 /* RecordCreateProductionIntegrationUITests.swift */; };
+		B1C2D3E4F5061728394ATR11 /* TeamSelectionResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394ATR10 /* TeamSelectionResponsiveUITests.swift */; };
 		B1C2D3E4F5061728394APC11 /* ProfileSettingsCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394APC10 /* ProfileSettingsCaptureUITests.swift */; };
 		B1C2D3E4F5061728394APR11 /* ProfileSettingsResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394APR10 /* ProfileSettingsResponsiveUITests.swift */; };
 		B1C2D3E4F5061728394APU11 /* ProfileSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394APU10 /* ProfileSettingsUITests.swift */; };
@@ -130,6 +131,7 @@
 		B1C2D3E4F5061728394APF10 /* ProfileSettingsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileSettingsTests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A8B10 /* RecordCreateStep3UITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateStep3UITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394A9B10 /* RecordCreateProductionIntegrationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordCreateProductionIntegrationUITests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394ATR10 /* TeamSelectionResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TeamSelectionResponsiveUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394APC10 /* ProfileSettingsCaptureUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileSettingsCaptureUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394APR10 /* ProfileSettingsResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileSettingsResponsiveUITests.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5061728394APU10 /* ProfileSettingsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileSettingsUITests.swift; sourceTree = "<group>"; };
@@ -272,6 +274,7 @@
 				B1C2D3E4F5061728394A7D10 /* RecordCreateStep2CaptureUITests.swift */,
 				B1C2D3E4F5061728394A8B10 /* RecordCreateStep3UITests.swift */,
 				B1C2D3E4F5061728394A9B10 /* RecordCreateProductionIntegrationUITests.swift */,
+				B1C2D3E4F5061728394ATR10 /* TeamSelectionResponsiveUITests.swift */,
 				B1C2D3E4F5061728394APC10 /* ProfileSettingsCaptureUITests.swift */,
 				B1C2D3E4F5061728394APR10 /* ProfileSettingsResponsiveUITests.swift */,
 				B1C2D3E4F5061728394APU10 /* ProfileSettingsUITests.swift */,
@@ -459,6 +462,7 @@
 				B1C2D3E4F5061728394A7D11 /* RecordCreateStep2CaptureUITests.swift in Sources */,
 				B1C2D3E4F5061728394A8B11 /* RecordCreateStep3UITests.swift in Sources */,
 				B1C2D3E4F5061728394A9B11 /* RecordCreateProductionIntegrationUITests.swift in Sources */,
+				B1C2D3E4F5061728394ATR11 /* TeamSelectionResponsiveUITests.swift in Sources */,
 				B1C2D3E4F5061728394APC11 /* ProfileSettingsCaptureUITests.swift in Sources */,
 				B1C2D3E4F5061728394APR11 /* ProfileSettingsResponsiveUITests.swift in Sources */,
 				B1C2D3E4F5061728394APU11 /* ProfileSettingsUITests.swift in Sources */,

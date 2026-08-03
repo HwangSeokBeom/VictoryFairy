@@ -57,7 +57,7 @@ struct ProfileSettingsView: View {
                 // 시트는 자기 제목과 취소·완료를 스스로 가진다. 선택은 시트 안의
                 // 초안으로만 움직이고, 완료를 눌렀을 때만 canonical 값이 바뀐다.
                 TeamSelectionView(
-                    teams: appData.teams,
+                    teams: VFUITestConfiguration.teamCatalog(appData.teams),
                     initialSelectedTeamID: preferences.favoriteTeamID
                 ) { teamID in
                     appData.updateFavoriteTeam(teamID)
