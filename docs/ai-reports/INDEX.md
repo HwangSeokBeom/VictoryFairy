@@ -364,3 +364,20 @@ archive file linked from each entry — never paste a full report here.
 - Pushed: no · Merged: no
 - Next: human decisions on which frame governs the shared view, what the Profile sheet should be, the leaked onboarding copy, and whether Profile may clear the team
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 13:58 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Team Selector Profile mode — implementation not started; a premise behind the approved decisions was found wrong
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `5dd6f2b` · Ending HEAD: `f60fc07` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1358_team-selector-premise-correction_partial.md`
+- **Correction**: `TeamSelectionView` is not shared. `ProfileSettingsView` is its only production consumer; onboarding has its own `OnboardingTeamStepView` (`OnboardingView.swift:184`, Pencil `Onboarding_03_SelectTeam`) with its own card, grid, primary action and step identifier. My previous audit recorded it as shared and the five approved decisions were written on that premise
+- Effect: Decision 1 is satisfied structurally, since editing this view cannot reach onboarding. Decision 2's two-case `TeamSelectionContext` would leave its `.onboarding` case with no production caller. Decisions 3, 4 and 5 are unaffected
+- Still true: Profile renders onboarding copy (theme subtitle, "change it later in settings" footnote), and the neutral `선택 안 함` card writes straight through `updateFavoriteTeam(_:)`, clearing the team and driving `onboardingEntry` to `.repairTeam`
+- Ownership confirmed intact: `appData.teams`, `favoriteTeamID`, `appData.updateFavoriteTeam(_:)`
+- Open question: build the approved enum with an uncalled `.onboarding` case, or configure the Profile-only view directly and drop it
+- Production source changed: no. No tests, captures, suites, builds, gates or archive were run and none is claimed
+- Pushed: no · Merged: no
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
