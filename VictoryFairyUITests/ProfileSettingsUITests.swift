@@ -168,48 +168,58 @@ final class ProfileSettingsUITests: XCTestCase {
 
     // MARK: - 11~14. 응원 팀 변경 — 이미 있던 계약
 
-    func testM11_theTeamChangeRowIsPresentAndOpensTheExistingSelector() {
+    func testM11_theTeamChangeRowOpensTheProfileSelector() {
         let app = populated()
         let row = node(app, "profile.teamChange")
         XCTAssertTrue(row.isHittable, "응원 팀 변경을 누를 수 없다")
         row.tap()
-        XCTAssertTrue(waits(text(app, "응원팀 변경"), 10), "기존 팀 선택 화면이 열리지 않았다")
+        XCTAssertTrue(waits(node(app, "teamSelection.root"), 10), "팀 선택 시트가 열리지 않았다")
+        XCTAssertTrue(app.navigationBars["응원 팀 변경"].exists, "시트 제목이 다르다")
+        XCTAssertTrue(node(app, "teamSelection.cancel").exists, "취소가 없다")
+        XCTAssertTrue(node(app, "teamSelection.done").exists, "완료가 없다")
     }
 
-    func testM12_theSelectorOffersCanonicalTeams() {
+    /// 온보딩 문구가 이 시트로 새어 나오지 않는다.
+    func testM12_theSelectorShowsCanonicalTeamsAndNoOnboardingCopy() {
         let app = populated()
         node(app, "profile.teamChange").tap()
-        XCTAssertTrue(waits(text(app, "응원팀 변경"), 10))
-        for team in ["LG 트윈스", "KIA 타이거즈"] {
-            XCTAssertTrue(app.descendants(matching: .any)
-                .matching(NSPredicate(format: "label CONTAINS %@", team)).firstMatch.exists,
-                "canonical 팀 \(team)이 목록에 없다")
+        XCTAssertTrue(waits(node(app, "teamSelection.root"), 10))
+
+        for team in ["lg-twins", "kia-tigers", "samsung-lions"] {
+            XCTAssertTrue(node(app, "teamSelection.team.\(team)").exists,
+                          "canonical 팀 \(team)이 목록에 없다")
+        }
+        for forbidden in ["어느 팀의 승리요정인가요", "선택한 팀 컬러가 앱 테마에 반영돼요",
+                          "나중에 설정에서 변경할 수 있어요", "선택 안 함", "아직 못 정했어요"] {
+            XCTAssertFalse(text(app, forbidden).exists, "\(forbidden)이 시트에 있다")
         }
     }
 
-    func testM13_choosingATeamUpdatesTheProfileCard() {
+    func testM13_completionCommitsTheDraftToTheProfileCard() {
         let app = populated()
         node(app, "profile.teamChange").tap()
-        XCTAssertTrue(waits(text(app, "응원팀 변경"), 10))
-        let lg = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@", "LG 트윈스")).firstMatch
-        XCTAssertTrue(waits(lg, 8), "LG 트윈스를 찾지 못했다")
-        lg.tap()
-        app.buttons["완료"].firstMatch.tap()
-        XCTAssertTrue(waits(node(app, "profile.root")), "팀 선택을 닫고 돌아오지 못했다")
+        XCTAssertTrue(waits(node(app, "teamSelection.root"), 10))
+
+        node(app, "teamSelection.team.lg-twins").tap()
+        node(app, "teamSelection.done").tap()
+        XCTAssertTrue(waits(node(app, "profile.root")), "마이로 돌아오지 못했다")
         XCTAssertTrue(node(app, "profile.team").label.contains("LG"),
                       "고른 팀이 카드에 반영되지 않았다 — \(node(app, "profile.team").label)")
     }
 
-    func testM14_cancellingTheSelectorKeepsThePreviousTeam() {
+    /// 취소는 canonical 값을 건드리지 않는다. 초안만 버린다.
+    func testM14_cancellationDiscardsTheDraftAndKeepsTheTeam() {
         let app = populated()
         let before = node(app, "profile.team").label
         node(app, "profile.teamChange").tap()
-        XCTAssertTrue(waits(text(app, "응원팀 변경"), 10))
-        app.buttons["완료"].firstMatch.tap()
-        XCTAssertTrue(waits(node(app, "profile.root")))
+        XCTAssertTrue(waits(node(app, "teamSelection.root"), 10))
+
+        // 다른 팀을 골라 두고도 취소하면 아무것도 바뀌지 않는다.
+        node(app, "teamSelection.team.lg-twins").tap()
+        node(app, "teamSelection.cancel").tap()
+        XCTAssertTrue(waits(node(app, "profile.root")), "마이로 돌아오지 못했다")
         XCTAssertEqual(node(app, "profile.team").label, before,
-                       "아무것도 고르지 않았는데 팀이 바뀌었다")
+                       "취소했는데 응원 팀이 바뀌었다")
     }
 
     // MARK: - 15~18. 앱 정보

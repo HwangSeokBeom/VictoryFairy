@@ -170,8 +170,12 @@ final class ProfileSettingsTests: XCTestCase {
 
     func testP16_theExistingUpdateOwnerIsPreserved() throws {
         let source = try profileSource
-        XCTAssertTrue(source.contains("appData.updateFavoriteTeam($0)"),
+        XCTAssertTrue(source.contains("appData.updateFavoriteTeam("),
                       "기존 응원 팀 갱신 주인이 바뀌었다")
+        // 마이 화면 본문이 스스로 저장소를 건드리지 않는다 — 갱신 주인은 하나뿐이다.
+        // 같은 파일의 프로필 편집기는 자기 상태를 따로 들고 있으므로 본문만 본다.
+        XCTAssertFalse(try profileScreenBody.contains("favoriteTeamID ="),
+                       "마이 화면이 응원 팀을 직접 쓴다")
     }
 
     func testP17_noSecondTeamSelectorOrStorageIsIntroduced() throws {

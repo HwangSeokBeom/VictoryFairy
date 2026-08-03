@@ -54,27 +54,14 @@ struct ProfileSettingsView: View {
         }
         .sheet(isPresented: $isShowingTeamSelection) {
             NavigationStack {
-                ScrollView {
-                    TeamSelectionView(
-                        selectedTeamID: Binding(
-                            get: { preferences.favoriteTeamID },
-                            set: { appData.updateFavoriteTeam($0) }
-                        ),
-                        teams: appData.teams
-                    )
-                    .padding(VFSpacing.lg)
+                // 시트는 자기 제목과 취소·완료를 스스로 가진다. 선택은 시트 안의
+                // 초안으로만 움직이고, 완료를 눌렀을 때만 canonical 값이 바뀐다.
+                TeamSelectionView(
+                    teams: appData.teams,
+                    initialSelectedTeamID: preferences.favoriteTeamID
+                ) { teamID in
+                    appData.updateFavoriteTeam(teamID)
                 }
-                .navigationTitle("응원팀 변경")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("완료") {
-                            isShowingTeamSelection = false
-                        }
-                        .foregroundStyle(theme.primary)
-                    }
-                }
-                .vfScreenBackground()
             }
             .environment(\.appTheme, theme)
         }
