@@ -2997,3 +2997,115 @@ introduced; it remains `DEFERRED_PRODUCT_DECISION: ACCOUNT_DELETION`.
 
 The authored frame contains no record-summary block, so DECISION 5 has nothing to
 implement in this pass; no metrics are invented to fill the space.
+
+---
+
+# Team Selector — frame inventory and product audit
+
+## Pencil source proof
+
+`/Users/hwangseokbeom/Documents/VictoryFairy.pen`, 1,882,899 bytes, SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, both matching.
+The MCP server remains attached to `InhouseMaker.pen`, so the file was read directly
+as UTF-8 JSON and no live VictoryFairy MCP inspection is claimed. Neither `.pen`
+file was modified.
+
+## Frame inventory
+
+A whole-document search for team-selection frames returns three 393pt candidates
+and one component.
+
+`08_TeamSelector`, node `btIPs`, 393pt wide, `$paper`, clipped, vertical layout. Its
+content frame is named `온보딩 콘텐츠` and its header `온보딩 헤더`, titled
+`어느 팀의 승리요정인가요?` with the subtitle
+`홈 화면과 기록이 우리 팀 중심으로 채워져요`. It authors a selected-team preview
+(`선택 팀 프리뷰`) carrying a Fairy reference, the team name, the home stadium
+`대구 삼성라이온즈파크` and a `circle-check` icon; a five-row two-column team grid
+(`팀 그리드`, node `tPDv7`) of all ten KBO teams, each a badge reference plus text,
+with a `check` icon on the selected `삼성 라이온즈`; and a bottom action
+(`하단 액션`) holding a `시작 버튼` reference and the text `아직 못 정했어요`. It
+carries no prototype link and no metadata.
+
+`Onboarding_03_SelectTeam_Default`, node `y4uh3`, and
+`Onboarding_03_SelectTeam_Selected`, node `dNKwc`, both 393pt, live inside
+`04_Onboarding` in the `온보딩 2열` column and each contain their own `팀 그리드`
+(nodes `S3vtU` and `Q63XXq`).
+
+`OnboardingTeamCard`, node `t0KQZV`, 166pt, is the shared team-option component.
+
+## Which frame is authoritative
+
+The developer-handoff board resolves onboarding ownership explicitly. Node `IJXOi`
+records the route mapping `/onboarding/welcome → Onboarding_01_Welcome (step 1/5)`,
+`/onboarding/overview → 02_AppOverview (2/5)` and
+`/onboarding/team → 03_SelectTeam_* (3/5, 필수)`.
+
+So the canonical onboarding team step is `Onboarding_03_SelectTeam_Default` and
+`Onboarding_03_SelectTeam_Selected`. `08_TeamSelector` carries onboarding chrome —
+an onboarding header, a start button and an "아직 못 정했어요" escape — but has no
+route mapping and no prototype link, so it is an unrouted variant of the same
+onboarding step rather than a second production destination.
+
+**No Pencil frame authors the Profile team-change sheet.** `08_Profile_Settings`
+authors the `응원 팀 변경` row with a chevron, but its destination is not drawn
+anywhere in the document.
+
+## Current production contract
+
+`TeamSelectionView` lives at `VictoryFairy/Features/Onboarding/TeamSelectionView.swift`,
+159 lines, and is a **shared** component with exactly two production consumers:
+onboarding, and `ProfileSettingsView` at line 58.
+
+Its parameters are `selectedTeamID` as a binding, `teams` defaulting to
+`KBOSeed.teams`, plus `title`, `subtitle`, `footnote` and `showsNeutralOption`
+defaults. Profile passes only `selectedTeamID` and `teams: appData.teams`, so the
+Profile sheet inherits every onboarding default.
+
+## Ownership matrix
+
+`appData.teams` — CANONICAL_SOURCE. Profile passes it explicitly; the
+`KBOSeed.teams` parameter default is a fallback used by previews.
+
+`favoriteTeamID` on `UserPreferencesStore` — CANONICAL_SOURCE for selected identity,
+a stable team ID rather than a name or index.
+
+`appData.updateFavoriteTeam(_:)` — CANONICAL_MUTATION_OWNER.
+
+`favoriteTeam`, `favoriteTeamName`, `teamName(id:)` — READ_ONLY_DERIVED_STATE, all
+resolving through the canonical ID.
+
+`TeamSelectionView` — PRESENTATION_ONLY, shared by two routes.
+
+`OnboardingTeamCard` (Pencil) — PRESENTATION_ONLY component reference.
+
+`08_TeamSelector` (Pencil) — LEGACY_DUPLICATE of the routed onboarding step, by
+absence of route mapping.
+
+Profile team chip and `profile.team` — READ_ONLY_DERIVED_STATE.
+
+The Profile team-change sheet's own chrome — title `응원팀 변경`, the `완료`
+completion action — UNKNOWN_REQUIRES_DECISION, because no frame authors it.
+
+## Findings that need a human product decision
+
+The shared view's default copy is onboarding-specific and currently leaks into the
+Profile sheet. Its default subtitle reads `선택한 팀 컬러가 앱 테마에 반영돼요.`,
+which references the team-colour theme the completed `NffPV` Profile layout
+deliberately removed, and its default footnote reads
+`나중에 설정에서 변경할 수 있어요.`, which is wrong when the user is already in
+settings changing the team.
+
+`showsNeutralOption` defaults to `true`, so the Profile sheet renders a
+`선택 안 함` card that sets `selectedTeamID = nil`. Clearing the favourite team from
+Profile drives `onboardingEntry` to `.repairTeam`, which is the onboarding repair
+path. Whether Profile should be able to clear the team at all is a product question,
+and the existing behaviour was not changed in this pass.
+
+Aligning the shared view to `Onboarding_03_SelectTeam_*` would change how onboarding
+looks, because the same view renders both routes. Whether the Profile sheet should
+adopt the onboarding visual, receive its own authored frame, or diverge through
+parameters is not answerable from the document.
+
+`08_TeamSelector` authors a selected-team preview with a Fairy, the home stadium and
+a start button. None of that belongs in a Profile change sheet, and the home-stadium
+line in particular is onboarding context.
