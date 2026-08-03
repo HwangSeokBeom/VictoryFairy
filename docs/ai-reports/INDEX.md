@@ -468,3 +468,21 @@ archive file linked from each entry — never paste a full report here.
 - Production source changed: yes — one accessibility container declaration
 - Pushed: no · Merged: no
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 16:14 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Team Selector — capture matrix and compact coverage; remaining regressions and long runs not executed
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `1538df1` · Ending HEAD: `811e940` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1614_team-selector-captures-and-compact_partial.md`
+- Added `TeamSelectionCaptureUITests`: 8 executed, 0 failures, 130.327 s, producing exactly 18 validated PNGs with a manifest recording canonical-before, draft and canonical-after for every shot. Capture 14 asserts the empty-catalog sheet is present, its empty state findable by its own identifier, `취소` hittable, `완료` disabled and zero team cards rendered
+- Manifest identifies four pixel-identical groups (1–2; 3–5; 6, 8, 11; 7, 9, 10) and states plainly that visual uniqueness is not claimed for them
+- `TeamSelectionResponsiveUITests` on SE 3: **17 executed, 0 skipped, 0 failures**, 180.017 s — all four primary width-gated methods ran and passed. Primary unchanged at 17 executed, 4 skips, 0 failures
+- Finding: three SE 3 failures were in my own helpers, not the product. `LazyVGrid` does not materialise off-screen items, so waiting for existence before scrolling cannot succeed at AccessibilityXXXL on 375pt. The helper now scrolls while waiting and two direct frame/state reads were routed through it
+- Fresh results: unit suite 836 executed, 0 failures, 8.575 s
+- **Not run**: Profile UI/responsive/capture regressions, onboarding, main-tab, Record Create, Home/Feed/Calendar/Statistics/Record Detail regressions, Fairy contracts, compact matrix, skip pairing, complete primary UI suite, builds, gates and archive
+- Production source changed: no
+- Pushed: no · Merged: no
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
