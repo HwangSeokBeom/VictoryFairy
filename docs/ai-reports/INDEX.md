@@ -400,3 +400,20 @@ archive file linked from each entry — never paste a full report here.
 - Production source changed: yes — two files
 - Pushed: no · Merged: no
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-03 15:12 KST — PARTIAL_WITH_EXPLICIT_GAPS
+
+- Task: Team Selector Profile mode — behavioural contract proven by executable tests; long-run pipeline not executed
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `7a0ece9` · Ending HEAD: `1bf3d93` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-03_1512_team-selector-contract-proven_partial.md`
+- Added `TeamSelectionTests.swift` with 20 focused tests. The headline is historical immutability, which the previous report could only reason about: build a store, snapshot feed logs, calendar logs, statistics and the home dashboard, call `updateFavoriteTeam(_:)`, and prove only the preference moves — across one change and across two
+- Also proven: `TeamSelectionView` has exactly one consumer (enumerated, not asserted), onboarding keeps its own step, no context enum, no write-through binding, commit only when changed, completion guarded on a valid draft, an unresolvable stored ID left unrepaired, and clearing the team really does drop `onboardingEntry` to `.repairTeam` — which is why the sheet no longer offers it
+- Fresh results: full unit suite 827 executed, 0 failures, 9.443 s; cancellation determinism 4/4 (11.371 / 11.321 / 11.153 / 10.811 s); completion determinism 4/4 (11.596 / 11.393 / 11.074 / 11.501 s)
+- Limitation stated: `statistics` and `homeDashboard` are not `Equatable`, so they are compared by structural description while their source collections are compared by value. No counting spy was built; write counts rest on structural proof plus runtime observation
+- **Not run and not claimed**: responsive and capture classes, DEBUG fixtures and their Release guard, the 18-capture matrix, the interactive-dismissal determinism set, all regression classes, the compact matrix, skip pairing, a complete primary UI suite, Release build, gates and archive
+- Production source changed: no — the implementation landed in `da1c1b9`
+- Pushed: no · Merged: no
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
