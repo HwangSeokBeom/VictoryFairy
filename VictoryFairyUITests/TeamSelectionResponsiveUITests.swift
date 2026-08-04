@@ -148,8 +148,9 @@ final class TeamSelectionResponsiveUITests: XCTestCase {
     func testS03_scrollingPreservesTheDraftAndCommitsNothing() {
         let app = openSelector()
         scrollToOption(app, "lg-twins").tap()
-        for _ in 0..<3 { app.swipeUp() }
-        for _ in 0..<3 { app.swipeDown() }
+        // 목록 끝까지 갔다가 돌아온다. 임의 횟수로 흔들면 지연 격자가 항목을 버린
+        // 자리에서 멈춰 헬퍼가 길을 잃는다(실측) — 실제 팀을 목표로 삼아 오간다.
+        scrollToOption(app, "hanwha-eagles")
         // 지연 격자는 화면 밖 항목을 버린다. 다시 끌어온 뒤에 상태를 읽는다.
         XCTAssertTrue(scrollToOption(app, "lg-twins").isSelected,
                       "스크롤하자 초안이 사라졌다")

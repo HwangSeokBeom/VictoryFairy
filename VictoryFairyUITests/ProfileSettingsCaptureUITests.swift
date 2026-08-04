@@ -166,11 +166,12 @@ final class ProfileSettingsCaptureUITests: XCTestCase {
         capture("11-team-change-row")
 
         row.tap()
-        XCTAssertTrue(waits(text(app, "응원팀 변경"), 10), "팀 선택 화면이 열리지 않았다")
+        // 시트는 자기 루트 식별자로 찾는다. 제목 글자에 기대면 띄어쓰기 하나에
+        // 깨진다 — 실제로 `응원팀 변경`이 `응원 팀 변경`으로 바뀌며 깨졌다.
+        XCTAssertTrue(waits(node(app, "teamSelection.root"), 10), "팀 선택 화면이 열리지 않았다")
         capture("12-team-selection-presented")
 
-        let lg = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@", "LG 트윈스")).firstMatch
+        let lg = node(app, "teamSelection.team.lg-twins")
         XCTAssertTrue(waits(lg, 8), "LG 트윈스를 찾지 못했다")
         lg.tap()
         app.buttons["완료"].firstMatch.tap()
