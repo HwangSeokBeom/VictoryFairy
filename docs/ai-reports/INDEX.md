@@ -486,3 +486,21 @@ archive file linked from each entry — never paste a full report here.
 - Production source changed: no
 - Pushed: no · Merged: no
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-05 02:41 KST — TEAM_SELECTOR_PROFILE_MODE_IMPLEMENTED_AND_VERIFIED
+
+- Task: Team Selector — final regression and release closure against frozen source
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `b454bd0` · Ending HEAD: `b454bd0` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-05_0241_team-selector-final-regression-and-release-closure_verified.md`
+- Complete primary UI suite on `iPhone 17 Pro`: **632 executed, 551 passed, 81 skipped, 0 failures, 0 unexpected**, 9,128.267 s, exit 0, `** TEST SUCCEEDED **`; `xcresulttool` independently finalises `Passed` with the same breakdown
+- Skip pairing: all 81 primary skips pair by exact class+method to methods that passed on the compact SE 3 matrix (180 executed, 180 passed, 3,688.650 s). **Unpaired = 0**
+- One complete UI run (`final4`) was discarded as an infrastructure event, not a product result: 36.7 GB resident against 32 GB installed, 24,852,497 pageouts, five simulators booted. It produced one XCUI tap timeout after 1,957.932 s and four tests of roughly an hour each. After shutting all simulators down and booting only the target, the rerun's slowest test was 106.999 s. Its log is preserved as `DISCARDED_final4_degraded.log` and none of its numbers are counted
+- Fresh Debug and Release builds succeeded, exit 0, with zero source warnings (one benign `appintentsmetadataprocessor` toolchain line each). `build-for-testing` succeeded
+- Gates: app icon, secret scan, release readiness and `git diff --check` all exit 0. Fairy contract tests 100 executed, 0 failures, 1.284 s
+- Fresh Release archive succeeded. Fixture exclusion passes with `-VFUITestDisplayName`, `-VFUITestProfileFixture` and `-VFUITestTeamCatalog` absent, all 15 positive controls present, and a Debug negative control that exits 1 detecting all three tokens — proving the check is sensitive in both directions
+- Production source changed: no
+- Pushed: no · Merged: no
+- Project status: `TEAM_SELECTOR_PROFILE_MODE_IMPLEMENTED_AND_VERIFIED`
