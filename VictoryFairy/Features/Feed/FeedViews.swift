@@ -159,13 +159,33 @@ struct FeedView: View {
         ForEach(viewModel.monthSections) { section in
             Section {
                 ForEach(section.logs) { log in
-                    NavigationLink {
-                        AttendancePostDetailView(log: log)
-                    } label: {
-                        VFRecordCard(log: log)
+                    VStack(spacing: VFSpacing.xs) {
+                        NavigationLink {
+                            AttendancePostDetailView(log: log)
+                        } label: {
+                            VFRecordCard(log: log)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("feed.record.\(log.id.uuidString)")
+
+                        // Feed가 이미 소유한 바로 이 기록만 공유 화면으로 넘긴다.
+                        NavigationLink {
+                            ShareCardPreviewView(log: log)
+                        } label: {
+                            Label("추억 카드로 공유", systemImage: "square.and.arrow.up")
+                                .font(Font.system(.footnote, design: .default).weight(.semibold))
+                                .foregroundStyle(VFColor.bodySecondary)
+                                .frame(maxWidth: .infinity, minHeight: VFControl.minimumTouchTarget)
+                                .background(VFColor.elevatedSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
+                                        .stroke(VFColor.hairline, lineWidth: VFStroke.hairline)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("feed.share.\(log.id.uuidString)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("feed.record.\(log.id.uuidString)")
                 }
             } header: {
                 VFMonthDivider(title: section.title, romanTitle: section.romanTitle)

@@ -16,7 +16,7 @@ enum PhotoDisplayTarget {
     case detailStrip
     /// 기록 편집 화면 썸네일 격자: 92pt
     case editorThumbnail
-    /// 공유 카드: 1080×1920 캔버스에 scale 1로 렌더하므로 카드 폭만큼 필요
+    /// 추억 카드: 300×360pt를 4배로 렌더하므로 최장변 기준 1200px이면 충분하다.
     case shareCard
 
     var maxPixel: CGFloat {
@@ -25,7 +25,7 @@ enum PhotoDisplayTarget {
         case .calendarCell: return 54 * screenScale
         case .feedStrip, .detailStrip: return 240 * screenScale
         case .editorThumbnail: return 92 * screenScale
-        case .shareCard: return 1080
+        case .shareCard: return 1200
         }
     }
 }
