@@ -55,7 +55,12 @@ if [[ -z "$app" || ! -d "$app" ]]; then
   exit 2
 fi
 
-binary="$app/$(basename "$app" .app)"
+executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist" 2>/dev/null || true)
+if [[ -z "$executable" ]]; then
+  fail "Info.plist에서 CFBundleExecutable을 읽을 수 없다: $app"
+  exit 2
+fi
+binary="$app/$executable"
 if [[ ! -f "$binary" ]]; then
   fail "실행 파일을 찾을 수 없다: $binary"
   exit 2
@@ -115,6 +120,9 @@ absent "VFStatisticsFixtures"      "시즌 픽스처 타입이 없다"
 absent "StatisticsFixture"         "시즌 시나리오 타입이 없다"
 absent "VFRecordDetailFixtures"    "기록 상세 픽스처 타입이 없다"
 absent "RecordDetailFixture"       "기록 상세 시나리오 타입이 없다"
+absent "VFStatesFixtures"           "09_States 픽스처 타입이 없다"
+absent "StadiumSheetFixture"        "구장 시트 시나리오 타입이 없다"
+absent "MemoryShareFixture"         "추억 카드 시나리오 타입이 없다"
 
 # --- 1b. 마이 화면의 테스트 전용 실행 인자 ----------------------------------
 #
@@ -175,6 +183,14 @@ do
   absent "$scenario" "시나리오 '$scenario'가 없다"
 done
 
+echo
+echo "── 시나리오 이름 (09_States)"
+for scenario in \
+  canonicalSelected invalidCurrent allNine unreadablePhoto scored
+do
+  absent "$scenario" "09_States 시나리오 '$scenario'가 없다"
+done
+
 # --- 3. 실행 인자 키 --------------------------------------------------------
 
 echo
@@ -182,6 +198,8 @@ echo "── 실행 인자"
 absent "-VFUITestCalendarFixture"     "캘린더 픽스처 실행 인자가 없다"
 absent "-VFUITestStatisticsFixture"   "시즌 픽스처 실행 인자가 없다"
 absent "-VFUITestRecordDetailFixture" "기록 상세 픽스처 실행 인자가 없다"
+absent "-VFUITestStadiumSheetFixture"  "구장 시트 픽스처 실행 인자가 없다"
+absent "-VFUITestMemoryShareFixture"   "추억 카드 픽스처 실행 인자가 없다"
 
 # --- 4. 고정 ID 접두사와 테스트 전용 미디어 ---------------------------------
 
@@ -190,6 +208,7 @@ echo "── 픽스처 식별자"
 absent "CA1E0DA0" "캘린더 픽스처 UUID 접두사가 없다"
 absent "57A7DA7A" "시즌 픽스처 UUID 접두사가 없다"
 absent "D37A11ED" "기록 상세 픽스처 UUID 접두사가 없다"
+absent "09F10000" "추억 카드 픽스처 UUID 접두사가 없다"
 
 echo
 echo "── 테스트 전용 사진"
@@ -199,6 +218,7 @@ echo "── 테스트 전용 사진"
 absent "vf-uitest-inmemory-photo"   "메모리 사진 참조 접두사가 없다"
 absent "vf-uitest-missing-photo"    "파일 없음 확인용 참조가 없다"
 absent "vf-uitest-undecodable-photo" "디코딩 실패 확인용 참조가 없다"
+absent "vf-uitest-states-card-unreadable" "추억 카드 읽기 실패 참조가 없다"
 
 # --- 5. 화면 표식과 디자인 전용 문구 ----------------------------------------
 
@@ -207,6 +227,8 @@ echo "── 화면 표식"
 absent "calendar.scenario." "캘린더 픽스처 표식 접두사가 없다"
 absent "statistics.scenario." "시즌 픽스처 표식 접두사가 없다"
 absent "recordDetail.scenario." "기록 상세 픽스처 표식 접두사가 없다"
+absent "stadiumSheet.scenario." "구장 시트 픽스처 표식 접두사가 없다"
+absent "memoryShare.scenario." "추억 카드 픽스처 표식 접두사가 없다"
 absent "calendar.designStatus." "디자인 전용 상태 식별자가 없다"
 absent "경기 예정" "디자인 전용 문구(경기 예정)가 없다"
 absent "우천 연기" "디자인 전용 문구(우천 연기)가 없다"
@@ -245,6 +267,12 @@ present "recordDetail.scoreboard"  "스코어보드가 들어 있다"
 present "recordDetail.stadium"     "구장 영역이 들어 있다"
 present "RecordDetailMediaView"    "사진 영역이 들어 있다"
 present "AttendancePostDetailView" "기록 상세 화면이 들어 있다"
+present "KBOStadiumSeed"           "canonical 구장 등록부가 들어 있다"
+present "StadiumSelectionSheet"    "구장 선택 시트가 들어 있다"
+present "stadiumSheet.stadium."    "구장 행 안정 식별자가 들어 있다"
+present "MemoryShareCardContent"   "한 기록 추억 카드 모델이 들어 있다"
+present "MemoryShareCardRenderer"  "결정적 추억 카드 renderer가 들어 있다"
+present "memoryShare.card"         "추억 카드 접근성 계약이 들어 있다"
 
 # --- 결과 ------------------------------------------------------------------
 
