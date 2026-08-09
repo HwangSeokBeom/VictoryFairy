@@ -237,7 +237,7 @@ extension StatisticsService {
 
         return ranked.enumerated().map { index, entry in
             SeasonStadiumVisit(
-                stadiumID: KBOStadiumSeed.all.first { $0.name == entry.name }?.id,
+                stadiumID: KBOStadiumSeed.id(forStoredName: entry.name),
                 name: entry.name,
                 rank: index + 1,
                 visits: entry.group.count,

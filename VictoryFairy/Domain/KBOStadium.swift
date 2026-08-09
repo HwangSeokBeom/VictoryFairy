@@ -19,6 +19,19 @@ struct KBOStadium: Identifiable, Hashable {
     var city: String {
         KBOSeed.team(id: homeTeamIDs.first)?.city ?? ""
     }
+
+    /// 선택 목록의 보조 문구에 쓰는 canonical 홈 팀 약칭.
+    var homeTeamShortNames: [String] {
+        homeTeamIDs.compactMap { KBOSeed.team(id: $0)?.shortName }
+    }
+
+    /// Pencil `Hmdjx` 행의 `<도시> · <홈 팀 약칭>` 형식.
+    ///
+    /// 화면이 따로 도시나 팀 이름을 적지 않도록 등록부에서만 유도한다.
+    var selectionSecondaryText: String {
+        let teams = homeTeamShortNames.joined(separator: ", ")
+        return [city, teams].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
 }
 
 enum KBOStadiumSeed {
@@ -46,6 +59,16 @@ enum KBOStadiumSeed {
         "gwangju-kia": "광주",
         "sajik": "사직",
         "changwon-nc": "창원"
+    ]
+
+    /// 기존 Record Create 문자열 목록에서 canonical 이름과 달랐던 표기.
+    ///
+    /// 과거 기록을 다시 쓰지 않고 읽을 때만 안정 ID로 해석한다. 여섯 개의 동일한
+    /// 표기는 canonical 이름 인덱스가 이미 처리하므로 여기서 중복하지 않는다.
+    private static let legacyAliasIDByName: [String: String] = [
+        "수원 KT 위즈파크": "suwon-kt",
+        "광주 KIA 챔피언스 필드": "gwangju-kia",
+        "창원 NC 파크": "changwon-nc"
     ]
 
     /// 활동 중인 팀들의 홈 구장을 모아 만든 목록.
@@ -78,6 +101,44 @@ enum KBOStadiumSeed {
         guard let id else { return nil }
         return all.first { $0.id == id }
     }
+
+    /// 저장·표시 문자열을 canonical 구장으로 해석한다.
+    ///
+    /// 허용 입력은 canonical 전체 이름, canonical 짧은 이름, 기존
+    /// `KBOSeed.stadiums` 표기뿐이다. 부분 일치나 첫 구장 fallback은 없다.
+    static func stadium(named storedName: String?) -> KBOStadium? {
+        guard let storedName else { return nil }
+        let trimmed = storedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let id = aliasIDByName[trimmed] else { return nil }
+        return stadium(id: id)
+    }
+
+    /// 문자열을 안정 ID로만 해석할 때 쓰는 좁은 진입점.
+    static func id(forStoredName storedName: String?) -> String? {
+        stadium(named: storedName)?.id
+    }
+
+    /// 모든 허용 별칭을 한 번만 만드는 인덱스.
+    /// 서로 다른 구장이 같은 별칭을 소유하면 앱 시작 단계에서 즉시 드러난다.
+    private static let aliasIDByName: [String: String] = {
+        var result: [String: String] = [:]
+
+        func insert(_ alias: String, id: String) {
+            if let existing = result[alias], existing != id {
+                preconditionFailure("Duplicate stadium alias: \(alias)")
+            }
+            result[alias] = id
+        }
+
+        for stadium in all {
+            insert(stadium.name, id: stadium.id)
+            insert(stadium.shortName, id: stadium.id)
+        }
+        for (alias, id) in legacyAliasIDByName {
+            insert(alias, id: id)
+        }
+        return result
+    }()
 
     /// 팀의 홈 구장. 온보딩에서 추천 구장을 맨 앞에 놓을 때 쓴다.
     /// 추천일 뿐이며 자동으로 선택되지는 않는다.

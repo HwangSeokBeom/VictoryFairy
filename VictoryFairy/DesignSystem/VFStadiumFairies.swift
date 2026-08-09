@@ -48,7 +48,7 @@ enum VFStadiumFairyIdentity: Equatable, Hashable {
               !trimmed.isEmpty else {
             return nil
         }
-        guard let known = KBOStadiumSeed.all.first(where: { $0.name == trimmed }) else {
+        guard let known = KBOStadiumSeed.stadium(named: trimmed) else {
             return .unknown
         }
         return .canonical(known.id)

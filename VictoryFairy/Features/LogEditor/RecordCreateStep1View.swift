@@ -26,8 +26,8 @@ struct RecordCreateStep1View: View {
     var showsValidationOnAppear = false
     /// 선택 가능한 팀 이름. 저장소가 들고 있는 실제 목록을 받는다.
     let teamNames: [String]
-    /// 선택 가능한 구장 이름.
-    let stadiumNames: [String]
+    /// 선택 가능한 canonical 구장. 제품 경로는 `KBOStadiumSeed.all`을 건넨다.
+    let stadiums: [KBOStadium]
     /// 저장이 진행 중인가. 중복 저장을 막는 데 쓴다.
     let isSaving: Bool
     /// 마지막 저장 시도가 남긴 안내. 실패해도 초안은 그대로 남는다.
@@ -43,6 +43,7 @@ struct RecordCreateStep1View: View {
     /// 다시 첫 번째로 막힌 값으로 데려간다.
     @State private var proceedAttempts = 0
     @State private var didSeedValidation = false
+    @State private var isShowingStadiumSheet = false
     @FocusState private var focusedScore: ScoreSide?
 
     private enum ScoreSide: Hashable { case ours, theirs }
@@ -99,6 +100,16 @@ struct RecordCreateStep1View: View {
         }
         .vfScreenBackground()
         .accessibilityIdentifier("recordCreate.step1.root")
+        .sheet(isPresented: $isShowingStadiumSheet) {
+            StadiumSelectionSheet(
+                selection: RecordCreateStadiumSelection(
+                    catalog: stadiums,
+                    currentDraftName: draft.stadiumName
+                )
+            ) { canonicalName in
+                draft.stadiumName = canonicalName
+            }
+        }
     }
 
     // MARK: - 검증
@@ -165,13 +176,27 @@ struct RecordCreateStep1View: View {
 
     private var stadiumField: some View {
         VFFormField(label: "구장", errorMessage: errorMessage(for: .stadium)) {
-            selectionMenu(
-                placeholder: "구장을 선택해 주세요",
-                value: draft.stadiumName,
-                options: stadiumNames,
-                accessibilityLabel: "구장",
-                identifier: "recordCreate.field.stadium"
-            ) { draft.stadiumName = $0 }
+            Button {
+                isShowingStadiumSheet = true
+            } label: {
+                HStack(spacing: VFSpacing.xs) {
+                    Text(draft.stadiumName.isEmpty ? "구장을 선택해 주세요" : draft.stadiumName)
+                        .font(VFTypography.body)
+                        .foregroundStyle(draft.stadiumName.isEmpty ? VFColor.bodyTertiary : VFColor.bodyPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(VFColor.bodyTertiary)
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("구장")
+            .accessibilityValue(draft.stadiumName.isEmpty ? "선택하지 않음" : draft.stadiumName)
+            .accessibilityIdentifier("recordCreate.field.stadium")
         }
         .id(RecordEditorField.stadium.rawValue)
     }
@@ -522,7 +547,7 @@ private struct RecordCreateStep1Preview: View {
             draft: $draft,
             mode: .create,
             teamNames: KBOSeed.teams.map(\.name),
-            stadiumNames: KBOSeed.stadiums,
+            stadiums: KBOStadiumSeed.all,
             isSaving: false,
             saveMessage: nil,
             assistance: assistance,

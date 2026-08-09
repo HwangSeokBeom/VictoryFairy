@@ -128,7 +128,7 @@ struct RecordCreateFlowView: View {
                     mode: mode,
                     showsValidationOnAppear: didFailFinalValidation,
                     teamNames: appData.teams.map(\.name),
-                    stadiumNames: KBOSeed.stadiums,
+                    stadiums: KBOStadiumSeed.all,
                     isSaving: isSaving,
                     saveMessage: saveMessage,
                     assistance: assistance,

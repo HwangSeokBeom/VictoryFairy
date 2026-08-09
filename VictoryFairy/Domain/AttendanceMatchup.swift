@@ -54,6 +54,6 @@ extension AttendanceLogViewState {
 
     /// 이 기록이 열린 구장. 사용자의 주 관람 구장과 혼동하면 안 된다.
     var recordStadium: KBOStadium? {
-        KBOStadiumSeed.all.first { $0.name == stadium }
+        KBOStadiumSeed.stadium(named: stadium)
     }
 }

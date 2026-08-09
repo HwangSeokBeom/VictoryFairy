@@ -101,7 +101,7 @@ struct RecordDetailService {
         guard let recordedName else {
             return RecordDetailStadium(stadiumID: nil, name: nil, isHomeGame: nil, meta: nil)
         }
-        guard let known = KBOStadiumSeed.all.first(where: { $0.name == recordedName }) else {
+        guard let known = KBOStadiumSeed.stadium(named: recordedName) else {
             // 등록부에 없는 이름이어도 기록에 적힌 대로 보여 준다. 다른 구장으로 바꾸지 않는다.
             return RecordDetailStadium(
                 stadiumID: nil, name: recordedName, isHomeGame: nil, meta: nil
