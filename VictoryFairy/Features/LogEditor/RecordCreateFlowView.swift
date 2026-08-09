@@ -93,6 +93,8 @@ struct RecordCreateFlowView: View {
     @State private var isSaving = false
     @State private var saveMessage: String?
     @State private var didFinishSaving = false
+    /// DEBUG fixture가 초안의 시작 구장만 한 번 심었는지. Release의 helper는 identity다.
+    @State private var didApplyStadiumFixture = false
     /// 마지막 완성 시도가 1단계 검증에서 막혔는가.
     ///
     /// 막혔을 때만 1단계가 안내를 이미 띄운 채로 열린다. 저장되지 않는 화면 상태다.
@@ -128,7 +130,7 @@ struct RecordCreateFlowView: View {
                     mode: mode,
                     showsValidationOnAppear: didFailFinalValidation,
                     teamNames: appData.teams.map(\.name),
-                    stadiums: KBOStadiumSeed.all,
+                    stadiums: VFUITestConfiguration.stadiumCatalog(KBOStadiumSeed.all),
                     isSaving: isSaving,
                     saveMessage: saveMessage,
                     assistance: assistance,
@@ -159,6 +161,7 @@ struct RecordCreateFlowView: View {
             }
         }
         .overlay(alignment: .topLeading) { routeMarker }
+        .overlay(alignment: .topLeading) { stadiumFixtureMarker }
         .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -187,6 +190,10 @@ struct RecordCreateFlowView: View {
         }
         .recordCreateAssistance(draft: $draft, state: assistance)
         .onAppear {
+            if !didApplyStadiumFixture {
+                draft = VFUITestConfiguration.stadiumDraft(draft)
+                didApplyStadiumFixture = true
+            }
             // 지금 편집기와 같은 규칙: 새로 만들 때만, 아직 비어 있을 때만 응원팀을 채운다.
             if draft.favoriteTeamName.isEmpty {
                 draft.favoriteTeamName = appData.team(id: preferences.favoriteTeamID)?.name ?? ""
@@ -207,6 +214,17 @@ struct RecordCreateFlowView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityIdentifier(context.routeIdentifier)
             .accessibilityLabel(Text(verbatim: ""))
+    }
+
+    @ViewBuilder
+    private var stadiumFixtureMarker: some View {
+        if let identifier = VFUITestConfiguration.activeStadiumSheetScenarioIdentifier {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(identifier)
+                .accessibilityLabel(Text(verbatim: ""))
+        }
     }
 
     private var cancelButton: some View {

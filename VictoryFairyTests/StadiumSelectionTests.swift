@@ -60,7 +60,7 @@ final class StadiumSelectionTests: XCTestCase {
 
     func testS03_pencilFourRowSubsetAndLegacyStringCatalogAreNotProductionSources() throws {
         let flow = try source("VictoryFairy/Features/LogEditor/RecordCreateFlowView.swift")
-        XCTAssertTrue(flow.contains("stadiums: KBOStadiumSeed.all"))
+        XCTAssertTrue(flow.contains("stadiums: VFUITestConfiguration.stadiumCatalog(KBOStadiumSeed.all)"))
         XCTAssertFalse(flow.contains("stadiums: KBOSeed.stadiums"))
         XCTAssertFalse(flow.contains("prefix(4)"))
     }

@@ -10,6 +10,10 @@
 		09A700000000000000000002 /* StadiumSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A700000000000000000001 /* StadiumSelectionTests.swift */; };
 		09A710000000000000000002 /* MemoryShareCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A710000000000000000001 /* MemoryShareCardTests.swift */; };
 		09A720000000000000000002 /* StatisticsShareBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A720000000000000000001 /* StatisticsShareBoundaryTests.swift */; };
+		09A730000000000000000002 /* StadiumSelectionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A730000000000000000001 /* StadiumSelectionUITests.swift */; };
+		09A740000000000000000002 /* MemoryShareUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A740000000000000000001 /* MemoryShareUITests.swift */; };
+		09A750000000000000000002 /* StatesResponsiveUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A750000000000000000001 /* StatesResponsiveUITests.swift */; };
+		09A760000000000000000002 /* StatesCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A760000000000000000001 /* StatesCaptureUITests.swift */; };
 		195A95FFEF9C27A9629BD41B /* RecordDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA78C69AFF8DB8183D8F16B /* RecordDetailTests.swift */; };
 		1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */; };
 		1F7CA7B976729E470F1707CB /* StatisticsCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E66D4EAA50227341A84F1FE /* StatisticsCaptureUITests.swift */; };
@@ -98,6 +102,10 @@
 		09A700000000000000000001 /* StadiumSelectionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StadiumSelectionTests.swift; sourceTree = "<group>"; };
 		09A710000000000000000001 /* MemoryShareCardTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryShareCardTests.swift; sourceTree = "<group>"; };
 		09A720000000000000000001 /* StatisticsShareBoundaryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatisticsShareBoundaryTests.swift; sourceTree = "<group>"; };
+		09A730000000000000000001 /* StadiumSelectionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StadiumSelectionUITests.swift; sourceTree = "<group>"; };
+		09A740000000000000000001 /* MemoryShareUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryShareUITests.swift; sourceTree = "<group>"; };
+		09A750000000000000000001 /* StatesResponsiveUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatesResponsiveUITests.swift; sourceTree = "<group>"; };
+		09A760000000000000000001 /* StatesCaptureUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatesCaptureUITests.swift; sourceTree = "<group>"; };
 		01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VictoryFairy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		071661147C015553CCB78E53 /* VictoryFairyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VictoryFairyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B6A286C7629719131BF3239 /* NavigationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationUITests.swift; sourceTree = "<group>"; };
@@ -275,6 +283,10 @@
 		7FC7450127D042A5C200EE50 /* VictoryFairyUITests */ = {
 			isa = PBXGroup;
 			children = (
+				09A730000000000000000001 /* StadiumSelectionUITests.swift */,
+				09A740000000000000000001 /* MemoryShareUITests.swift */,
+				09A750000000000000000001 /* StatesResponsiveUITests.swift */,
+				09A760000000000000000001 /* StatesCaptureUITests.swift */,
 				0B6A286C7629719131BF3239 /* NavigationUITests.swift */,
 				62870DA56EA814F915135D87 /* OnboardingUITests.swift */,
 				B1C2D3E4F5061728394A6B10 /* RecordCreateStep1UITests.swift */,
@@ -464,6 +476,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				09A730000000000000000002 /* StadiumSelectionUITests.swift in Sources */,
+				09A740000000000000000002 /* MemoryShareUITests.swift in Sources */,
+				09A750000000000000000002 /* StatesResponsiveUITests.swift in Sources */,
+				09A760000000000000000002 /* StatesCaptureUITests.swift in Sources */,
 				5BD2CA924539750A580D6EDA /* NavigationUITests.swift in Sources */,
 				5362641498F569B0572DF2C6 /* OnboardingUITests.swift in Sources */,
 				B1C2D3E4F5061728394A6B11 /* RecordCreateStep1UITests.swift in Sources */,

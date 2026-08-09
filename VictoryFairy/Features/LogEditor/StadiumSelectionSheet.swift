@@ -63,6 +63,7 @@ struct StadiumSelectionSheet: View {
         .presentationCornerRadius(VFRadius.sheet)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .overlay(alignment: .topLeading) { fixtureMarker }
     }
 
     private var emptyState: some View {
@@ -134,5 +135,16 @@ struct StadiumSelectionSheet: View {
         )
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("stadiumSheet.stadium.\(stadium.id)")
+    }
+
+    @ViewBuilder
+    private var fixtureMarker: some View {
+        if let identifier = VFUITestConfiguration.activeStadiumSheetScenarioIdentifier {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(identifier)
+                .accessibilityLabel(Text(verbatim: ""))
+        }
     }
 }

@@ -179,6 +179,11 @@ enum VFUITestConfiguration {
         filter: FeedResultFilter = .all
     ) -> [AttendanceLogViewState] {
         #if DEBUG
+        if let fixture = memoryShareFixture {
+            let log = VFStatesFixtures.memoryShareLog(for: fixture)
+            guard let result = filter.result else { return [log] }
+            return log.result == result ? [log] : []
+        }
         if let fixture = feedFixture {
             let all = VFFeedFixtures.logs(for: fixture)
             guard let result = filter.result else { return all }
@@ -785,5 +790,70 @@ extension VFUITestConfiguration {
 extension VFUITestConfiguration {
     /// Release에서는 인자를 그대로 돌려준다. 제품 경로에는 아무 영향이 없다.
     static func teamCatalog(_ teams: [KBOTeam]) -> [KBOTeam] { teams }
+}
+#endif
+
+#if DEBUG
+extension VFUITestConfiguration {
+    enum StadiumSheetFixture: String {
+        case canonicalSelected
+        case invalidCurrent
+        case empty
+        case longContent
+        case allNine
+    }
+
+    static var stadiumSheetFixture: StadiumSheetFixture? {
+        guard isActive,
+              let raw = value(for: "-VFUITestStadiumSheetFixture",
+                              in: ProcessInfo.processInfo.arguments) else { return nil }
+        return StadiumSheetFixture(rawValue: raw)
+    }
+
+    static func stadiumCatalog(_ production: [KBOStadium]) -> [KBOStadium] {
+        guard let fixture = stadiumSheetFixture else { return production }
+        return VFStatesFixtures.stadiumCatalog(for: fixture)
+    }
+
+    static func stadiumDraft(_ production: RecordEditorDraft) -> RecordEditorDraft {
+        guard let fixture = stadiumSheetFixture else { return production }
+        var result = production
+        result.stadiumName = VFStatesFixtures.initialStadiumName(for: fixture)
+        return result
+    }
+
+    static var activeStadiumSheetScenarioIdentifier: String? {
+        guard let fixture = stadiumSheetFixture else { return nil }
+        return "stadiumSheet.scenario.\(fixture.rawValue)"
+    }
+
+    enum MemoryShareFixture: String {
+        case withPhoto
+        case noPhoto
+        case unreadablePhoto
+        case scored
+        case canceled
+        case missingScore
+        case longContent
+    }
+
+    static var memoryShareFixture: MemoryShareFixture? {
+        guard isActive,
+              let raw = value(for: "-VFUITestMemoryShareFixture",
+                              in: ProcessInfo.processInfo.arguments) else { return nil }
+        return MemoryShareFixture(rawValue: raw)
+    }
+
+    static var activeMemoryShareScenarioIdentifier: String? {
+        guard let fixture = memoryShareFixture else { return nil }
+        return "memoryShare.scenario.\(fixture.rawValue)"
+    }
+}
+#else
+extension VFUITestConfiguration {
+    static func stadiumCatalog(_ production: [KBOStadium]) -> [KBOStadium] { production }
+    static func stadiumDraft(_ production: RecordEditorDraft) -> RecordEditorDraft { production }
+    static var activeStadiumSheetScenarioIdentifier: String? { nil }
+    static var activeMemoryShareScenarioIdentifier: String? { nil }
 }
 #endif
