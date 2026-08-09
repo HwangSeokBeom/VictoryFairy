@@ -3146,3 +3146,350 @@ immediately with no draft and no confirmation, driving `onboardingEntry` to
 The approved Profile-mode specification — `응원 팀 변경` title, `취소` and `완료`
 actions, no onboarding copy, no neutral option, draft-then-commit — remains correct
 and is now simpler to implement safely.
+
+---
+
+# 09_States — stadium sheet and share-card product/frame audit
+
+## Audit status and boundary
+
+`PARTIAL_WITH_EXPLICIT_PRODUCT_DECISIONS`. This is an audit-only handoff. No
+production source, test source, persistence schema, API contract, backend contract,
+closed Record Create flow, closed Profile / My flow or closed Team Selector flow was
+changed. Dark appearance and distribution signing are outside this pass.
+
+The two target visuals are uniquely findable, but neither has a provable destination
+route or a complete interaction/output contract. They are therefore visual references,
+not implementation authority:
+
+- `구장 바텀시트` / `Hmdjx` / `VISUAL_REFERENCE_ONLY`
+- `추억 카드` / `jYs0S` / `VISUAL_REFERENCE_ONLY`
+
+Implementation is **NOT AUTHORIZED — AUDIT STOP** until the product decisions at the
+end of this section are resolved.
+
+## Pencil source proof
+
+Source: `/Users/hwangseokbeom/Documents/VictoryFairy.pen`, 1,882,899 bytes,
+SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`.
+Both values match the expected handoff fingerprint. The file is UTF-8 JSON at
+document version 2.14. It was read directly and was not modified. No live VictoryFairy
+MCP canvas identity is claimed.
+
+The document has 27 top-level frames and 58 variables. `09_States` is top-level node
+`Pq7x6`, filled with `$paper`, with intrinsic dimensions, 40pt padding, 36pt column
+gaps and three 340pt columns: `열 A` / `YZivV`, `열 B` / `g5vcp`, and `열 C` /
+`bhgyc`.
+
+## Complete 09_States inventory
+
+Column A contains, in order:
+
+| Caption | Surface | Authored content and references |
+|---|---|---|
+| `vW98u` 빈 상태 · 기록 없음 | `LoJHq` 빈 기록 | `k6E0mo -> P6mBCr` empty-record Fairy, title `아직 직관 기록이 없어요`, explanatory copy, CTA `첫 기록 남기기` |
+| `F0Mwd` 빈 상태 · 시즌 전 | `nYQi6` 빈 시즌 | `qjpbO -> Xf5w2` empty-season Fairy, title and explanatory copy, `2025 시즌 돌아보기` |
+| `nZaGd` 검색 결과 없음 | `fsNEs` 검색 없음 | Lucide `search` / `vCfbZ`, title `찾는 기록이 없어요`, supporting copy |
+| `T4bWw0` 로딩 | `rmqBU` 로딩 | Lucide `loader-circle` / `OE2IE`, three 7pt dots, `경기 정보를 불러오는 중이에요` |
+
+Column B contains, in order:
+
+| Caption | Surface | Authored content and references |
+|---|---|---|
+| `WM2Xx` 오류 | `uVVf0` 오류 | `r7Eyoc -> mc6nq` error Fairy, title `잠시 우천 중단이에요`, network copy, `다시 시도` |
+| `rxtjp` 입력 오류 | `BgGED` 입력 오류 필드 | `스코어`, a 50pt error box, error icon and explanatory error copy |
+| `LzX7a` 저장 확인 다이얼로그 | `Us205` 삭제 다이얼로그 | delete title/body, `남겨둘래요` and `삭제하기` 46pt actions |
+| `c3nQM3` 토스트 | `v4x6JB`, `yBWJe` | two references to toast component `IzDFr` |
+
+Column C contains exactly four direct children:
+
+| Node | Kind | Contents |
+|---|---|---|
+| `wQHJ7` | caption | `바텀시트 · 구장 선택` |
+| `Hmdjx` | target frame | stadium selection sheet visual |
+| `T780C` | caption | `추억 공유 카드` |
+| `jYs0S` | target frame | single-record memory-card visual |
+
+There is one target frame for each surface and no target variant, compact variant,
+dark variant, state relationship, duplicated target or legacy target elsewhere in
+`09_States`. There are also no node-level prototype, interaction, action,
+destination, transition, route or navigation properties anywhere in the Pencil JSON.
+All twelve `link` properties in the complete document are Unsplash author metadata,
+not prototype links.
+
+## Stadium-sheet frame inventory
+
+`Hmdjx` is `fill_container` inside the 340pt Column C. It has intrinsic height,
+`clip: true`, vertical layout, 4pt gap, padding `[10, 0, 24, 0]`, `$surface` fill,
+24pt corners, 1.3pt `$line-ink` stroke, and an outer shadow at y -6 with 24pt blur.
+Its direct children are:
+
+1. `Jm7VR` grabber area, containing the 40×5 `$line` grabber `c4f9UK`.
+2. `QEJel` title row, containing `JncK5`, `구장을 선택해 주세요`, `$font-ui`
+   17/700.
+3. `L621VO`, a 56pt transparent row for `잠실야구장`, with plate reference
+   `iENBT -> eAL5Z`, `$font-ui` 14/500 name, and `$font-ui` 11 metadata
+   `서울 · LG, 두산`.
+4. `CIGtS`, a 56pt selected `$butter-pale` row for `라이온즈파크`, with plate
+   reference `WvtYV -> eAL5Z`, 14/700 name, metadata `대구 · 삼성`, and Lucide
+   `check` / `Nnh7G`, 17pt, `$coral-deep`.
+5. `dDfoz`, a 56pt transparent row for `챔피언스필드`, plate
+   `w6l2lp -> eAL5Z`, metadata `광주 · KIA`.
+6. `qNEPw`, a 56pt transparent row for `사직야구장`, plate
+   `E7akm -> eAL5Z`, metadata `부산 · 롯데`.
+
+The frame authors no close button, cancel button, done button, row button type,
+mutation action, address, map action, statistics, visit count, result record, win
+rate, season scope, empty catalog, invalid selection, error state, scroll container,
+sheet detent or Fairy. The selection title plus highlighted/checkmarked row visually
+imply selection, but the JSON authors no actionable row or commit/dismiss behavior.
+
+## Share-card frame inventory
+
+`jYs0S` is 300pt wide with intrinsic height, vertical layout, 12pt gap, padding
+`[14, 14, 18, 14]`, `#FFFDF8` fill, 14pt corners, 1.2pt `$line` stroke, and an
+outer shadow at y 8 with 20pt blur. It contains:
+
+1. `R8PGT`, a 272×250 effective media region. `fxr58` is a 272×250 fill image
+   sourced from Unsplash, with author metadata for Alejandra Ochoa. It is sample
+   design media, not production data.
+2. `MUZ8V -> aYRjf`, the result-stamp reference, positioned at x 216 / y 194 over
+   the photo.
+3. `YDdJU` card information. `S9gAst` reads `삼성 6 : 3 LG` in `$font-ui`
+   16/700; `GAkQ4` reads `2026. 4. 12 · 잠실야구장` in `$font-ui` 11; and
+   `TGI2P` reads `승리요정` in `$font-hand` 16 with `$coral-deep`.
+
+The card authors no surrounding preview screen, navigation or modal chrome, share
+button, save button, close button, style selector, user identity, team badge, Fairy,
+seat, companion, diary, weather, season statistic, win rate, QR/deep link, social
+destination, privacy control, no-photo state, unavailable-photo state, export size,
+fixed height or aspect-ratio annotation. The `승리요정` wordmark is authored brand
+text; it is not a Fairy component.
+
+## Prototype and route ownership
+
+| Candidate relationship | Evidence | Classification |
+|---|---|---|
+| Record Create Step 1 `구장 필드` / `eCkfl` | A `w93QEM` form-field reference whose displayed sample is `대구 삼성라이온즈파크`; no link to `Hmdjx` | `UNKNOWN_REQUIRES_DECISION`; strongest visual origin candidate, not proof |
+| Onboarding stadium selection | Handoff `IJXOi` explicitly maps `/onboarding/stadium -> 04_SelectStadium_*`; Pencil supplies full-screen Default, TeamContext and Selected variants | `AUTHORITATIVE_HANDOFF_ROUTE` for onboarding, and evidence that onboarding already owns a different full-screen selector |
+| Profile / My | `08_Profile_Settings` authors no stadium row or destination | `UNAUTHORED` |
+| Statistics stadium highlight | `가장 많이 간 구장` leads in code to the existing `StadiumStatsView`, but Pencil has no link to `Hmdjx` and `Hmdjx` contains no statistics | `VISUAL_REFERENCE_ONLY` as a separate existing capability, not a sheet origin |
+| Record Detail stadium | Pencil and code render one record's read-only stadium hero, with no selector control | `VISUAL_REFERENCE_ONLY`, not a sheet origin |
+| `Hmdjx` itself | No origin, destination, return route or action metadata | `UNROUTED_STATE` |
+| Record Detail share controls | `TH1qS` authors a top-bar `share` icon and `W1djOo` authors `추억 카드로 공유하기`; neither links to `jYs0S` | `UNKNOWN_REQUIRES_DECISION` |
+| Statistics share control | `HqXFi` authors `시즌 리포트 만들기`; it does not link to `jYs0S` | `UNKNOWN_REQUIRES_DECISION` |
+| Feed share | Production code opens `ShareCardPreviewView(log:)`, but Pencil `05_Feed_RecordList` authors no share control | `PRESENTATION_ONLY` current code capability, not Pencil route authority |
+| `jYs0S` itself | No origin, destination, return route or action metadata | `UNROUTED_STATE` |
+
+Therefore `STADIUM_ORIGIN` and `SHARE_ORIGIN` are both `UNPROVEN`.
+
+## Current stadium capability and ownership matrix
+
+| Symbol / surface | Classification | Proven contract |
+|---|---|---|
+| `KBOStadiumSeed.all` | `CANONICAL_DATA_SOURCE` | Nine stable stadium IDs, canonical names, short names and home-team IDs; city derives from the home team seed |
+| `KBOSeed.teams` | `CANONICAL_DATA_SOURCE` | Team ID, full/short name, city and canonical home-stadium name |
+| `KBOSeed.stadiums` | `PRESENTATION_ONLY` duplicate catalog | A separate active nine-string Record Create catalog with no stable ID; three spellings differ from `KBOStadiumSeed.all` (`수원`, `광주`, `창원`) |
+| `RecordEditorDraft.stadiumName` | `CANONICAL_ACTION_OWNER` within Record Create draft | The closed Record Create flow stores the selected display string and commits only through its existing save owner |
+| `RecordCreateStep1View.stadiumField` | `PRESENTATION_ONLY` plus draft mutation | A SwiftUI `Menu`; selection immediately assigns `draft.stadiumName`; label, value and `recordCreate.field.stadium` semantics exist |
+| `OnboardingViewModel.selectedStadiumID` / `selectStadium` | `CANONICAL_DERIVED_STATE` and onboarding draft owner | Stable-ID selection; separate full-screen card UI; commit occurs through the existing onboarding completion owner |
+| `UserPreferencesStore.primaryStadiumID` | `CANONICAL_DATA_SOURCE` | Stable primary-stadium identity; invalid stored IDs are rejected or repaired |
+| `UserPreferencesStore.setPrimaryStadium` / `AppDataStore.updatePrimaryStadium` | `CANONICAL_ACTION_OWNER` | Existing mutation boundary, but no current Profile stadium-change UI and no Pencil route to the target sheet |
+| `RecordDetailStadium` / `RecordDetailService` | `CANONICAL_DERIVED_STATE` | Preserves the record's stadium and derives only known city/home-team metadata; never substitutes the primary stadium |
+| `StatisticsService.stadiumStats` and `SeasonStadiumVisit` | `CANONICAL_DERIVED_STATE` | Real selected-season attendance logs derive visits, W/L/D/canceled, rate and latest visit; these fields are not present in `Hmdjx` |
+| `StadiumStatsView` | `PRESENTATION_ONLY` | Existing navigated full-screen sorted statistics with honest empty state; not a bottom sheet |
+| `VFStadiumGlyph`, `VFStadiumBadge`, `VFStadiumHero` | `REUSABLE_COMPONENT` | Existing visual components; `Hmdjx` instead authors the neutral plate reference `eAL5Z` |
+| Stadium bottom-sheet implementation | `UNSUPPORTED` | No production `StadiumSheet`, sheet route, detent, selection commit or dismissal contract exists |
+
+The spelling split is not cosmetic. Record Detail and season statistics resolve a
+stable stadium ID only by exact equality with `KBOStadiumSeed.all.name`; records
+created from the three differing `KBOSeed.stadiums` strings can remain honest display
+values but resolve as unknown canonical stadiums. This audit does not repair that
+closed Record Create contract.
+
+## Stadium data ownership
+
+| Pencil value | Classification | Production owner / limitation |
+|---|---|---|
+| Sheet title | `STATIC_DESIGN_COPY` | Pencil literal |
+| Four row names | `DERIVED_FROM_KBO_SEED` when normalized | All four map conceptually to canonical stadiums, but three Pencil labels are shortened display forms; never store the sample labels as IDs |
+| City | `DERIVED_FROM_KBO_SEED` | `KBOStadium.city` |
+| Home-team short labels | `DERIVED_FROM_KBO_SEED` | `homeTeamIDs` plus canonical team short names |
+| Plate icon | `STATIC_DESIGN_COPY` | Pencil component `eAL5Z`; no data |
+| Selected highlight/check | `REQUIRES_PRODUCT_DECISION` | Owner depends on the chosen origin: Record Create draft, onboarding draft, or primary-stadium preference are different states |
+| Row subset/order | `FABRICATED_IN_PENCIL` as a production catalog | Pencil shows 4 of 9 with no filtering rule; production must not silently omit the other five |
+| Address, coordinates, venue image | `UNAVAILABLE` | Not authored and not present in `KBOStadium` |
+| Visits, W/L/D, rate, latest visit | `DERIVED_FROM_STATISTICS` but not authored here | Available for a selected-season statistics surface only; adding them to this selector would change the product contract |
+
+## Current share capability and ownership matrix
+
+| Symbol / surface | Classification | Proven contract |
+|---|---|---|
+| `AttendanceLogViewState` | `CANONICAL_DATA_SOURCE` for a record presentation | Date, matchup, record stadium, result, two scores, seat, companion, memo/diary/tags and local photo references |
+| `RecordDetailPresentation` / `RecordDetailService` | `CANONICAL_DERIVED_STATE` | Canonical team/stadium resolution, honest absent-score/media states and stored-record-only detail |
+| `SeasonArchivePresentation` | `CANONICAL_DERIVED_STATE` | Selected-season totals, rate, trend and venue visits; it is not an attendance record |
+| `ShareCardPreviewView` | `PRESENTATION_ONLY` plus current action owner | One screen offering score/diary/win-rate styles, Photos save, native system share and close |
+| `DiaryShareCardCanvas` | `REUSABLE_COMPONENT` | Existing 1080×1920 fixed canvas; visually unrelated to the 300pt Pencil card and contains extra memo/metrics/English branding |
+| `ImageRenderer` in `renderCard()` | `CANONICAL_ACTION_OWNER` for current rendering | Produces an in-memory `UIImage` from an explicit 1080×1920 frame at scale 1; no temporary file |
+| `ActivityView` / `UIActivityViewController` | `REUSABLE_COMPONENT` | Native system share sheet; no third-party social SDK or deep link |
+| `PHPhotoLibrary` save path | `CANONICAL_ACTION_OWNER` for current save | Requests add-only access at the explicit save action, with `NSPhotoLibraryAddUsageDescription` already present |
+| Record Detail consumer | `PRESENTATION_ONLY` route | Passes a real record through a `NavigationLink` |
+| Feed consumer | `PRESENTATION_ONLY` route | Passes its visible record through a `NavigationLink`; no corresponding Pencil share control |
+| Statistics consumer | `UNSUPPORTED` production data composition | Passes only `seasonWinRateText`, causing `cardLog` to fall back to `AttendanceLogSample.logs.first` |
+| `AttendanceLogSample` fallback in `cardLog` | `UNSUPPORTED` for production export | Active non-DEBUG sample record data; if unavailable, another fabricated placeholder uses `.now`, fake teams, stadium and copy |
+| Share-focused tests | `UNSUPPORTED` | Only a Record Detail route-reachability UI test exists; no render-value, dimension, no-fixture, Photos/share, cancellation, compact or AccessibilityXXXL contract test exists |
+
+The current implementation proves technical capability, not product authorization.
+In particular, the Statistics route currently mixes a real season rate with a sample
+attendance record. That path must not be treated as canonical evidence for the new
+card and must not be exported as-is.
+
+## Share-card data ownership
+
+| Pencil value | Classification | Production owner / limitation |
+|---|---|---|
+| Unsplash photo | `FABRICATED_IN_PENCIL` | Must never ship as a user's record photo; a record's local `photoLocalRefs` is the only existing owner |
+| Result stamp | `DIRECT_CANONICAL` for one record | `AttendanceLogViewState.result`; canceled and score-missing behavior needs a visual decision |
+| Team names and score | `DIRECT_CANONICAL` for one record | Matchup plus `ourScore` / `opponentScore`; exact home/away display order is not authored as a data rule |
+| Date | `DIRECT_CANONICAL` for one record | `date` / `dateText` |
+| Stadium | `DIRECT_CANONICAL` for one record | Preserve `log.stadium`; never substitute `primaryStadiumID` |
+| `승리요정` wordmark | `STATIC_DESIGN_COPY` | Authored app branding |
+| User/display name | `UNAVAILABLE` in the card | Not authored; existing user identity must not be added without privacy approval |
+| Team badge / Fairy | `UNAVAILABLE` in the card | Not authored; do not add |
+| Seat, companion, diary, weather | `UNAVAILABLE` in the card | Not authored; current canvas's memo/diary is an explicit visual deviation, not authority |
+| Season statistics / win rate | `UNAVAILABLE` in the card | Not authored; current win-rate style cannot be assumed to map to `jYs0S` |
+| QR/deep link | `UNAVAILABLE` | No model, route or authored visual |
+| Share/save actions | `REQUIRES_PRODUCT_DECISION` | Exist in current code but not in or around `jYs0S` |
+| No-photo representation | `REQUIRES_PRODUCT_DECISION` | Pencil authors only the photo-present state |
+
+## Interaction and output contracts
+
+### Stadium
+
+The visual represents a list of stadiums, not one-stadium detail or statistics. The
+title, selected background and check imply a selector. However, every row is a plain
+frame and there is no prototype action, CTA, close control, commit control or mutation
+owner. Under the audit rule, no state mutation is authorized from this visual alone.
+
+Unresolved: exact origin; whether a row tap selects locally or commits immediately;
+whether selection changes a Record Create draft, primary-stadium preference or no
+persistent value; whether dismissal writes nothing; all-nine ordering/filtering;
+empty-catalog and invalid-initial-ID behavior; detent/scroll behavior; and whether the
+same sheet has more than one origin. No statistics scope exists in the frame. If a
+different statistics/detail sheet is desired, its entity and all-time versus selected-
+season scope need a new explicit product decision.
+
+### Share
+
+Pencil authors only an in-card visual. It does not authorize preview-only, native
+share, Photos save, or both. Current code technically implements both native sharing
+and Photos save, but that cannot resolve the Pencil omission, and its Statistics
+consumer proves that the current entity contract is unsafe.
+
+Unresolved: exact origin(s); record versus season entity; whether Record Detail, Feed
+and Statistics share one destination or separate products; whether `jYs0S` replaces,
+supplements or becomes one style of the current three-style canvas; share/save
+authorization; photo consent and no-photo behavior; privacy omissions; deterministic
+export geometry; and whether the 300pt intrinsic-height reference is a preview only or
+an exported artifact. Dark appearance is not separately authored and remains in the
+later project-wide dark pass.
+
+## Fairy governance
+
+Neither target frame contains a Fairy. `Hmdjx` uses plate component `eAL5Z`; `jYs0S`
+uses result stamp `aYRjf` and a text wordmark. None is a Fairy component.
+`FairyPlacementContractTests` authorizes `09_States` Fairies only for empty record,
+empty season and error panels, while `StadiumFairyContractTests` explicitly forbids a
+production Stadium Fairy because Pencil places none on any product screen, including
+`09_States`. No allow-list or density-rule extension is authorized.
+
+## Accessibility contract for an eventual implementation
+
+The stadium sheet needs a semantic container that does not overwrite descendants, a
+heading, an explicitly labelled dismiss path when approved, stable-ID row identifiers,
+full stadium name plus city/home-team label, and selected value/trait communicated by
+text and check as well as color. Every row must remain at least 44pt and expand for
+long names/AccessibilityXXXL. Empty/invalid/error states must state the condition and
+must never expose a raw stadium ID.
+
+The share flow needs an independently queryable preview root, back/dismiss, share and
+save controls only when approved, and a concise card description containing the major
+record/result/date/stadium facts. The bitmap does not need an accessibility tree, but
+the in-app preview and controls do. A root container may use
+`.accessibilityElement(children: .contain)` only if required to preserve descendant
+identifiers; unrelated card facts must not be collapsed into an unreadable sentence.
+
+Current gaps: `ShareCardPreviewView` and `DiaryShareCardCanvas` define no dedicated
+accessibility identifiers or card-summary semantics, and the existing UI coverage only
+proves that Record Detail can reach some screen containing `공유`.
+
+## Responsive contract and provisional capture matrices
+
+The stadium sheet has no detent/scroll rule and its fixed 56pt sample rows do not prove
+long-name or AccessibilityXXXL behavior. An eventual sheet must fit iPhone 17 Pro,
+scroll on `VF-CalendarCompact-SE3`, respect safe areas, expand rows vertically, retain
+all nine canonical options, and handle empty/invalid input without selecting the first
+row. The final capture count is not authorized until origin and behavior are approved.
+A provisional minimum is seven states: primary unselected; primary selected; primary
+all-nine scrolled/long-name; primary empty catalog; primary invalid initial ID; compact
+selected/full catalog; and AccessibilityXXXL long-name/selected semantics.
+
+The current share preview hard-codes a 330×586 preview inside horizontal 24pt padding
+and a 1080×1920 export. The preview can exceed the effective compact content width,
+uses fixed typography, and has no compact or AccessibilityXXXL coverage. Pencil instead
+has 300pt width and intrinsic height, so the existing 9:16 export is an explicit visual
+deviation. A future implementation must scale preview independently from fixed export
+geometry, keep long team/stadium names and scores legible, avoid network-dependent
+media, and handle absent/unreadable photos. The final capture count is deferred. A
+provisional minimum is seven states: primary real record with photo; primary no photo;
+primary unavailable photo; primary long names/two-digit or canceled result; compact
+preview; AccessibilityXXXL controls/card description; and decoded deterministic export
+with the approved dimensions.
+
+Every eventual capture must remain under `/tmp` and record filename, SHA-256,
+dimensions, device, runtime, fixture, route, canonical source state, rendered state and
+result. No captures are produced during this audit stop.
+
+## Product-decision matrix
+
+| Decision | Audit result |
+|---|---|
+| Use `Hmdjx` as a finished production selector | `DEFER_REQUIRES_PRODUCT_DECISION`: layout is clear, origin and mutation contract are not |
+| Treat `Hmdjx` as stadium statistics/detail | `REJECT_UNAUTHORED`: no statistic or one-stadium detail is present |
+| Reuse onboarding selector | `KEEP_CLOSED_SEPARATE_ROUTE`: onboarding has an authoritative full-screen flow and must not be reopened |
+| Change primary stadium from `Hmdjx` | `DEFER_REQUIRES_PRODUCT_DECISION`: mutation owner exists, route does not |
+| Replace Record Create's menu with `Hmdjx` | `DEFER_REQUIRES_PRODUCT_DECISION`: strongest candidate, but no link and a split stadium catalog remain |
+| Use only Pencil's four stadium rows | `REJECT_FABRICATED_SUBSET`: production has nine canonical stadiums |
+| Use `jYs0S` as one-record visual reference | `SUPPORTED_AS_VISUAL_REFERENCE_ONLY` |
+| Use `jYs0S` for the season report | `DEFER_REQUIRES_PRODUCT_DECISION`: its fields depict one record and author no season facts |
+| Preserve current share and Photos actions | `DEFER_REQUIRES_PRODUCT_DECISION`: capability exists, Pencil does not authorize the output |
+| Export current Statistics fallback | `REJECT_FAKE_DATA`: it composes a real season rate with `AttendanceLogSample` |
+| Add identity, diary, stats, Fairy, QR or social SDK | `REJECT_UNAUTHORED` |
+| Start dark appearance or distribution signing | `OUT_OF_SCOPE` |
+
+## Minimum decisions requiring human approval
+
+1. **Stadium origin and owner:** choose the exact opener, with Record Create Step 1
+   `eCkfl` as an unproven candidate, and state whether any other origin may reuse it.
+2. **Stadium list contract:** approve all nine canonical stable IDs, displayed names,
+   ordering/recommendation, and how the current `KBOSeed.stadiums` spelling split is
+   handled without reopening persistence ownership.
+3. **Stadium interaction:** define row-tap behavior, local versus immediate commit,
+   exact mutation owner, cancel/drag dismissal, zero catalog and invalid initial ID.
+   Dismissal must write nothing unless explicitly approved otherwise.
+4. **Share origin and entity:** choose one-record (Record Detail and/or Feed), selected-
+   season report, separate cards for each, or another explicit entity; identify every
+   allowed opener and return behavior.
+5. **Share visual scope:** decide whether `jYs0S` replaces the current 3-style 9:16
+   canvas, becomes one style, or applies only to one-record sharing while season sharing
+   receives a separate authored design.
+6. **Share output:** approve preview-only, native system share, Photos save, or both.
+   Existing technical capability and the existing Info.plist key do not substitute for
+   this decision.
+7. **Share privacy/media:** approve the exact fields, whether a record photo is included,
+   the no-photo/unreadable-photo visual, and confirm that user identity, diary and other
+   absent fields stay omitted unless explicitly added.
+8. **Share artifact geometry:** approve export aspect ratio and pixel dimensions,
+   fixed deterministic layout, long-text/canceled-score rules and network-free media.
+
+Until all eight are resolved, production and test code remain unchanged.
