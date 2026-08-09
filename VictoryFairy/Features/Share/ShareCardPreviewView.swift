@@ -29,7 +29,7 @@ struct MemoryShareCardCanvas: View {
                 .offset(y: 6)
 
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(hex: "#FFFDF8"))
+                .fill(VFColor.memoryCardSurface)
                 .frame(width: 296, height: 348)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)

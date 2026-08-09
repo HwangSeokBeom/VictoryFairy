@@ -22,6 +22,8 @@ enum VFColor {
     static let subtleSurface = Color(hex: "#EAEAE6")
     /// 강조 스트립·선택 행에 쓰는 따뜻한 톤. Pencil `butter-pale`.
     static let highlightSurface = Color(hex: "#F6EEDC")
+    /// 한 기록 추억 카드의 따뜻한 종이 표면. Pencil `jYs0S`.
+    static let memoryCardSurface = Color(hex: "#FFFDF8")
     /// 반투명 표면(탭바 등).
     static let translucentSurface = Color(hex: "#FFFFFF").opacity(0.94)
 
