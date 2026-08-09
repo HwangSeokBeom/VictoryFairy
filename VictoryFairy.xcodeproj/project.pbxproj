@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		09A700000000000000000002 /* StadiumSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A700000000000000000001 /* StadiumSelectionTests.swift */; };
+		09A710000000000000000002 /* MemoryShareCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A710000000000000000001 /* MemoryShareCardTests.swift */; };
+		09A720000000000000000002 /* StatisticsShareBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09A720000000000000000001 /* StatisticsShareBoundaryTests.swift */; };
 		195A95FFEF9C27A9629BD41B /* RecordDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA78C69AFF8DB8183D8F16B /* RecordDetailTests.swift */; };
 		1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */; };
 		1F7CA7B976729E470F1707CB /* StatisticsCaptureUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E66D4EAA50227341A84F1FE /* StatisticsCaptureUITests.swift */; };
@@ -94,6 +96,8 @@
 
 /* Begin PBXFileReference section */
 		09A700000000000000000001 /* StadiumSelectionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StadiumSelectionTests.swift; sourceTree = "<group>"; };
+		09A710000000000000000001 /* MemoryShareCardTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryShareCardTests.swift; sourceTree = "<group>"; };
+		09A720000000000000000001 /* StatisticsShareBoundaryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatisticsShareBoundaryTests.swift; sourceTree = "<group>"; };
 		01A8D7C72E7A4A8F8EBC0011 /* VictoryFairy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VictoryFairy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		071661147C015553CCB78E53 /* VictoryFairyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VictoryFairyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B6A286C7629719131BF3239 /* NavigationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationUITests.swift; sourceTree = "<group>"; };
@@ -236,6 +240,8 @@
 			isa = PBXGroup;
 			children = (
 				09A700000000000000000001 /* StadiumSelectionTests.swift */,
+				09A710000000000000000001 /* MemoryShareCardTests.swift */,
+				09A720000000000000000001 /* StatisticsShareBoundaryTests.swift */,
 				30D17667A4ED56912BBB8893 /* ArchitectureBoundaryTests.swift */,
 				7264ECF83681DF2376ED0AA3 /* DesignSystemContractTests.swift */,
 				F1A2B3C4D5E6F708192A3B4C /* FairyGlyphContractTests.swift */,
@@ -503,6 +509,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				09A700000000000000000002 /* StadiumSelectionTests.swift in Sources */,
+				09A710000000000000000002 /* MemoryShareCardTests.swift in Sources */,
+				09A720000000000000000002 /* StatisticsShareBoundaryTests.swift in Sources */,
 				1B53D43C7D74BED8EF88519D /* ArchitectureBoundaryTests.swift in Sources */,
 				AF142BAAAFB1D8B2752A53B9 /* DesignSystemContractTests.swift in Sources */,
 				F1A2B3C4D5E6F708192A3B4D /* FairyGlyphContractTests.swift in Sources */,
