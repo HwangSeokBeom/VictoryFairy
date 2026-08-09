@@ -285,12 +285,24 @@ final class StadiumFairyContractTests: XCTestCase {
 
     /// 등록부가 모르는 이름은 다른 구장으로 바뀌지 않는다.
     func testUnknownNameIsNeverReplacedByACanonicalStadium() {
-        for value in ["부산 사직 보조구장", "울산 문수야구장", "잠실", "고척", "Jamsil"] {
+        for value in ["부산 사직 보조구장", "울산 문수야구장", "잠실 야구장", "Jamsil"] {
             XCTAssertEqual(
                 VFStadiumFairyIdentity.identity(forRecordedStadiumNamed: value), .unknown,
                 "\"\(value)\"가 canonical 구장으로 바뀌었다"
             )
         }
+    }
+
+    /// canonical 짧은 이름은 구장 선택기와 모든 downstream 표현에서 같은 구장을 뜻한다.
+    func testCanonicalShortNameResolvesToTheMatchingStadium() {
+        XCTAssertEqual(
+            VFStadiumFairyIdentity.identity(forRecordedStadiumNamed: "잠실"),
+            .canonical("jamsil")
+        )
+        XCTAssertEqual(
+            VFStadiumFairyIdentity.identity(forRecordedStadiumNamed: "고척돔"),
+            .canonical("gocheok")
+        )
     }
 
     /// 기록의 구장이 주 관람 구장이나 팀 홈 구장으로 대체될 수 없어야 한다.
