@@ -54,7 +54,7 @@ struct StatisticsView: View {
     @EnvironmentObject private var appData: AppDataStore
     let viewModel: StatisticsViewModel
     @State private var isShowingSeasonPicker = false
-    @State private var isShowingSeasonReport = false
+    @State private var isShowingSeasonReportUnavailable = false
 
     private var archive: SeasonArchivePresentation { viewModel.archive }
 
@@ -103,10 +103,13 @@ struct StatisticsView: View {
             }
             .presentationDetents([.medium])
         }
-        .sheet(isPresented: $isShowingSeasonReport) {
-            NavigationStack {
-                ShareCardPreviewView(seasonWinRateText: archive.record.winRateText)
-            }
+        // `SEASON_SHARE_REQUIRES_SEPARATE_PRODUCT_DESIGN`
+        // Statistics는 시즌 엔티티만 소유한다. 별도 canonical 시즌 renderer가 생기기 전까지
+        // 실제 시즌 값에 샘플 직관 기록을 섞어 내보내지 않고, 정직한 unavailable 상태를 쓴다.
+        .alert("시즌 리포트는 준비 중이에요", isPresented: $isShowingSeasonReportUnavailable) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("시즌 전체를 정확히 담는 별도 카드 디자인이 필요해요. 개별 기록은 기록 상세나 피드에서 추억 카드로 공유할 수 있어요.")
         }
         .vfScreenBackground()
     }
@@ -326,12 +329,13 @@ struct StatisticsView: View {
 
     // MARK: - 마무리
 
-    /// Pencil `리포트 공유`. 이미 있는 공유 카드 화면으로 이어진다.
+    /// Pencil이 저작한 시즌 액션은 유지하되, 한 기록용 jYs0S로 보내지 않는다.
     private var seasonReportButton: some View {
         VFSecondaryButton(title: "시즌 리포트 만들기", systemImage: "square.and.arrow.up") {
-            isShowingSeasonReport = true
+            isShowingSeasonReportUnavailable = true
         }
         .accessibilityIdentifier(StatisticsAccessibilityID.seasonReport)
+        .accessibilityHint("시즌 전체 카드가 아직 준비되지 않았다는 안내를 엽니다")
     }
 
     /// Pencil 프레임에는 없다. 기존 제품 기능(리그 순위표)을 지우지 않기 위해
