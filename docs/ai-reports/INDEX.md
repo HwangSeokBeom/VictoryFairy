@@ -503,4 +503,25 @@ archive file linked from each entry — never paste a full report here.
 - Fresh Release archive succeeded. Fixture exclusion passes with `-VFUITestDisplayName`, `-VFUITestProfileFixture` and `-VFUITestTeamCatalog` absent, all 15 positive controls present, and a Debug negative control that exits 1 detecting all three tokens — proving the check is sensitive in both directions
 - Production source changed: no
 - Pushed: no · Merged: no
-- Project status: `TEAM_SELECTOR_PROFILE_MODE_IMPLEMENTED_AND_VERIFIED`
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+- Superseded for final handoff by: `docs/ai-reports/archive/2026-08-09_1435_team-selector-final-closure-normalized_verified.md`
+
+---
+
+## 2026-08-09 14:35 KST — TEAM_SELECTOR_PROFILE_MODE_IMPLEMENTED_AND_VERIFIED (normalized closure)
+
+- Task: Team Selector — normalize the final closure report and add exact final-source unit evidence
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `1a4c18c` · Frozen source HEAD: `b454bd0` · Ending HEAD: `1a4c18c` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-09_1435_team-selector-final-closure-normalized_verified.md`
+- Supersedes for handoff accuracy: `docs/ai-reports/archive/2026-08-05_0241_team-selector-final-regression-and-release-closure_verified.md`; the original immutable evidence remains preserved
+- Status correction: feature pass `TEAM_SELECTOR_PROFILE_MODE_IMPLEMENTED_AND_VERIFIED`; whole project `PARTIAL_WITH_EXPLICIT_GAPS`
+- Fresh final-source unit suite: 836 executed, 836 passed, 0 failed, 0 skipped, 0 unexpected, 9.650 s, exit 0, `** TEST SUCCEEDED **`; finalized `xcresulttool` result `Passed`
+- Preserved closure evidence: primary UI 632 executed / 551 passed / 81 skipped / 0 failed; compact 180/180; exact unpaired skips 0; Debug and Release builds, XCUITest compilation, gates, archive and fixture exclusion all pass
+- Infrastructure record preserved: degraded `final4` remains discarded and contributes no accepted count; the void negative-control attempt remains distinguished from the explicit Debug exit-1 rerun
+- Remaining Team Selector Profile-mode gaps: none
+- Remaining project gaps: onboarding visual audit, both `09_States` surfaces, dark appearance, distribution signing, Pencil/cleanup debt, deferred Record Create decisions and deferred Profile capabilities
+- Production source changed: no · Test source changed: no
+- Pushed: no · Merged: no
+- Next: upload `docs/ai-reports/LATEST_REPORT.md` for the `09_States` stadium sheet and share-card product-decision prompt
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
