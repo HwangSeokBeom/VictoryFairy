@@ -3312,7 +3312,7 @@ closed Record Create contract.
 | Pencil value | Classification | Production owner / limitation |
 |---|---|---|
 | Sheet title | `STATIC_DESIGN_COPY` | Pencil literal |
-| Four row names | `DERIVED_FROM_KBO_SEED` when normalized | All four map conceptually to canonical stadiums, but three Pencil labels are shortened display forms; never store the sample labels as IDs |
+| Four row names | `DERIVED_FROM_KBO_SEED` when normalized | All four map conceptually to canonical stadiums, but two Pencil labels are shortened display forms; never store the sample labels as IDs |
 | City | `DERIVED_FROM_KBO_SEED` | `KBOStadium.city` |
 | Home-team short labels | `DERIVED_FROM_KBO_SEED` | `homeTeamIDs` plus canonical team short names |
 | Plate icon | `STATIC_DESIGN_COPY` | Pencil component `eAL5Z`; no data |
@@ -3434,9 +3434,10 @@ A provisional minimum is seven states: primary unselected; primary selected; pri
 all-nine scrolled/long-name; primary empty catalog; primary invalid initial ID; compact
 selected/full catalog; and AccessibilityXXXL long-name/selected semantics.
 
-The current share preview hard-codes a 330×586 preview inside horizontal 24pt padding
-and a 1080×1920 export. The preview can exceed the effective compact content width,
-uses fixed typography, and has no compact or AccessibilityXXXL coverage. Pencil instead
+The current share preview hard-codes a 330×586 preview inside horizontal 20pt padding
+and a 1080×1920 export. That consumes 370pt of the 375pt SE 3 width before any other
+container inset; no compact test proves the remaining margin. It uses fixed typography
+and has no AccessibilityXXXL coverage. Pencil instead
 has 300pt width and intrinsic height, so the existing 9:16 export is an explicit visual
 deviation. A future implementation must scale preview independently from fixed export
 geometry, keep long team/stadium names and scores legible, avoid network-dependent

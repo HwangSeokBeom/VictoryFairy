@@ -525,3 +525,22 @@ archive file linked from each entry — never paste a full report here.
 - Pushed: no · Merged: no
 - Next: upload `docs/ai-reports/LATEST_REPORT.md` for the `09_States` stadium sheet and share-card product-decision prompt
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-09 15:02 KST — PARTIAL_WITH_EXPLICIT_PRODUCT_DECISIONS
+
+- Task: `09_States` — stadium bottom-sheet and share-card product/frame audit
+- Branch: `feat/pencil-revision-v2`
+- Starting HEAD: `b869208` · Audit HEAD: `2ce923f` (plus this documentation commit)
+- Archive report: `docs/ai-reports/archive/2026-08-09_1502_09-states-stadium-and-share-audit_partial.md`
+- Pencil proof: `/Users/hwangseokbeom/Documents/VictoryFairy.pen`, 1,882,899 bytes, SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`
+- Frames: `구장 바텀시트` / `Hmdjx` / `VISUAL_REFERENCE_ONLY`; `추억 카드` / `jYs0S` / `VISUAL_REFERENCE_ONLY`
+- Origins: both `UNPROVEN`; no node-level prototype routes exist for either target
+- Stadium finding: the frame visually implies selection but authors no action, commit owner, dismissal semantics or all-nine catalog rule; Record Create `eCkfl` is only an unproven origin candidate
+- Share finding: the frame depicts one record but authors no preview/share/save contract or export geometry; current code has Record Detail, Feed and Statistics consumers, and Statistics mixes a real season rate with the non-DEBUG `AttendanceLogSample` fallback
+- Product decisions required: stadium origin/catalog/commit; share entity/origins/visual scope/output/privacy/photo fallback/export geometry
+- Production source changed: no · Test source changed: no · Tests/builds/archive: not run for audit-only documentation
+- Pushed: no · Merged: no
+- Next: upload `docs/ai-reports/LATEST_REPORT.md` to resolve the listed `09_States` decisions before implementation
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
