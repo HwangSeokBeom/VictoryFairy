@@ -267,11 +267,13 @@ present "recordDetail.scoreboard"  "스코어보드가 들어 있다"
 present "recordDetail.stadium"     "구장 영역이 들어 있다"
 present "RecordDetailMediaView"    "사진 영역이 들어 있다"
 present "AttendancePostDetailView" "기록 상세 화면이 들어 있다"
-present "KBOStadiumSeed"           "canonical 구장 등록부가 들어 있다"
+# Release 아카이브의 최적화는 사용 중인 Swift 타입명도 제거할 수 있다. 타입명이 아니라
+# 실제 제품 경로가 런타임에 소비하는 안정 ID와 접근성/출력 계약을 확인한다.
+present "daejeon-hanwha"          "canonical 구장 안정 ID가 들어 있다"
 present "StadiumSelectionSheet"    "구장 선택 시트가 들어 있다"
 present "stadiumSheet.stadium."    "구장 행 안정 식별자가 들어 있다"
 present "MemoryShareCardContent"   "한 기록 추억 카드 모델이 들어 있다"
-present "MemoryShareCardRenderer"  "결정적 추억 카드 renderer가 들어 있다"
+present "memoryShare.geometry"     "결정적 추억 카드 출력 geometry가 들어 있다"
 present "memoryShare.card"         "추억 카드 접근성 계약이 들어 있다"
 
 # --- 결과 ------------------------------------------------------------------
