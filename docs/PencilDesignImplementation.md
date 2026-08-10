@@ -3494,3 +3494,113 @@ result. No captures are produced during this audit stop.
    fixed deterministic layout, long-text/canceled-score rules and network-free media.
 
 Until all eight are resolved, production and test code remain unchanged.
+
+---
+
+# 09_States — stadium sheet and one-record Memory Card implementation closure
+
+The audit above remains the historical proof of what Pencil did and did not author. The
+route, mutation, output and export rules below are explicit product decisions approved
+after that audit; they are not retroactively attributed to Pencil.
+
+## Status and source boundary
+
+- Feature pass: `09_STATES_STADIUM_AND_SHARE_IMPLEMENTED_AND_VERIFIED`
+- Whole project: `PARTIAL_WITH_EXPLICIT_GAPS`
+- Pencil section: `09_States` / `Pq7x6`
+- Stadium visual: `구장 바텀시트` / `Hmdjx` / `VISUAL_REFERENCE_ONLY`
+- Share visual: `추억 카드` / `jYs0S` / `VISUAL_REFERENCE_ONLY`
+- Pencil file was not changed.
+
+## Approved stadium product contract
+
+- The only origin is the Record Create Step 1 stadium field.
+- The sheet presents all nine stable IDs from `KBOStadiumSeed.all`; it never uses the
+  four-row Pencil sample as a production catalog.
+- Canonical full names, short names and the three historical Record Create spellings
+  resolve through aliases. Existing stored records are not migrated.
+- A row tap writes the selected canonical name only to `RecordEditorDraft` and dismisses
+  immediately. It does not change onboarding or the user's primary stadium.
+- Drag/cancel dismissal performs zero writes. Invalid initial values select nothing,
+  and an empty catalog shows an honest empty state.
+- The sheet supports medium/large detents, scrolling, 44pt-or-larger rows, selected
+  trait/value semantics, compact width and AccessibilityXXXL.
+
+Implementation owners:
+
+- `Domain/KBOStadium.swift`
+- `Features/LogEditor/StadiumSelectionSheet.swift`
+- `Features/LogEditor/RecordCreateFlowView.swift`
+- `Features/LogEditor/RecordCreateStep1View.swift`
+
+## Approved share product contract
+
+- `jYs0S` is a one-attendance-record Memory Card only.
+- Record Detail and Feed pass the exact visible `AttendanceLogViewState` record.
+- Statistics remains a separate season-report product and exposes an honest unavailable
+  alert until a season design exists. It never fabricates a record.
+- The card contains only the approved result, matchup/score, date, record stadium,
+  optional first readable local photo and `승리요정` wordmark.
+- No identity, diary, seat, companion, statistics, Fairy, QR, social SDK or network
+  image is added.
+- Canceled games say `경기 취소`; absent scores say `점수 미기록`. Missing and
+  unreadable photos use the same deterministic paper placeholder.
+- Logical geometry is 300×360pt, rendered at scale 4 to exactly 1200×1440 pixels
+  (5:6). Preview scaling is independent from export geometry.
+- The screen provides preview, native `UIActivityViewController` sharing and explicit
+  add-only Photos saving. Dismissing the preview or native share sheet saves nothing.
+
+Implementation owners:
+
+- `Domain/MemoryShareCard.swift`
+- `Features/Share/ShareCardPreviewView.swift`
+- `Features/Feed/FeedViews.swift`
+- `Features/Statistics/StatisticsViews.swift`
+- `Services/PhotoAttachmentService.swift`
+
+## Debug fixtures and Release boundary
+
+`VFStatesFixtures`, `StadiumSheetFixture`, `MemoryShareFixture` and their launch
+arguments exist only under `#if DEBUG`. `scripts/verify_fixture_exclusion.sh` checks the
+real archive executable and uses archive-stable product controls rather than Swift type
+names that whole-module optimization may remove.
+
+The final Release check passed with 98 checks, including 21 positive product controls.
+The explicit Debug-app negative control exited 1 with 75 detections, including nine
+09_States-specific detections. This proves the gate is sensitive in both directions.
+
+## Visual evidence
+
+Exactly 14 authoritative PNG captures live outside the repository at
+`/tmp/VictoryFairy-09-states-captures`. They cover seven stadium states and seven share
+states across iPhone 17 Pro, iPhone SE (3rd generation) and AccessibilityXXXL. The
+manifest is `/tmp/VictoryFairy-09-states-captures/MANIFEST.md`.
+
+Captures 09 and 10 intentionally have the same SHA-256 because no-photo and unreadable-
+photo inputs resolve to the same deterministic fallback for the same visible record.
+The exported image proof decodes at exactly 1200×1440. No PNG, xcresult, DerivedData,
+archive or manifest is committed.
+
+## Verification closure
+
+- Focused unit: 62 executed, 62 passed.
+- New stadium/share Primary UI: 43 executed, 39 passed, 4 compact-only skipped,
+  0 failed.
+- New compact responsive: 6 executed, 6 passed.
+- Final-source complete unit: 899 executed, 899 passed, 0 skipped, 0 failed.
+- Fairy contracts: 100 executed, 100 passed.
+- Complete compact matrix: 188 executed, 188 passed, 0 skipped, 0 failed.
+- Complete Primary UI: 675 executed, 590 passed, 85 skipped, 0 failed.
+- Exact class+method skip pairing: 85 paired, 0 unpaired.
+- Debug Simulator, Release Simulator and XCUITest build-for-testing succeeded.
+- App icon, release readiness, secret scan and `git diff --check` passed.
+- Release archive succeeded; fixture exclusion passed and the Debug negative control
+  failed as expected.
+
+## Remaining scope
+
+There are no remaining `09_States` stadium-sheet or one-record Memory Card gaps. The
+whole project remains partial because the onboarding team-step frame audit, project-wide
+dark appearance, distribution signing and the previously documented deferred product
+and cleanup gaps remain. The next recommended pass is
+`ONBOARDING_TEAM_STEP_VISUAL_AUDIT_AND_VISIBLE_LAYOUT`; it was not started here.
