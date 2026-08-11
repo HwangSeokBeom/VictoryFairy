@@ -78,6 +78,10 @@ enum VFColor {
     static let supportAccent = Color(hex: "#2F7A56")
     /// 정보 톤 보조 강조. Pencil `sky`.
     static let infoAccent = Color(hex: "#5E7FA6")
+    /// 온보딩 진행 표시에서 이미 지난 단계. Pencil `04_Onboarding`.
+    static let onboardingProgressCompleted = Color(hex: "#C7CBD4")
+    /// 온보딩 진행 표시에서 아직 남은 단계. Pencil `04_Onboarding`.
+    static let onboardingProgressUpcoming = Color(hex: "#DDDEDA")
 
     // 옅은 톤 배경
     static let supportAccentPale = Color(hex: "#E3EFE8")

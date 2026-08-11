@@ -50,6 +50,8 @@ struct VFPrimaryButton: View {
     let title: String
     var systemImage: String?
     var isEnabled = true
+    var labelFont = VFTypography.button
+    var minimumHeight = VFControl.buttonHeight
     var action: () -> Void = {}
 
     var body: some View {
@@ -57,16 +59,16 @@ struct VFPrimaryButton: View {
             HStack(spacing: VFSpacing.xs) {
                 if let systemImage {
                     Image(systemName: systemImage)
-                        .font(VFTypography.button)
+                        .font(labelFont)
                 }
                 Text(title)
-                    .font(VFTypography.button)
+                    .font(labelFont)
                     .multilineTextAlignment(.center)
             }
             .foregroundStyle(VFColor.bodyOnDark)
             .padding(.horizontal, VFSpacing.md)
             .padding(.vertical, VFSpacing.sm)
-            .frame(maxWidth: .infinity, minHeight: VFControl.buttonHeight)
+            .frame(maxWidth: .infinity, minHeight: minimumHeight)
             .background(isEnabled ? VFColor.primaryAction : VFColor.disabled)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
             .overlay(

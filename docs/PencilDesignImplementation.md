@@ -3604,3 +3604,97 @@ whole project remains partial because the onboarding team-step frame audit, proj
 dark appearance, distribution signing and the previously documented deferred product
 and cleanup gaps remain. The next recommended pass is
 `ONBOARDING_TEAM_STEP_VISUAL_AUDIT_AND_VISIBLE_LAYOUT`; it was not started here.
+
+---
+
+# Onboarding team step — visual implementation closure
+
+The earlier Team Selector audit remains the ownership proof. This section closes only the
+routed onboarding team step; it does not reopen the already completed Profile Team Selector.
+
+## Pencil source and authority
+
+- Source: `/Users/hwangseokbeom/Documents/VictoryFairy.pen`, read directly as UTF-8 JSON.
+- SHA-256: `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`.
+- The live Pencil MCP was not attached to this document, so no live MCP inspection is claimed.
+- The Pencil file was not modified.
+- Developer handoff `IJXOi` maps `/onboarding/team` to the required third onboarding step.
+- Canonical 393pt frames: default `Onboarding_03_SelectTeam_Default` / `y4uh3` and selected
+  `Onboarding_03_SelectTeam_Selected` / `dNKwc`.
+- Shared visual component: `OnboardingTeamCard` / `t0KQZV`.
+- Responsive references: `Onboarding_CompactWidth` / `zI606` and
+  `Onboarding_AccessibilityXXXL` / `AA7P3`.
+- `08_TeamSelector` remains an unrouted legacy variant and is not used as the onboarding
+  implementation authority.
+
+## Visible contract
+
+The routed team step now uses the exact authored copy:
+
+- `어느 팀을 응원하시나요?`
+- `선택한 팀을 기준으로 경기와 기록을 먼저 보여드릴게요.`
+- `응원팀은 나중에 설정에서 변경할 수 있어요.`
+- Disabled action: `응원팀을 선택해 주세요`
+- Selected action: `이 팀으로 응원할게요`
+
+It shows the third-of-five progress state with authored dots plus an accessible `3 / 5`
+summary. The visual order is exactly LG/Doosan, Samsung/KIA, SSG/KT, NC/Lotte and
+Kiwoom/Hanwha. No team is preselected; Samsung is only Pencil's selected-state sample.
+Missing authored IDs are omitted only when they are missing from the canonical input, and a
+future canonical team not present in Pencil is appended rather than silently dropped.
+
+Each selected card adds background, border, elevation, a check icon and visible `선택됨`
+text. VoiceOver also receives the team, city, selected value and selected trait. Selection is
+therefore never communicated by color alone. Stable team-ID identifiers remain the automation
+and state boundary.
+
+## Responsive and accessibility contract
+
+Normal and compact widths retain the authored two-column order. The horizontal inset narrows
+only below 341pt so the grid remains usable. Accessibility Dynamic Type switches to the
+authored one-column scrolling layout with the reference sizes: 32pt heading, 20pt subtitle,
+21pt team name, 15pt city/note, 48pt badge, 16pt card padding, 66pt primary action and 21pt
+action label. All ten teams, the note and the action remain reachable.
+
+The selected-state transition now respects Reduce Motion. Decorative progress dots are folded
+into one progress accessibility element instead of being announced separately.
+
+Two deliberate shared-system differences remain:
+
+1. `VFPrimaryButton` keeps the app-wide enabled/disabled palette rather than introducing an
+   onboarding-only dark-label and cream-disabled variant. Its new font and minimum-height
+   parameters preserve every existing call site's defaults.
+2. The primary action remains in the scaffold's safe-area-aware fixed bottom region. The
+   supporting AccessibilityXXXL board places it after the long content, but keeping it fixed
+   avoids making the only progression action disappear deep in the team list.
+
+The selected reference contains a small check-placement inconsistency between frame and
+component authoring. The production card resolves it with one check beside the visible
+`선택됨` text; it does not duplicate checks.
+
+## Product and state boundaries
+
+`KBOSeed.teams` remains the canonical catalog. `OnboardingViewModel.selectedTeamID` and
+`selectTeam(_:)` remain the draft owner and mutation path. A team tap does not persist the
+profile, request permission, select a stadium or silently substitute the team's home stadium.
+Moving forward enters the existing stadium step; moving back retains the team draft. Final
+persistence remains owned by onboarding completion.
+
+No Profile Team Selector route, persistence schema, API/backend contract, notification flow,
+permission flow, dark appearance or distribution signing behavior changed in this pass.
+
+## Visual evidence
+
+Six authoritative PNGs remain outside the repository:
+
+| State | Device/layout | Pixels | SHA-256 |
+| --- | --- | --- | --- |
+| Default | iPhone 17 Pro | 1206×2622 | `c9a17d892b6407b6f5f3d2022fe44e8ae4432807c0e51c6b48fbae3aa4b2ffa3` |
+| Samsung selected | iPhone 17 Pro | 1206×2622 | `c9e2a1d8cb44b6b8259ea26e9b4dddc12b97166d3ec2eee330ab301e2885e134` |
+| Default | iPhone SE (3rd generation) | 750×1334 | `165cb74260d3e8c411f7dd5784f76068a896edcde2e15987ec8aac3fdad6c0e0` |
+| Samsung selected | iPhone SE (3rd generation) | 750×1334 | `9e02a6fd212578df6de8223c69bda658f2448c9cb4ddc4dd2e39b758f0cfa97f` |
+| Default | AccessibilityXXXL | 1206×2622 | `0d0d1794416be83f174aba40889de7a9c5c8c1e6a74c6bf4c1820346191606df` |
+| Samsung selected | AccessibilityXXXL | 1206×2622 | `b8d9b1c342b817f486c473cbe6659e7981f00c3e7a056d6955b676a14917d7d8` |
+
+The captures cover authored default/selected, compact and one-column AccessibilityXXXL states.
+No PNG, xcresult, DerivedData or archive is committed.

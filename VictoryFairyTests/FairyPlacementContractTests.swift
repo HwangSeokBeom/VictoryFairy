@@ -426,7 +426,12 @@ final class FairyPlacementContractTests: XCTestCase {
 
     func testOnboardingCompletionHardcodesNoPencilSampleTeam() throws {
         // 프리뷰는 카탈로그라 어떤 팀이든 하나는 골라야 한다. 제품 경로만 본다.
-        let body = withoutPreviews(try executableSource("Features/Onboarding/OnboardingView.swift"))
+        // 같은 파일의 팀 선택 단계에는 열 구단의 안정 ID가 정당하게 들어가므로,
+        // 온보딩 파일 전체가 아니라 완료 화면 선언만 검사한다.
+        let source = withoutPreviews(try executableSource("Features/Onboarding/OnboardingView.swift"))
+        guard let body = declarationBody("private struct OnboardingCompleteView", in: source) else {
+            return XCTFail("온보딩 완료 화면 선언을 찾지 못했다")
+        }
         for sample in ["samsung-lions", "삼성 라이온즈", "lg-twins", "LG 트윈스"] {
             XCTAssertFalse(body.contains(sample), "Pencil 표본 팀 \(sample)이 코드에 박혀 있다")
         }

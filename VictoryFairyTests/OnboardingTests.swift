@@ -68,6 +68,38 @@ final class OnboardingTests: XCTestCase {
 
     // MARK: - 필수 선택
 
+    func testPencilTeamOrderUsesEveryCanonicalTeamExactlyOnce() {
+        let ordered = OnboardingTeamLayout.orderedTeams(from: KBOSeed.teams)
+
+        XCTAssertEqual(ordered.map(\.id), OnboardingTeamLayout.visualOrderTeamIDs)
+        XCTAssertEqual(Set(ordered.map(\.id)), Set(KBOSeed.teams.map(\.id)))
+        XCTAssertEqual(ordered.count, KBOSeed.teams.count)
+    }
+
+    func testUnknownFutureTeamIsAppendedInsteadOfDropped() {
+        let future = KBOTeam(
+            id: "future-team",
+            name: "미래 구단",
+            shortName: "미래",
+            city: "서울",
+            homeStadiumName: "미정",
+            primaryColorHex: "#000000",
+            secondaryColorHex: "#FFFFFF",
+            accentColorHex: "#000000",
+            textOnPrimaryHex: "#FFFFFF",
+            active: true
+        )
+
+        let ordered = OnboardingTeamLayout.orderedTeams(from: KBOSeed.teams + [future])
+        XCTAssertEqual(ordered.last?.id, future.id)
+        XCTAssertEqual(ordered.count, KBOSeed.teams.count + 1)
+    }
+
+    func testTeamGridUsesTwoColumnsUntilAccessibilitySizes() {
+        XCTAssertEqual(OnboardingTeamLayout.columnCount(isAccessibilitySize: false), 2)
+        XCTAssertEqual(OnboardingTeamLayout.columnCount(isAccessibilitySize: true), 1)
+    }
+
     func testFirstRunRequiresBothTeamAndStadium() {
         let viewModel = OnboardingViewModel(entry: .firstRun)
         XCTAssertEqual(viewModel.steps, [.welcome, .overview, .selectTeam, .selectStadium, .complete])

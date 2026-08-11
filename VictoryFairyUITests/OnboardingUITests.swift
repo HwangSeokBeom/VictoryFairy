@@ -59,6 +59,24 @@ final class OnboardingUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
+    @discardableResult
+    private func scrollToTeam(_ app: XCUIApplication, _ teamID: String,
+                              file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let card = app.buttons["onboarding.team.\(teamID)"]
+        for _ in 0..<12 {
+            if card.exists, card.isHittable { return card }
+            app.swipeUp()
+        }
+        for _ in 0..<12 {
+            if card.exists, card.isHittable { return card }
+            app.swipeDown()
+        }
+        XCTAssertTrue(card.exists && card.isHittable,
+                      "\(teamID) 팀 카드에 닿지 못했다",
+                      file: file, line: line)
+        return card
+    }
+
     // MARK: - 1~2 · 첫 실행과 소개
 
     func test01_newInstallOpensWelcome() {
@@ -218,5 +236,105 @@ final class OnboardingUITests: XCTestCase {
         let app = launch(teamID: "samsung-lions", stadiumID: "not-a-real-stadium", onboardingCompleted: true)
         XCTAssertTrue(waits(node(app, "onboarding.selectStadium")), "구장 보완 단계로 가지 않았다")
         XCTAssertFalse(node(app, "onboarding.selectTeam").exists, "팀까지 다시 묻고 있다")
+    }
+
+    // MARK: - 16~21 · Pencil 팀 선택 화면 계약
+
+    func test16_teamStepUsesExactPencilCopyAndProgress() {
+        let app = launchFresh()
+        advanceToTeamStep(app)
+
+        XCTAssertTrue(app.staticTexts["어느 팀을 응원하시나요?"].exists)
+        XCTAssertTrue(app.staticTexts["선택한 팀을 기준으로 경기와 기록을 먼저 보여드릴게요."].exists)
+        XCTAssertEqual(node(app, "onboarding.progress").label, "5단계 중 3단계")
+
+        let next = app.buttons["onboarding.team.next"]
+        XCTAssertEqual(next.label, "응원팀을 선택해 주세요")
+        XCTAssertFalse(next.isEnabled)
+
+        let note = node(app, "onboarding.team.note")
+        if !note.exists || !note.isHittable { app.swipeUp() }
+        XCTAssertTrue(waits(note, 4))
+        XCTAssertEqual(note.label, "응원팀은 나중에 설정에서 변경할 수 있어요.")
+    }
+
+    func test17_pencilSamsungSampleDoesNotBecomeAProductDefault() {
+        let app = launchFresh()
+        advanceToTeamStep(app)
+
+        let samsung = scrollToTeam(app, "samsung-lions")
+        XCTAssertFalse(samsung.isSelected, "Pencil 표본의 삼성이 제품 기본값으로 새었다")
+        XCTAssertNotEqual(samsung.value as? String, "선택됨")
+        XCTAssertFalse(app.buttons["onboarding.team.next"].isEnabled)
+    }
+
+    func test18_selectedTeamUsesNonColorSemanticsAndExactCTA() {
+        let app = launchFresh()
+        advanceToTeamStep(app)
+
+        let samsung = scrollToTeam(app, "samsung-lions")
+        samsung.tap()
+
+        XCTAssertTrue(samsung.isSelected, "선택 상태가 접근성 trait에 노출되지 않는다")
+        XCTAssertTrue(samsung.label.contains("선택됨"), "선택 상태를 VoiceOver가 읽지 못한다")
+        let next = app.buttons["onboarding.team.next"]
+        XCTAssertTrue(next.isEnabled)
+        XCTAssertEqual(next.label, "이 팀으로 응원할게요")
+    }
+
+    func test19_teamRowsFollowThePencilVisualOrder() {
+        let app = launchFresh()
+        advanceToTeamStep(app)
+
+        let rows = [
+            ["lg-twins", "doosan-bears"],
+            ["samsung-lions", "kia-tigers"],
+            ["ssg-landers", "kt-wiz"],
+            ["nc-dinos", "lotte-giants"],
+            ["kiwoom-heroes", "hanwha-eagles"]
+        ]
+        var priorRowY = -CGFloat.greatestFiniteMagnitude
+
+        for row in rows {
+            let left = scrollToTeam(app, row[0])
+            let right = scrollToTeam(app, row[1])
+            let leftFrame = left.frame
+            let rightFrame = right.frame
+
+            XCTAssertLessThan(leftFrame.minX, rightFrame.minX, "\(row)은 좌우 순서가 바뀌었다")
+            XCTAssertEqual(leftFrame.minY, rightFrame.minY, accuracy: 2,
+                           "\(row)은 같은 Pencil 행에 있지 않다")
+            XCTAssertGreaterThan(leftFrame.minY, priorRowY, "Pencil 행 순서가 뒤집혔다")
+            priorRowY = leftFrame.minY
+        }
+    }
+
+    func test20_backFromStadiumRetainsTheTeamDraft() {
+        let app = launchFresh()
+        advanceToTeamStep(app)
+        scrollToTeam(app, "kia-tigers").tap()
+        app.buttons["onboarding.team.next"].tap()
+        XCTAssertTrue(waits(node(app, "onboarding.selectStadium")))
+
+        app.buttons["onboarding.back"].tap()
+        XCTAssertTrue(waits(node(app, "onboarding.selectTeam")))
+        let kia = scrollToTeam(app, "kia-tigers")
+        XCTAssertTrue(kia.isSelected, "뒤로 왔을 때 선택 초안이 사라졌다")
+        XCTAssertTrue(kia.label.contains("선택됨"))
+        XCTAssertEqual(app.buttons["onboarding.team.next"].label, "이 팀으로 응원할게요")
+    }
+
+    func test21_teamChoiceDoesNotPreselectAStadium() {
+        let app = launchFresh()
+        advanceToTeamStep(app)
+        scrollToTeam(app, "samsung-lions").tap()
+        app.buttons["onboarding.team.next"].tap()
+        XCTAssertTrue(waits(node(app, "onboarding.selectStadium")))
+
+        XCTAssertTrue(app.buttons["onboarding.stadium.daegu-lions"].exists,
+                      "선택 팀의 홈 구장이 추천 위치에 없다")
+        XCTAssertFalse(app.buttons["onboarding.stadium.daegu-lions"].isSelected,
+                       "추천 구장이 자동 선택됐다")
+        XCTAssertFalse(app.buttons["onboarding.stadium.next"].isEnabled)
     }
 }

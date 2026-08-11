@@ -6,6 +6,7 @@ import SwiftUI
 /// 건너뛰기가 없고, 온보딩 중에는 탭바를 띄우지 않는다.
 struct OnboardingView: View {
     @EnvironmentObject private var preferences: UserPreferencesStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var viewModel = OnboardingViewModel(entry: .firstRun)
 
     var body: some View {
@@ -16,7 +17,13 @@ struct OnboardingView: View {
             }
         }
         .background(backgroundColor.ignoresSafeArea())
-        .animation(.easeInOut(duration: 0.2), value: viewModel.stepIndex)
+        .animation(
+            VFMotion.respectingReduceMotion(
+                .easeInOut(duration: 0.2),
+                reduceMotion: reduceMotion
+            ),
+            value: viewModel.stepIndex
+        )
         .onAppear(perform: configureForStoredState)
         // 여기에 `onboarding.root` 식별자를 두지 않는다.
         //
@@ -180,31 +187,113 @@ private struct OnboardingOverviewView: View {
 
 // MARK: - 3단계 · 응원 팀
 
+/// Pencil 온보딩 팀 단계의 표현 순서와 반응형 열 규칙.
+///
+/// 팀의 정체성과 저장 소유권은 계속 `KBOSeed`와 `OnboardingViewModel`에 있다.
+/// 이 타입은 `Onboarding_03_SelectTeam_*`, `Onboarding_CompactWidth`,
+/// `Onboarding_AccessibilityXXXL`이 그린 **보이는 순서와 열 수**만 담당한다.
+enum OnboardingTeamLayout {
+    static let visualOrderTeamIDs = [
+        "lg-twins", "doosan-bears",
+        "samsung-lions", "kia-tigers",
+        "ssg-landers", "kt-wiz",
+        "nc-dinos", "lotte-giants",
+        "kiwoom-heroes", "hanwha-eagles"
+    ]
+
+    static func orderedTeams(from teams: [KBOTeam]) -> [KBOTeam] {
+        let byID = Dictionary(grouping: teams, by: \.id).compactMapValues(\.first)
+        let authored = visualOrderTeamIDs.compactMap { byID[$0] }
+        let authoredIDs = Set(authored.map(\.id))
+
+        // 서버 목록이 훗날 늘어나도 Pencil에 없다는 이유로 옵션을 버리지 않는다.
+        return authored + teams.filter { !authoredIDs.contains($0.id) }
+    }
+
+    static func columnCount(isAccessibilitySize: Bool) -> Int {
+        isAccessibilitySize ? 1 : 2
+    }
+}
+
 /// Pencil `Onboarding_03_SelectTeam`. 열 개 구단 중 하나를 반드시 고른다.
 private struct OnboardingTeamStepView: View {
     @Bindable var viewModel: OnboardingViewModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private let columns = [GridItem(.adaptive(minimum: 150), spacing: VFSpacing.sm)]
+    private var teams: [KBOTeam] {
+        OnboardingTeamLayout.orderedTeams(from: KBOSeed.teams)
+    }
+
+    private var columns: [GridItem] {
+        let count = OnboardingTeamLayout.columnCount(
+            isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
+        )
+        return (0..<count).map { index in
+            GridItem(.flexible(), spacing: index == count - 1 ? 0 : 10)
+        }
+    }
+
+    /// Pencil `Onboarding_AccessibilityXXXL`은 무제한 시스템 확대가 아니라
+    /// 제목 32, 설명 20, 카드 제목 21, 메타 15, CTA 21pt의 별도 배치를 그린다.
+    /// 그 크기를 재현해 한 열 목록이 제목에 밀려 쓸 수 없게 되는 것도 막는다.
+    private var usesAuthoredAccessibilityLayout: Bool {
+        dynamicTypeSize.isAccessibilitySize
+    }
+
+    private var titleFont: Font {
+        usesAuthoredAccessibilityLayout ? .system(size: 32, weight: .heavy) : VFTypography.display
+    }
+
+    private var subtitleFont: Font {
+        usesAuthoredAccessibilityLayout ? .system(size: 20) : VFTypography.supporting
+    }
+
+    private var primaryFont: Font {
+        usesAuthoredAccessibilityLayout ? .system(size: 21, weight: .bold) : VFTypography.button
+    }
 
     var body: some View {
-        OnboardingStepScaffold(
-            title: "어느 팀을 응원하세요?",
-            subtitle: "선택한 팀에 맞춰 화면과 기록이 정리돼요",
-            progress: viewModel.progress,
-            primaryTitle: "다음",
-            isPrimaryEnabled: viewModel.isTeamSelectionValid,
-            primaryIdentifier: "onboarding.team.next",
-            onPrimary: { viewModel.advance() },
-            onBack: viewModel.isFirstStep ? nil : { viewModel.goBack() }
-        ) {
-            LazyVGrid(columns: columns, spacing: VFSpacing.sm) {
-                ForEach(KBOSeed.teams) { team in
-                    OnboardingTeamCard(
-                        team: team,
-                        isSelected: viewModel.selectedTeamID == team.id
-                    ) {
-                        viewModel.selectTeam(team.id)
+        GeometryReader { proxy in
+            OnboardingStepScaffold(
+                title: "어느 팀을 응원하시나요?",
+                subtitle: "선택한 팀을 기준으로 경기와 기록을 먼저 보여드릴게요.",
+                progress: viewModel.progress,
+                primaryTitle: viewModel.isTeamSelectionValid
+                    ? "이 팀으로 응원할게요"
+                    : "응원팀을 선택해 주세요",
+                isPrimaryEnabled: viewModel.isTeamSelectionValid,
+                primaryIdentifier: "onboarding.team.next",
+                onPrimary: { viewModel.advance() },
+                onBack: viewModel.isFirstStep ? nil : { viewModel.goBack() },
+                progressStyle: .dots,
+                backSystemImage: "arrow.left",
+                horizontalPadding: proxy.size.width <= 340 ? VFSpacing.md : VFSpacing.xl,
+                titleFont: titleFont,
+                subtitleFont: subtitleFont,
+                primaryFont: primaryFont,
+                primaryMinimumHeight: usesAuthoredAccessibilityLayout ? 66 : VFControl.buttonHeight
+            ) {
+                VStack(alignment: .leading, spacing: 14) {
+                    LazyVGrid(columns: columns, spacing: 10) {
+                        ForEach(teams) { team in
+                            OnboardingTeamCard(
+                                team: team,
+                                isSelected: viewModel.selectedTeamID == team.id
+                            ) {
+                                viewModel.selectTeam(team.id)
+                            }
+                        }
                     }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("onboarding.team.grid")
+
+                    Label("응원팀은 나중에 설정에서 변경할 수 있어요.",
+                          systemImage: "info.circle")
+                        .font(usesAuthoredAccessibilityLayout ? .system(size: 15) : VFTypography.metadata)
+                        .foregroundStyle(VFColor.bodyTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("onboarding.team.note")
                 }
             }
         }
@@ -221,52 +310,92 @@ private struct OnboardingTeamCard: View {
     let team: KBOTeam
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var badgeSize: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? 48 : 36
+    }
+
+    private var cardPadding: CGFloat {
+        dynamicTypeSize.isAccessibilitySize ? VFSpacing.md : VFSpacing.sm
+    }
+
+    private var titleFont: Font {
+        dynamicTypeSize.isAccessibilitySize
+            ? .system(size: 21, weight: .bold)
+            : VFTypography.cardTitle
+    }
+
+    private var metadataFont: Font {
+        dynamicTypeSize.isAccessibilitySize ? .system(size: 15) : VFTypography.metadata
+    }
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: VFSpacing.xs) {
+            HStack(spacing: 10) {
                 Text(team.badgeInitial)
-                    .font(Font.system(size: team.badgeInitial.count > 1 ? 11 : 15, weight: .bold))
+                    .font(Font.system(
+                        size: dynamicTypeSize.isAccessibilitySize
+                            ? (team.badgeInitial.count > 1 ? 14 : 19)
+                            : (team.badgeInitial.count > 1 ? 11 : 15),
+                        weight: .bold
+                    ))
                     .foregroundStyle(team.accentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .frame(width: 36, height: 36)
+                    .frame(width: badgeSize, height: badgeSize)
                     .overlay(Circle().stroke(team.accentColor, lineWidth: 2))
 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(team.name)
-                        .font(VFTypography.cardTitle)
+                        .font(titleFont)
+                        .fontWeight(isSelected ? .heavy : .bold)
                         .foregroundStyle(VFColor.bodyPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(team.city)
-                        .font(VFTypography.metadata)
-                        .foregroundStyle(VFColor.bodyTertiary)
+
+                    HStack(spacing: 3) {
+                        Text(team.city)
+                            .foregroundStyle(VFColor.bodyTertiary)
+
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(VFColor.primaryAction)
+                            Text("선택됨")
+                                .fontWeight(.bold)
+                                .foregroundStyle(VFColor.primaryActionDeep)
+                        }
+                    }
+                    .font(metadataFont)
                 }
                 Spacer(minLength: 0)
-
-                // 색뿐 아니라 체크 표시로도 선택을 알린다.
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(team.accentColor)
-                }
             }
-            .padding(VFSpacing.sm)
+            .padding(cardPadding)
             .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
             .background(isSelected ? team.accentColor.opacity(0.08) : VFColor.elevatedSurface)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
                     .stroke(isSelected ? team.accentColor : VFColor.hairline,
-                            lineWidth: isSelected ? 2 : VFStroke.hairline)
+                            lineWidth: isSelected
+                                ? (dynamicTypeSize.isAccessibilitySize ? 2.5 : 2)
+                                : VFStroke.hairline)
+            )
+            .shadow(
+                color: isSelected ? VFColor.bodyPrimary.opacity(0.12) : .clear,
+                radius: isSelected ? 6 : 0,
+                y: isSelected ? 4 : 0
             )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("onboarding.team.\(team.id)")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(team.name)
+        .accessibilityLabel(
+            isSelected
+                ? "\(team.name), \(team.city), 선택됨"
+                : "\(team.name), \(team.city)"
+        )
         .accessibilityValue(isSelected ? "선택됨" : "")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
@@ -483,6 +612,11 @@ private struct OnboardingCompleteView: View {
 
 // MARK: - 공통 골격
 
+private enum OnboardingProgressStyle {
+    case count
+    case dots
+}
+
 /// 선택 단계가 공유하는 배치: 진행 표시 + 제목 + 스크롤 목록 + 하단 고정 버튼.
 private struct OnboardingStepScaffold<Content: View>: View {
     let title: String
@@ -493,6 +627,13 @@ private struct OnboardingStepScaffold<Content: View>: View {
     let primaryIdentifier: String
     let onPrimary: () -> Void
     var onBack: (() -> Void)?
+    var progressStyle: OnboardingProgressStyle = .count
+    var backSystemImage = "chevron.left"
+    var horizontalPadding = VFSpacing.lg
+    var titleFont = VFTypography.display
+    var subtitleFont = VFTypography.supporting
+    var primaryFont = VFTypography.button
+    var primaryMinimumHeight = VFControl.buttonHeight
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -500,7 +641,7 @@ private struct OnboardingStepScaffold<Content: View>: View {
             HStack(spacing: VFSpacing.sm) {
                 if let onBack {
                     Button(action: onBack) {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: backSystemImage)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(VFColor.bodySecondary)
                             .frame(width: VFControl.minimumTouchTarget,
@@ -511,19 +652,35 @@ private struct OnboardingStepScaffold<Content: View>: View {
                     .accessibilityIdentifier("onboarding.back")
                 }
                 Spacer()
-                Text("\(progress.current) / \(progress.total)")
-                    .font(VFTypography.metadata)
-                    .foregroundStyle(VFColor.bodyTertiary)
-                    .accessibilityLabel("\(progress.total)단계 중 \(progress.current)단계")
+
+                HStack(spacing: VFSpacing.sm) {
+                    if progressStyle == .dots {
+                        HStack(spacing: 6) {
+                            ForEach(1...max(progress.total, 1), id: \.self) { step in
+                                Capsule()
+                                    .fill(progressColor(for: step))
+                                    .frame(width: step == progress.current ? 18 : 6, height: 6)
+                            }
+                        }
+                    }
+
+                    Text("\(progress.current) / \(progress.total)")
+                        .font(VFTypography.metadata.monospacedDigit())
+                        .foregroundStyle(VFColor.bodyTertiary)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(progress.total)단계 중 \(progress.current)단계")
+                .accessibilityIdentifier("onboarding.progress")
             }
+            .frame(minHeight: 48)
 
             VStack(alignment: .leading, spacing: VFSpacing.xxs) {
                 Text(title)
-                    .font(VFTypography.display)
+                    .font(titleFont)
                     .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle)
-                    .font(VFTypography.supporting)
+                    .font(subtitleFont)
                     .foregroundStyle(VFColor.bodySecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -531,15 +688,30 @@ private struct OnboardingStepScaffold<Content: View>: View {
 
             ScrollView {
                 content
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, VFSpacing.md)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .accessibilityIdentifier("onboarding.scroll")
 
-            VFPrimaryButton(title: primaryTitle, isEnabled: isPrimaryEnabled, action: onPrimary)
+            VFPrimaryButton(
+                title: primaryTitle,
+                isEnabled: isPrimaryEnabled,
+                labelFont: primaryFont,
+                minimumHeight: primaryMinimumHeight,
+                action: onPrimary
+            )
                 .accessibilityIdentifier(primaryIdentifier)
                 .padding(.top, VFSpacing.xs)
         }
-        .padding(.horizontal, VFSpacing.lg)
+        .padding(.horizontal, horizontalPadding)
         .padding(.bottom, VFSpacing.md)
+    }
+
+    private func progressColor(for step: Int) -> Color {
+        if step == progress.current { return VFColor.primaryAction }
+        if step < progress.current { return VFColor.onboardingProgressCompleted }
+        return VFColor.onboardingProgressUpcoming
     }
 }
 
