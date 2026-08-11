@@ -3698,3 +3698,38 @@ Six authoritative PNGs remain outside the repository:
 
 The captures cover authored default/selected, compact and one-column AccessibilityXXXL states.
 No PNG, xcresult, DerivedData or archive is committed.
+
+## Verification closure
+
+- Correct-scheme pre-change onboarding baseline: 36 executed, 36 passed.
+- Final focused onboarding matrix: 57 executed, 53 passed, 4 expected device-only
+  skips, 0 failed.
+- Focused compact counterpart: 12 executed, 8 passed, 4 expected Primary-only skips,
+  0 failed.
+- AccessibilityXXXL matrix: 4 executed, 4 passed.
+- Architecture and Pencil sample-team boundary checks: 2 executed, 2 passed.
+- Final-source complete unit suite: 902 executed, 902 passed, 0 skipped, 0 failed.
+- Complete Primary UI matrix: 693 executed, 604 passed, 89 compact-only skipped,
+  0 failed.
+- Exact compact counterpart: 89 executed, 89 passed, 0 skipped, 0 failed.
+- Exact class-and-method pairing: all 89 Primary skips were passed on the compact
+  simulator, with 0 unpaired, 0 extra and 0 duplicate test cases.
+- Debug Simulator, Release Simulator and XCUITest build-for-testing succeeded.
+- App icon, release readiness, secret scan, project-file lint and `git diff --check`
+  passed.
+- Unsigned Release archive succeeded. It contains no test bundle; the fixture-exclusion
+  gate passed with 98 checks, including 21 positive controls.
+- The same fixture gate rejected the Debug app as expected with 75 detections, proving
+  that the archive result was not a vacuous pass.
+
+One wrong-scheme zero-test attempt, an earlier complete-unit run with three contract
+assertions and superseded intermediate capture/focused runs are diagnostic only. They
+contribute no accepted count. The assertions were resolved in production source and the
+accepted final-source unit suite is the 902/902 run above.
+
+## Remaining scope
+
+There is no remaining routed onboarding team-step visual, responsive, accessibility,
+state or regression gap in this pass. The whole project remains
+`PARTIAL_WITH_EXPLICIT_GAPS` because project-wide dark appearance, distribution signing
+and the previously documented deferred product and cleanup work remain outside this scope.
