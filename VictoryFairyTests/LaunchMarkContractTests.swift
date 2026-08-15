@@ -472,13 +472,22 @@ final class LaunchMarkContractTests: XCTestCase {
         }
     }
 
-    func testBundleVersionAndSigningAreUnchanged() throws {
+    func testBundleReleaseVersionAndSigningAreCanonical() throws {
         let pbx = try String(
             contentsOf: Self.repositoryRoot.appendingPathComponent("VictoryFairy.xcodeproj/project.pbxproj"),
             encoding: .utf8
         )
         XCTAssertTrue(pbx.contains("com.hwangseokbeom.victoryfairy"), "번들 식별자가 바뀌었다")
-        XCTAssertTrue(pbx.contains("MARKETING_VERSION = 1.1.0"), "마케팅 버전이 바뀌었다")
+        XCTAssertEqual(
+            pbx.components(separatedBy: "MARKETING_VERSION = 1.2.0").count - 1,
+            2,
+            "앱 Debug/Release 마케팅 버전이 1.2.0으로 정렬되지 않았다"
+        )
+        XCTAssertEqual(
+            pbx.components(separatedBy: "CURRENT_PROJECT_VERSION = 2").count - 1,
+            2,
+            "앱 Debug/Release 빌드 번호가 2로 정렬되지 않았다"
+        )
         XCTAssertTrue(pbx.contains("CODE_SIGN_STYLE = Automatic"), "서명 방식이 바뀌었다")
         XCTAssertTrue(pbx.contains("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon"), "아이콘 설정이 바뀌었다")
     }

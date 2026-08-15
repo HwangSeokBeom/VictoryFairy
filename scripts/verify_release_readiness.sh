@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 project_file="$repo_root/VictoryFairy.xcodeproj/project.pbxproj"
 info_plist="$repo_root/VictoryFairy/Info.plist"
+privacy_manifest="$repo_root/VictoryFairy/PrivacyInfo.xcprivacy"
 environment_file="$repo_root/VictoryFairy/Core/Networking/APIEnvironment.swift"
 
 fail() {
@@ -40,6 +41,30 @@ grep -q 'fallback: "https://victoryfairy.duckdns.org"' "$environment_file" \
 if grep -n 'API_BASE_URL = "http://' "$project_file" | grep -v 'localhost' >/dev/null; then
   fail "non-local HTTP API_BASE_URL remains in project settings"
 fi
+
+echo "== Privacy manifest =="
+[ -f "$privacy_manifest" ] || fail "PrivacyInfo.xcprivacy is missing"
+/usr/bin/plutil -lint "$privacy_manifest" >/dev/null \
+  || fail "PrivacyInfo.xcprivacy is not a valid property list"
+
+privacy_tracking="$(/usr/bin/plutil -extract NSPrivacyTracking raw -o - "$privacy_manifest")"
+[ "$privacy_tracking" = "false" ] || fail "privacy tracking must remain disabled"
+
+privacy_accessed_json="$(/usr/bin/plutil -extract NSPrivacyAccessedAPITypes json -o - "$privacy_manifest")"
+grep -q 'NSPrivacyAccessedAPICategoryUserDefaults' <<<"$privacy_accessed_json" \
+  || fail "UserDefaults required-reason API declaration is missing"
+grep -q 'CA92.1' <<<"$privacy_accessed_json" \
+  || fail "UserDefaults app-only reason CA92.1 is missing"
+
+privacy_collected_json="$(/usr/bin/plutil -extract NSPrivacyCollectedDataTypes json -o - "$privacy_manifest")"
+for data_type in \
+  NSPrivacyCollectedDataTypeDeviceID \
+  NSPrivacyCollectedDataTypeUserID \
+  NSPrivacyCollectedDataTypeOtherUserContent \
+  NSPrivacyCollectedDataTypePhotosorVideos; do
+  grep -q "$data_type" <<<"$privacy_collected_json" \
+    || fail "privacy collection declaration is missing: $data_type"
+done
 
 echo "== Native launch =="
 # 런치 마크는 Pencil `01_Launch_and_Splash`의 `런치 마크 쿼텟`에서 내보낸 벡터 PDF다.

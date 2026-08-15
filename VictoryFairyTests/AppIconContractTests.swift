@@ -529,16 +529,65 @@ final class AppIconContractTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "LaunchBackground가 사라졌다")
     }
 
-    func testBundleIdentifierMarketingVersionAndSigningAreUnchanged() throws {
+    func testBundleIdentifierReleaseVersionAndSigningAreCanonical() throws {
         let pbx = try String(
             contentsOf: Self.repositoryRoot.appendingPathComponent("VictoryFairy.xcodeproj/project.pbxproj"),
             encoding: .utf8
         )
         XCTAssertTrue(pbx.contains("com.hwangseokbeom.victoryfairy"), "번들 식별자가 바뀌었다")
-        XCTAssertTrue(pbx.contains("MARKETING_VERSION = 1.1.0"), "마케팅 버전이 바뀌었다")
+        XCTAssertEqual(
+            pbx.components(separatedBy: "MARKETING_VERSION = 1.2.0").count - 1,
+            2,
+            "앱 Debug/Release 마케팅 버전이 1.2.0으로 정렬되지 않았다"
+        )
+        XCTAssertEqual(
+            pbx.components(separatedBy: "CURRENT_PROJECT_VERSION = 2").count - 1,
+            2,
+            "앱 Debug/Release 빌드 번호가 2로 정렬되지 않았다"
+        )
         XCTAssertTrue(pbx.contains("CODE_SIGN_STYLE = Automatic"), "서명 방식이 바뀌었다")
         XCTAssertTrue(pbx.contains("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon"), "아이콘 설정이 바뀌었다")
         XCTAssertFalse(pbx.contains("ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES"), "대체 아이콘 설정이 생겼다")
+    }
+
+    func testPrivacyManifestMatchesCurrentAppDataContract() throws {
+        let manifestURL = Self.appSourceRoot.appendingPathComponent("PrivacyInfo.xcprivacy")
+        let data = try Data(contentsOf: manifestURL)
+        let root = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+                as? [String: Any]
+        )
+
+        XCTAssertEqual(root["NSPrivacyTracking"] as? Bool, false, "추적 사용 선언이 생겼다")
+        XCTAssertEqual(root["NSPrivacyTrackingDomains"] as? [String], [], "추적 도메인이 생겼다")
+
+        let collected = try XCTUnwrap(root["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
+        let expectedDataTypes: Set<String> = [
+            "NSPrivacyCollectedDataTypeDeviceID",
+            "NSPrivacyCollectedDataTypeUserID",
+            "NSPrivacyCollectedDataTypeOtherUserContent",
+            "NSPrivacyCollectedDataTypePhotosorVideos"
+        ]
+        XCTAssertEqual(
+            Set(collected.compactMap { $0["NSPrivacyCollectedDataType"] as? String }),
+            expectedDataTypes,
+            "현재 서버 전송 데이터 유형과 매니페스트가 다르다"
+        )
+        for item in collected {
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypeLinked"] as? Bool, true)
+            XCTAssertEqual(item["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
+            XCTAssertEqual(
+                item["NSPrivacyCollectedDataTypePurposes"] as? [String],
+                ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]
+            )
+        }
+
+        let accessed = try XCTUnwrap(root["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
+        let userDefaults = try XCTUnwrap(accessed.first {
+            $0["NSPrivacyAccessedAPIType"] as? String
+                == "NSPrivacyAccessedAPICategoryUserDefaults"
+        })
+        XCTAssertEqual(userDefaults["NSPrivacyAccessedAPITypeReasons"] as? [String], ["CA92.1"])
     }
 
     // MARK: - 35~42. 다른 시스템 보존
