@@ -8,8 +8,8 @@
 - Build number: `2`
 - Minimum iOS version: `17.0`
 - Production backend: `https://victoryfairy.duckdns.org`
-- Upload state: pending final-source upload
-- Build-number uniqueness: must be confirmed in the signed-in App Store Connect
+- Upload state: uploaded successfully; App Store Connect reported package processing
+- Build-number uniqueness: confirmed by the successful 1.2.0 (2) upload acceptance
 
 ## Review Summary
 
@@ -66,6 +66,8 @@ Still required in App Store Connect before submission:
    optional privacy choices URL to
    `https://hwangseokbeom.github.io/VictoryFairy-legal/delete-account.html`.
 3. Revisit every locale after saving and verify the selected version and build.
+4. Wait for build 1.2.0 (2) to finish processing, select it for the version and
+   resolve any processing warning before submission.
 
 ## What's New Draft (ko-KR)
 
@@ -106,15 +108,18 @@ third-party SDK is added before upload.
 
 ## Local Artifact Evidence
 
-- Archive: `/tmp/VictoryFairy-archives/VictoryFairy-1.2.0-2-privacy-final.xcarchive`
-- Exported IPA: `/tmp/VictoryFairy-exports/1.2.0-2-privacy-final/VictoryFairy.ipa`
-- IPA SHA-256: `4c0c254f753fd2709e16e223b12963fcfd434545e82055ae13a19b28960731df`
+- Source commit: `909124234562bcd0289973c2efed64e980e0ef60`
+- Archive: `/tmp/VictoryFairy-archives/VictoryFairy-1.2.0-2-commit-9091242.xcarchive`
+- Exported IPA: `/tmp/VictoryFairy-exports/1.2.0-2-commit-9091242/VictoryFairy.ipa`
+- IPA size: `4,270,075` bytes
+- IPA SHA-256: `e28bb89421a8e6eb465831474226d16b5ebc07c7ecca3b6cf5c944d3c9ba6855`
 - Distribution signature: Apple Distribution, team `63SB2B8YJ5`
 - Store profile UUID: `51ea0ce1-c16a-4cfe-a349-71db038166fb`
 - Profile expiry: 2027-04-21
 - `get-task-allow`: false
 - `beta-reports-active`: true
 
-The archive and IPA paths are temporary local paths. This file records
-preparation evidence; it does not assert that a build was uploaded, processed,
-installed from TestFlight, submitted for review or released.
+The archive and IPA paths are temporary local paths. Xcode's App Store Connect
+upload completed with `Upload succeeded` and then reported that the package was
+processing. This file does not assert that processing completed, that the build
+was installed from TestFlight, submitted for review or released.

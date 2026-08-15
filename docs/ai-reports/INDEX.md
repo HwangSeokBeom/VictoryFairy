@@ -610,3 +610,22 @@ archive file linked from each entry — never paste a full report here.
 - Pushed: no · Merged: no · Uploaded: no · Submitted: no
 - Next: reconcile legal/ASC privacy disclosures, authorize the local commit, then verify build-number uniqueness before upload
 - Project status: `PARTIAL_WITH_EXPLICIT_GAPS`
+
+---
+
+## 2026-08-15 23:05 KST — APP_STORE_BUILD_READY_WITH_PORTAL_RELEASE_ACTION_PENDING
+
+- Task: deploy the legal correction, upload VictoryFairy 1.2.0 (2), and verify AWS production
+- Branch: `feat/pencil-revision-v2`
+- Verified source: `9091242`
+- Archive report: `docs/ai-reports/archive/2026-08-15_2305_release-1.2.0-build-2-uploaded.md`
+- GitHub: branch pushed, PR #2 draft/mergeable, iOS CI passed
+- Fresh units: 903/903; focused privacy/version contracts 3/3
+- Commit-pinned archive and IPA: passed; IPA SHA-256 `e28bb89421a8e6eb465831474226d16b5ebc07c7ecca3b6cf5c944d3c9ba6855`
+- App Store Connect: upload succeeded; TestFlight 1.2.0 (2) is `제출 준비 완료`
+- Legal: corrected policy/deletion page merged at `79b4ccd`; Pages CI and public fetch passed
+- AWS: EC2/SSM/systemd/Nginx/DB ready, dangerous features disabled, four alarms OK, encrypted private RDS protected with current backups
+- Backend deployment: not performed; no server/database source changed for this app release
+- Remaining external action: correct privacy answers, add choices URL, create version 1.2.0, select build 2 and submit for review
+- Historical UI evidence only: Primary 604 passed plus 89 paired skips; compact 89/89
+- Project status: `PARTIAL_WITH_EXPLICIT_GAPS`

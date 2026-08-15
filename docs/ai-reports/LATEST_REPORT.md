@@ -1,432 +1,309 @@
-# VictoryFairy 1.2.0 (2) Release Preparation Report
+# VictoryFairy 1.2.0 (2) Upload and Production Verification Report
 
-- Status: LOCAL_RELEASE_ARTIFACT_VERIFIED_WITH_EXTERNAL_GAPS
+- Status: APP_STORE_BUILD_READY_WITH_PORTAL_RELEASE_ACTION_PENDING
 - Project status: PARTIAL_WITH_EXPLICIT_GAPS
-- Prepared at: 2026-08-15 21:25 KST
+- Prepared at: 2026-08-15 23:05 KST
 - Repository: /Users/hwangseokbeom/GitHub/VictoryFairy
 - Branch: feat/pencil-revision-v2
-- Starting HEAD: 262f1c9f4142e8e133a012a44b3271c517e9733a
-- Ending HEAD before any authorized commit: 262f1c9f4142e8e133a012a44b3271c517e9733a
+- Verified source commit: 909124234562bcd0289973c2efed64e980e0ef60
 - Candidate: 1.2.0 build 2
 - Bundle identifier: com.hwangseokbeom.victoryfairy
 - Minimum iOS: 17.0
 
 ## Outcome
 
-A locally exportable App Store distribution artifact was produced and verified
-from the current working-tree source. The final IPA has the expected version,
-bundle identifier, privacy manifest, distribution signature and App Store
-provisioning profile. Unit tests, Debug and Release builds, XCUITest
-build-for-testing, release gates, fixture exclusion and code-sign verification
-all passed.
+VictoryFairy 1.2.0 (2) was archived and exported from the committed source,
+validated as an App Store distribution payload, uploaded successfully and
+observed in signed-in App Store Connect as:
 
-This is not a deployment-complete verdict. Upload is blocked until the public
-privacy disclosures and legal policy are reconciled with the app's actual
-server data paths. Signed-in App Store Connect state, build-number uniqueness,
-upload processing, TestFlight installation and physical-device behavior were not
-verified. No upload, submission, release, push or merge was performed.
+- version 1.2.0
+- build 2
+- status 제출 준비 완료
 
-## Authorization Boundary
+The public privacy policy and deletion guidance were reconciled with the
+current app/server data paths, merged and deployed through GitHub Pages. AWS
+production was inspected through the signed-in Safari-backed AWS CLI flow.
+The running EC2 service, database readiness, disabled feature flags, alarms,
+logging and encrypted RDS backup posture were all verified without changing
+production.
 
-The requested scope was Git inspection/synchronization and deployment
-preparation. Read-only remote inspection, local source/configuration changes,
-tests, builds, signing, archive and export were performed.
+This is not an App Store release-complete verdict. The published App Store
+privacy response still says that no data is collected. App Store version
+1.2.0 has not yet been created, build 2 has not been selected for the store
+version and the version has not been submitted for review.
 
-No remote mutation was authorized. The feature branch was not pushed, no pull
-request or GitHub release was created, and App Store Connect was not changed.
-A local commit was also not created because explicit commit authorization was
-not provided. The verified working-tree source therefore is identified by file
-hashes and artifact hashes rather than a new immutable Git commit.
+## Git and GitHub
 
-## Git Synchronization
+A fresh origin fetch preceded the release work.
 
-A fresh git fetch --prune origin completed at 2026-08-15 21:25 KST.
-
-- Local branch: feat/pencil-revision-v2
-- Upstream: none
-- Remote branch origin/feat/pencil-revision-v2: absent
 - origin/main: 424f0f09c8184dd4729c1a62d80701b56cdaaa50
-- origin/dev: b8bb09113f521ed2381cecaa6185a5b5fc73e51d
-- HEAD versus origin/main: 171 local-only, 0 remote-only
-- HEAD versus origin/dev: 177 local-only, 0 remote-only
-- origin/main is an ancestor of HEAD: yes
-- origin/dev is an ancestor of HEAD: yes
-- Matching pull requests: none
-- Published GitHub releases: none
+- verified release commit: 909124234562bcd0289973c2efed64e980e0ef60
+- origin/main is an ancestor of the release branch: yes
+- release branch versus origin/main: 172 local-only, 0 remote-only
+- remote branch: origin/feat/pencil-revision-v2
+- pull request: https://github.com/HwangSeokBeom/VictoryFairy/pull/2
+- pull-request state at report time: open draft, mergeable
+- iOS CI: passed
+- CI job:
+  https://github.com/HwangSeokBeom/VictoryFairy/actions/runs/31887871746/job/95019709291
 
-No merge, rebase or pull was needed because neither tracked remote base contains
-commits missing from the local branch. The branch cannot have current-branch CI
-until it is explicitly pushed.
-
-## Implemented Release Preparation
-
-### Version and build
-
-Both application build configurations now use:
-
-- MARKETING_VERSION = 1.2.0
-- CURRENT_PROJECT_VERSION = 2
-
-The version contract assertions in AppIconContractTests and
-LaunchMarkContractTests were updated to require exactly the two app
-configuration occurrences.
-
-The public App Store page showed live version 1.1.0 during this pass. Version
-1.2.0 is therefore a valid marketing-version increment. Build 2 is a local
-candidate only; uniqueness among previously uploaded App Store Connect builds
-could not be confirmed without a signed-in portal session.
-
-### Privacy manifest
-
-VictoryFairy/PrivacyInfo.xcprivacy was added as an application resource. The
-file-system-synchronized app target copied it to the root of Debug, Release,
-archive and exported IPA app bundles.
-
-The manifest declares:
-
-- Tracking: false
-- Tracking domains: none
-- Collected types, linked and used for app functionality:
-  - Device ID
-  - User ID
-  - Other User Content
-  - Photos or Videos
-- Required-reason API:
-  - NSPrivacyAccessedAPICategoryUserDefaults
-  - Reason CA92.1
-
-This is grounded in current code rather than the public metadata:
-
-- APIClient adds X-Device-ID to normal JSON and multipart requests.
-- Attendance-log create/update sends game data, scores, memo, diary and tags.
-- Profile endpoints send nickname, favorite team and optional profile image.
-- Community endpoints send user-authored content.
-- Photo analysis sends selected image files as multipart data.
-
-Apple documents UserDefaults as a required-reason API and says submissions that
-do not describe required-reason use are not accepted. CA92.1 is the approved
-reason for app-only UserDefaults data.
-
-### Privacy and review handoff
-
-docs/app-store-review-1.2.0.md was created with:
-
-- candidate and review behavior
-- privacy category mapping
-- mandatory App Store Connect and legal-policy reconciliation
-- Korean What's New draft
-- English review-note draft
-- export-compliance summary
-- local artifact receipt
-
-This document is preparation evidence only and does not assert portal state.
-
-### Release gate hardening
-
-scripts/verify_release_readiness.sh now rejects a release when:
-
-- PrivacyInfo.xcprivacy is missing or malformed
-- tracking is enabled
-- the UserDefaults category or CA92.1 reason is missing
-- any current collected-data category is missing
-
-AppIconContractTests now parses the manifest and checks the exact data
-categories, linking, tracking, purpose and required-reason contract.
+The source commit includes version 1.2.0 build 2, the bundled privacy manifest,
+privacy/version contracts, the hardened release gate and the App Store review
+handoff. This report update follows that commit and must be committed and
+pushed before the pull request is marked ready and merged.
 
 ## Fresh Verification
 
-### Complete unit suite
+### Unit and focused contracts
 
-Accepted result bundle:
+Accepted complete unit result:
 
 /tmp/VictoryFairy-release-1.2.0-2-units-v2.xcresult
 
-- Device: iPhone 17 Pro
-- OS: iOS Simulator 26.3.1, build 23D8133
-- Start: 2026-08-15 21:19:29 KST
-- Finish: 2026-08-15 21:19:55 KST
 - Total: 903
 - Passed: 903
 - Failed: 0
 - Skipped: 0
 - Expected failures: 0
-- Result: Passed
-- xcodebuild: TEST SUCCEEDED
+- xcodebuild result: TEST SUCCEEDED
 
-Connection-refused messages for localhost:8081 and 127.0.0.1:8081 are expected
-error-path exercise in unit tests. They did not produce test failures.
+Accepted final privacy/version focused result:
 
-### Build matrix
+/tmp/VictoryFairy-release-1.2.0-2-privacy-focus-final.xcresult
 
-All were generated from fresh DerivedData after the privacy manifest was added.
+- Total: 3
+- Passed: 3
+- Failed: 0
+- Skipped: 0
 
-- Debug generic iOS Simulator build:
-  /tmp/VictoryFairy-release-1.2.0-2-debug-v2-derived
-  Result: BUILD SUCCEEDED
-- Release generic iOS build with signing disabled:
-  /tmp/VictoryFairy-release-1.2.0-2-release-v2-derived
-  Result: BUILD SUCCEEDED
-- XCUITest build-for-testing:
-  /tmp/VictoryFairy-release-1.2.0-2-bft-v2-derived
-  Result: TEST BUILD SUCCEEDED
-
-Each built app contained a valid PrivacyInfo.xcprivacy at the app-bundle root
-and reported version 1.2.0 build 2.
-
-The only observed build warnings were existing test-source diagnostics:
-unused results, never-mutated variables, same-type casts and a future
-CGRect/Hashable availability warning. No Release app-source warning or error
-blocked the build.
-
-### Static and repository gates
+### Build and repository gates
 
 Fresh passes:
 
+- Debug generic iOS Simulator build
+- unsigned Release generic iOS build
+- XCUITest build-for-testing
 - scripts/verify_release_readiness.sh
 - scripts/verify_app_icon.sh
 - scripts/scan_for_secrets.sh
-- plutil lint for project, Info.plist and privacy manifest
+- plist/privacy-manifest lint
 - git diff --check
 
-The tracked-file secret scan printed no credentials and passed.
+The prior complete onboarding UI evidence remains historical because no
+functional Swift source changed in the release-preparation pass:
 
-## Signed Archive
+- Primary: 693 total, 604 passed, 89 exactly paired compact-only skips
+- Compact counterpart: 89 passed, 0 failed or skipped
+- Unpaired skips: 0
 
-Accepted final archive:
+No fresh multi-hour complete UI matrix or physical-device TestFlight install is
+claimed for 1.2.0 (2).
 
-/tmp/VictoryFairy-archives/VictoryFairy-1.2.0-2-privacy-final.xcarchive
+## Commit-Pinned Distribution Artifact
 
-- Scheme: VictoryFairy-Production
-- Configuration: Release
-- Result: ARCHIVE SUCCEEDED
+Accepted archive:
+
+/tmp/VictoryFairy-archives/VictoryFairy-1.2.0-2-commit-9091242.xcarchive
+
+Accepted IPA:
+
+/tmp/VictoryFairy-exports/1.2.0-2-commit-9091242/VictoryFairy.ipa
+
+- Source commit: 909124234562bcd0289973c2efed64e980e0ef60
+- Archive result: ARCHIVE SUCCEEDED
+- Export result: EXPORT SUCCEEDED
+- IPA size: 4,270,075 bytes
+- IPA SHA-256:
+  e28bb89421a8e6eb465831474226d16b5ebc07c7ecca3b6cf5c944d3c9ba6855
 - Bundle: com.hwangseokbeom.victoryfairy
-- Version: 1.2.0
-- Build: 2
-- Minimum iOS: 17.0
-- PrivacyInfo.xcprivacy at app root: valid
-- Embedded XCTest bundles: 0
-- codesign deep/strict verification: passed
-- Archive-stage signing: Apple Development with the Xcode-managed team profile
-
-The development signature on the archive-stage app is expected. The export
-step re-signed the submitted payload with the distribution identity and App
-Store profile.
-
-### Fixture exclusion
-
-Final Release archive fixture exclusion:
-
-- Exit: 0
-- Release-only absence checks: all passed
-- Product positive controls: all passed
-
-Explicit Debug negative control:
-
-- Exit: 1 as expected
-- Detections: 75
-- Product positive controls remained present
-
-The negative control proves the Release pass is sensitive rather than an inert
-or empty scan.
-
-## Exported App Store IPA
-
-Accepted final export:
-
-/tmp/VictoryFairy-exports/1.2.0-2-privacy-final/VictoryFairy.ipa
-
-- Export method: app-store-connect
-- Export signing style: automatic
-- Result: EXPORT SUCCEEDED
-- Size: 4,270,071 bytes
-- SHA-256: 4c0c254f753fd2709e16e223b12963fcfd434545e82055ae13a19b28960731df
-- Bundle: com.hwangseokbeom.victoryfairy
-- Version: 1.2.0
-- Build: 2
-- Minimum iOS: 17.0
-- Distribution authority: Apple Distribution: SeokBeom Hwang
-- Team identifier: 63SB2B8YJ5
-- Store profile: iOS Team Store Provisioning Profile for the app bundle
-- Profile UUID: 51ea0ce1-c16a-4cfe-a349-71db038166fb
+- Version/build: 1.2.0 (2)
+- Distribution authority: Apple Distribution
+- Team: 63SB2B8YJ5
+- Store profile UUID: 51ea0ce1-c16a-4cfe-a349-71db038166fb
 - Profile expiry: 2027-04-21
-- application-identifier: 63SB2B8YJ5.com.hwangseokbeom.victoryfairy
 - get-task-allow: false
 - beta-reports-active: true
-- PrivacyInfo.xcprivacy: valid and exact declared contract present
-- Embedded XCTest bundles: 0
+- embedded XCTest bundles: 0
+- PrivacyInfo.xcprivacy: valid and packaged at app root
 - codesign deep/strict verification: passed
-- Fixture exclusion: passed
+- Release fixture exclusion: passed
+- Debug negative control: expected exit 1 with 75 detections
 
-The archive and IPA live under /tmp and are temporary local evidence. They are
-not committed and may be removed by the operating system.
+The archive and IPA paths are temporary local evidence paths.
 
-## Production and Public State
+## App Store Connect
 
-Fresh production probes at 2026-08-15 21:25 KST:
+The committed-source archive was uploaded with Xcode's App Store Connect export
+flow. Xcode reported:
 
-- GET https://victoryfairy.duckdns.org/health
-  - HTTP 200
-  - status ok
-- GET https://victoryfairy.duckdns.org/ready
-  - HTTP 200
-  - status ready
-  - database up
+- Uploaded VictoryFairy-Production
+- Upload succeeded
+- Uploaded package is processing
 
-Earlier in the same pass, TLS inspection matched victoryfairy.duckdns.org and a
-Let's Encrypt certificate valid through 2026-10-24.
+The signed-in Safari session was then inspected after processing:
 
-Public App Store inspection showed:
+- TestFlight version: 1.2.0
+- build: 2
+- status: 제출 준비 완료
+- live App Store version: 1.1.0
+- live version state: 배포 준비됨
+- published privacy response: 데이터가 수집되지 않음
+- privacy policy URL:
+  https://hwangseokbeom.github.io/VictoryFairy-legal/privacy.html
+- privacy choices URL: empty
 
-- Live version: 1.1.0
-- Minimum iOS: 17.0
-- Privacy label: Data Not Collected
+Build-number uniqueness is established by successful upload acceptance and the
+single ready build 2 shown under TestFlight version 1.2.0.
 
-The public privacy label conflicts with the current source and the new privacy
-manifest. The public privacy policy also describes server storage as a future
-capability while current client endpoints already create/update server records
-and profiles. It additionally describes OCR as text-only while the current app
-also contains an explicit photo-analysis image upload path.
+Still required in the portal:
 
-A read-only App Store Connect attempt reached authentication rather than a
-signed-in application page. No locale, selected version, selected build,
-uploaded-build history or processing state was changed or verified.
+1. Create iOS App Store version 1.2.0.
+2. Publish the four conservative privacy disclosures declared in the bundled
+   manifest: Device ID, User ID, Other User Content and Photos or Videos.
+3. Set the privacy choices URL to the public deletion-guidance page.
+4. Save Korean What's New and English review notes.
+5. Select build 2 and revisit each locale after saving.
+6. Resolve any portal warning and submit the version for App Review.
 
-## Historical UI Evidence — Not Fresh for This Version Change
+## Public Legal Deployment
 
-No application SwiftUI behavior changed in this pass. The prior complete UI
-matrix at the onboarding feature source remains relevant behavioral evidence,
-but it is historical and is not represented as fresh 1.2.0 (2) evidence:
+Repository:
 
-- Primary: 693 total, 604 passed, 89 expected compact-only skips, 0 failed
-- Exact compact counterpart: 89 total, 89 passed, 0 failed or skipped
-- Unpaired Primary skips: 0
-- Extra compact passes: 0
-- Duplicate test identifiers: 0
+https://github.com/HwangSeokBeom/VictoryFairy-legal
 
-A full multi-hour UI matrix was not rerun after the version and privacy-resource
-changes. The fresh 903-unit suite, three builds, final archive and final IPA do
-cover the changed contracts and resource packaging.
+- source branch commit:
+  6bec27a2768c6cb5d79efdf44ce0769d3db876e6
+- merged master commit:
+  79b4ccd9e90cca1f625643d49d99f871c3a8a0f6
+- pull request:
+  https://github.com/HwangSeokBeom/VictoryFairy-legal/pull/1
+- Pages workflow:
+  https://github.com/HwangSeokBeom/VictoryFairy-legal/actions/runs/31887737568
+- Pages result: passed
+- HTTPS enforcement: enabled
 
-## Diagnostic and Superseded Runs
+Public pages were fetched after deployment and verified to contain the new
+2026-08-15 effective date and the current device identity, server record,
+profile/community, image, external-AI, retention and full-deletion behavior:
 
-These runs are not accepted final evidence:
+- https://hwangseokbeom.github.io/VictoryFairy-legal/privacy.html
+- https://hwangseokbeom.github.io/VictoryFairy-legal/delete-account.html
 
-1. A 902/902 unit result was produced after the version change but before the
-   privacy manifest and its new unit contract were added. It was superseded by
-   the accepted 903/903 bundle.
-2. A signed preflight archive and IPA used command-line version overrides before
-   source version values were finalized. They proved signing availability only.
-3. The first preflight export used manual signing against an Xcode-managed
-   profile and failed. Automatic export was then selected and succeeded.
-4. An initial secret-scan invocation used the nonexistent filename
-   scripts/scan_ios_secrets.sh. The actual repository gate
-   scripts/scan_for_secrets.sh was then run and passed.
-5. App Store Connect inspection redirected to authentication; public App Store
-   state was used only for the live-version and public privacy-label facts.
+## AWS Production Verification
 
-None of these diagnostics contributes to the final accepted artifact verdict.
+AWS authentication used the user's signed-in Safari console session. The
+resulting CLI identity was the root user, so all production work in this pass
+was deliberately restricted to read-only AWS calls and read-only SSM
+diagnostics. AWS commands did not request or emit production environment secret
+values; runtime output was restricted to an explicit safe-key allowlist.
 
-## Changed Files
+### Compute and application
 
-Application and project configuration:
+- Region: ap-northeast-2
+- EC2: i-0c3390d9d06a7a016
+- EC2 state: running
+- SSM: online
+- SSM agent: 3.3.4624.0, update available
+- systemd victoryfairy service: active and enabled
+- Nginx: active
+- service working directory: /opt/victoryfairy
+- service artifact: /opt/victoryfairy/app.jar
+- service start: 2026-07-26 15:40:38 UTC
+- JAR size: 277,157,046 bytes
+- JAR SHA-256:
+  832eecda13328198f36077abbabe51d7b9a284e60de6214c2e11d1642c273d4d
+- local /ready: ready, database up
+- public /health: HTTP 200
+- public /ready: HTTP 200, database up
 
-- VictoryFairy.xcodeproj/project.pbxproj
-- VictoryFairy/PrivacyInfo.xcprivacy
+Safe runtime flags:
 
-Tests:
+- SPRING_PROFILES_ACTIVE=production
+- MATCH_OUTLOOK_AI_ENABLED=false
+- KBO_REFRESH_ENABLED=true
+- KBO_SCRAPED_DEV_ENABLED=false
+- KBO_SCRAPED_DEV_SCHEDULER_ENABLED=false
+- COMMUNITY_ENABLED=false
+- PROFILE_IMAGE_UPLOAD_ENABLED=false
+- FLYWAY_BASELINE_ON_MIGRATE=false
 
-- VictoryFairyTests/AppIconContractTests.swift
-- VictoryFairyTests/LaunchMarkContractTests.swift
+The app config and legal-links endpoints point to the HTTPS production host and
+the deployed GitHub Pages privacy/deletion URLs.
 
-Release tooling:
+The JAR does not embed a Git SHA, so an exact commit mapping cannot be claimed.
+It does embed the security-runtime fingerprint from the merged readiness work:
 
-- scripts/verify_release_readiness.sh
+- Spring Boot 3.5.16
+- Jackson core/databind 2.21.5
+- Netty 4.1.136.Final
+- PostgreSQL JDBC 42.7.12
 
-Review and evidence documentation:
+### Database, alarms and logs
 
-- docs/app-store-review-1.2.0.md
-- docs/ai-reports/LATEST_REPORT.md
-- docs/ai-reports/archive/2026-08-15_2125_release-1.2.0-build-2_partial.md
-- docs/ai-reports/INDEX.md
+Scoped RDS instance in the VictoryFairy VPC:
 
-No functional application Swift source file changed in this release-preparation
-pass.
+- identifier: project-services-postgres
+- status: available
+- engine: PostgreSQL 16.14
+- storage encrypted: yes
+- public access: no
+- deletion protection: yes
+- automated backup retention: 1 day
+- latest restorable time at inspection: 2026-08-15 13:49:37 UTC
+- Multi-AZ: no
+- pending modifications: none
 
-## Verified Working-Tree File Hashes
+The latest automated snapshot and the existing manual snapshots were available
+and encrypted. No new snapshot was created because this app release has no
+backend/database cutover.
 
-Because there is no new commit, these hashes identify the verified release
-inputs and contracts:
+VictoryFairy EC2 alarms were all OK with actions enabled:
 
-- project.pbxproj:
-  c7ca1e533e32194d7f408b869c672215417cdda33783690140b6dcb1d2bf24fe
-- PrivacyInfo.xcprivacy:
-  c260a0c6f0dfa118d2fca584d28a69989980725a202722223bf3f4c1bdffd81a
-- AppIconContractTests.swift:
-  fcad10465b0a3dc911d4022f04bb6f2a8ae5e828311e1e948121357c43acb3a9
-- LaunchMarkContractTests.swift:
-  cf23d2b2ed41f734e67388d417b745ba93b0a7168bf22bcdb48d0dc217aa7f4d
-- verify_release_readiness.sh:
-  32b76a5e8c9da8c705e70c37d375e1aa531942f798d27d66f5d0977bb85b65a0
-- app-store-review-1.2.0.md:
-  e0ecbc638513eada487148d4b75d9fceef6b2a36d63019d14230c6f8dd550901
+- CPU high
+- status-check failed
+- memory high
+- root-disk high
 
-## Commits and Git Status
+The application and Nginx CloudWatch log groups each retain 14 days. Log-group
+server-side KMS keys are not configured. Log contents were not inspected.
 
-Commits created in this pass: none.
+## Deployment Decision
 
-HEAD remains:
+No backend redeploy was performed. The iOS release contains no server source or
+database change, the production APIs are ready and the privacy-relevant flags
+are already disabled. Restarting or replacing the healthy production JAR would
+add risk without providing a release benefit.
 
-262f1c9f4142e8e133a012a44b3271c517e9733a
-docs(ai): archive onboarding team-step report
+## Remaining Gaps
 
-Expected worktree changes after saving this report:
+Blocking App Store release:
 
-- modified project, two tests and release-readiness script
-- new privacy manifest
-- new App Store review notes
-- modified LATEST_REPORT and INDEX
-- new immutable archive report
+- explicit action-time confirmation for the public portal changes
+- corrected App Store privacy responses
+- privacy choices URL
+- App Store version 1.2.0 creation and metadata
+- build 2 selection
+- App Review submission
 
-Pushed: NO
-Merged: NO
-Pull request created: NO
-GitHub release created: NO
-App Store Connect upload: NO
-TestFlight install: NO
-App Review submission: NO
+Repository handoff still required:
 
-## Remaining Gaps and Exact Next Action
+- commit and push this updated evidence
+- rerun/check CI
+- mark PR 2 ready
+- merge PR 2
+- verify clean final worktree and merged origin/main
 
-Blocking before upload:
+Optional release assurance:
 
-1. Confirm backend and AI-provider retention behavior.
-2. Update the public privacy policy to match current server/profile/photo paths.
-3. Sign in to App Store Connect and replace Data Not Collected with disclosures
-   matching the confirmed behavior and bundled manifest.
-4. Verify build number 2 is unused for version 1.2.0 in App Store Connect.
-5. Revisit every locale and verify the selected version/build after saving.
-
-Still needed for a strict final release:
-
-- Explicit authorization to stage and create the local release-preparation
-  commit.
-- Explicit authorization to push the branch and create/update a pull request.
-- Current-branch CI after push.
-- Optional fresh complete UI matrix if final-source rather than unchanged-
-  behavior historical UI evidence is required.
-- App Store Connect upload and processing validation.
-- TestFlight installation on a physical device.
-- Final submission and release authorization.
-
-Exact next action: reconcile the legal policy and App Store privacy answers,
-then authorize the local commit; after that, verify App Store Connect build
-uniqueness before any upload.
+- physical-device TestFlight install and smoke test
+- a fresh complete UI matrix if unchanged-behavior historical evidence is not
+  sufficient
 
 ## Final Verdict
 
-LOCAL_RELEASE_ARTIFACT_VERIFIED_WITH_EXTERNAL_GAPS
+APP_STORE_BUILD_READY_WITH_PORTAL_RELEASE_ACTION_PENDING
 
-The local 1.2.0 (2) archive and IPA are technically verified and correctly
-signed. Deployment is not authorized or represented as complete because public
-privacy metadata/legal text is inconsistent with current code and signed-in
-App Store Connect state remains unverified.
+The legal deployment, committed-source distribution artifact, App Store upload,
+TestFlight processing and AWS production gates are verified. The release is not
+represented as submitted or live until the App Store privacy correction,
+version/build selection and review submission are completed.
