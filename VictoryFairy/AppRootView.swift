@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct AppRootView: View {
     @EnvironmentObject private var preferences: UserPreferencesStore
@@ -8,39 +7,125 @@ struct AppRootView: View {
 
     var body: some View {
         Group {
-            if preferences.hasCompletedOnboarding {
-                MainTabView()
+            // 아직 사용자에게 열지 않은 세 단계 기록 작성 흐름을 UI 테스트만 띄울 수
+            // 있는 자리.
+            //
+            // `activeRecordCreateStagedScenarioIdentifier`도 그것이 읽는 실행 인자
+            // 키도 `#if DEBUG` 안에만 있어서, Release 바이너리에는 그 문자열조차
+            // 없다(아카이브에서 확인한다). 따라서 이 가지는 Release에서 결코 참이
+            // 될 수 없다. 일곱 개 제품 진입점은 그대로 `LogEditorView`를 띄운다 —
+            // 여덟 번째 제품 경로가 아니다.
+            if let stagedScenario = VFUITestConfiguration.activeRecordCreateStagedScenarioIdentifier {
+                RecordCreateStagedHostView(
+                    initialDate: VFUITestConfiguration.recordCreateStagedInitialDate
+                )
+                .accessibilityIdentifier(stagedScenario)
             } else {
-                OnboardingView()
+                userFacingRoot
             }
         }
         .environment(\.appTheme, themeProvider.theme)
         .task {
+            // 두 값이 모두 유효한데 완료 플래그만 빠진 기존 사용자를 승격한다.
+            // 이 플래그는 프로필 동기화 DTO에도 실려 나가므로 계속 유지한다.
+            preferences.migrateOnboardingIfSatisfied()
             await appData.loadInitialDataIfNeeded()
         }
     }
+
+    /// 사용자가 실제로 보는 최상위 화면.
+    ///
+    /// 완료 플래그가 아니라 저장된 값으로 판단한다. `hasCompletedOnboarding`만 보면,
+    /// 팀이나 구장이 빠졌거나 더 이상 유효하지 않은 기존 설치본이 홈으로 들어가
+    /// 버린다. `onboardingEntry`가 이미 그 경우를 `repairTeam`·`repairStadium`으로
+    /// 구분해 두는데(`UserPreferencesStore` 단위 테스트가 그 뜻을 못박는다) 여기서
+    /// 쓰지 않아 보완 단계에 도달할 방법이 없었다.
+    @ViewBuilder
+    private var userFacingRoot: some View {
+        if preferences.onboardingEntry == .completed || forcesMainTabsForVerification {
+            MainTabView()
+        } else {
+            OnboardingView()
+        }
+    }
+
+    /// 응원 팀이 없는 마이 화면의 방어 렌더링을 확인할 때만 참이다.
+    ///
+    /// 온보딩 불변식은 건드리지 않는다. 제품에서는 팀 없이 탭에 닿을 수 없고,
+    /// 이 값은 `#if DEBUG` 안에서만 존재하므로 Release에서는 언제나 거짓이다.
+    private var forcesMainTabsForVerification: Bool {
+        #if DEBUG
+        VFUITestConfiguration.forcesMainTabsForProfileFixture
+        #else
+        false
+        #endif
+    }
+}
+
+/// 앱의 최상위 탭 경로.
+///
+/// `rawValue`는 화면에 보이지 않는 안정적인 경로 식별자다. Pencil이 정한 한국어
+/// 라벨(기록·시즌)이 바뀌어도 경로 자체는 그대로 유지된다.
+enum MainTab: String, Hashable, CaseIterable {
+    case home
+    case feed
+    case calendar
+    case statistics
+    case my
+
+    /// Pencil `탭바`가 정한 표시 라벨.
+    var title: String {
+        switch self {
+        case .home: "홈"
+        case .feed: "기록"
+        case .calendar: "캘린더"
+        case .statistics: "시즌"
+        case .my: "마이"
+        }
+    }
+
+    /// Pencil은 lucide 아이콘을 쓴다. iOS에는 해당 아이콘 세트를 넣지 않으므로
+    /// 의미가 같은 SF Symbol로 옮긴다.
+    /// house / notebook-pen / calendar-days / trophy / circle-user-round 순.
+    var systemImage: String {
+        switch self {
+        case .home: "house.fill"
+        case .feed: "book.pages.fill"
+        case .calendar: "calendar"
+        case .statistics: "trophy.fill"
+        case .my: "person.crop.circle.fill"
+        }
+    }
+
+    /// UI 테스트가 참조하는 탭 버튼 식별자.
+    var accessibilityIdentifier: String { "tab.\(rawValue)" }
+
+    /// UI 테스트가 참조하는 화면 루트 식별자.
+    var screenIdentifier: String { "screen.\(rawValue)" }
 }
 
 struct MainTabView: View {
-    @Environment(\.appTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var appData: AppDataStore
-    @State private var selectedTab: MainTab = .home
+    @EnvironmentObject private var preferences: UserPreferencesStore
+    // UI 테스트가 특정 탭에서 바로 시작할 수 있게 한다.
+    // Release에서는 `initialTabRawValue`가 항상 nil이라 언제나 홈에서 시작한다.
+    @State private var selectedTab: MainTab =
+        VFUITestConfiguration.initialTabRawValue.flatMap(MainTab.init(rawValue:)) ?? .home
 
     var body: some View {
         selectedContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .vfScreenBackground()
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                FloatingTabBar(selectedTab: $selectedTab)
-                    .padding(.horizontal, VFSpacing.md)
-                    .padding(.top, 6)
+                VFTabBar(selectedTab: $selectedTab)
+                    .padding(.horizontal, VFSpacing.screenHorizontalMargin)
                     .padding(.bottom, VFTabBarMetrics.customTabBarBottomInset)
-                    .background(.clear)
             }
-            // 하단 safe area 예약(홈 인디케이터 영역)을 반납해 캡슐의 위치를
-            // customTabBarBottomInset이 직접 소유하게 만든다. 반납 대상은 하단 한 변,
-            // .container 영역뿐이라 상단/좌우와 키보드 회피는 그대로 남는다.
-            .ignoresSafeArea(.container, edges: .bottom)
-            .animation(.snappy(duration: 0.22), value: selectedTab)
+            .animation(
+                VFMotion.respectingReduceMotion(VFMotion.tabTransition, reduceMotion: reduceMotion),
+                value: selectedTab
+            )
     }
 
     @ViewBuilder
@@ -49,43 +134,95 @@ struct MainTabView: View {
         case .home:
             NavigationStack {
                 // 대시보드는 AppDataStore가 feedLogs 변경 시 1회 집계해 보관한다.
-                HomeView(viewModel: HomeViewModel(dashboard: appData.homeDashboard))
+                // UI 테스트 픽스처 이음새는 피드와 같은 모양이다 — Release에서는
+                // 인자를 그대로 돌려준다.
+                HomeView(viewModel: HomeViewModel(
+                    dashboard: VFUITestConfiguration.homeDashboard(appData.homeDashboard)
+                ))
             }
+            .accessibilityIdentifier(MainTab.home.screenIdentifier)
         case .feed:
             NavigationStack {
-                FeedView(viewModel: FeedViewModel(logs: appData.feedLogs, selectedResultFilter: appData.selectedFeedResultFilter, dataState: appData.feedState))
+                // UI 테스트 픽스처 이음새. Release 빌드에서는 두 함수가 인자를 그대로
+                // 돌려주므로 제품 경로에는 아무 영향이 없다.
+                FeedView(viewModel: FeedViewModel(
+                    logs: VFUITestConfiguration.feedLogs(
+                        appData.feedLogs,
+                        filter: appData.selectedFeedResultFilter
+                    ),
+                    selectedResultFilter: appData.selectedFeedResultFilter,
+                    dataState: VFUITestConfiguration.feedState(appData.feedState)
+                ))
             }
+            .accessibilityIdentifier(MainTab.feed.screenIdentifier)
         case .calendar:
             NavigationStack {
-                AttendanceCalendarView(logs: appData.calendarLogs, dataState: appData.calendarState, month: appData.selectedCalendarMonth)
+                // UI 테스트 픽스처 이음새. Release 빌드에서는 두 함수가 인자를 그대로
+                // 돌려주므로 제품 경로에는 아무 영향이 없다.
+                //
+                // 달은 여기서 가로채지 않는다. 시작 달만 `AppDataStore`가 한 번 정하고,
+                // 그 뒤의 이동은 제품 경로 그대로 흐른다.
+                AttendanceCalendarView(
+                    logs: VFUITestConfiguration.calendarLogs(appData.calendarLogs),
+                    dataState: VFUITestConfiguration.calendarState(appData.calendarState),
+                    month: appData.selectedCalendarMonth
+                )
             }
+            .accessibilityIdentifier(MainTab.calendar.screenIdentifier)
         case .statistics:
             NavigationStack {
-                StatisticsView(viewModel: StatisticsViewModel(state: appData.statistics, dataState: appData.statisticsState))
+                // UI 테스트 픽스처 이음새. Release 빌드에서는 세 함수가 인자를 그대로
+                // 돌려주므로 제품 경로에는 아무 영향이 없다.
+                //
+                // 시즌은 여기서 가로채지 않는다. 시작 시즌만 `VFUITestConfiguration`이
+                // 한 번 심고, 그 뒤의 선택은 제품 경로 그대로 흐른다.
+                StatisticsView(viewModel: StatisticsViewModel(
+                    logs: VFUITestConfiguration.statisticsLogs(
+                        appData.feedLogs,
+                        season: appData.selectedSeason
+                    ),
+                    season: appData.selectedSeason,
+                    seasonOptions: VFUITestConfiguration.statisticsSeasons(
+                        appData.availableSeasons.map {
+                            SeasonArchiveOption(season: $0.season, hasRecords: $0.hasRecords)
+                        }
+                    ),
+                    favoriteTeam: appData.team(id: preferences.favoriteTeamID),
+                    dataState: VFUITestConfiguration.statisticsState(appData.statisticsState),
+                    leagueStandings: appData.statistics
+                ))
             }
+            .accessibilityIdentifier(MainTab.statistics.screenIdentifier)
+        case .my:
+            NavigationStack {
+                ProfileSettingsView()
+            }
+            .accessibilityIdentifier(MainTab.my.screenIdentifier)
         }
     }
 }
 
-private struct FloatingTabBar: View {
+/// Pencil `탭바`. 종이색 캡슐이 화면 하단에 떠 있는 형태.
+private struct VFTabBar: View {
     @Binding var selectedTab: MainTab
 
     var body: some View {
-        HStack(spacing: VFSpacing.xs) {
+        HStack(spacing: 0) {
             ForEach(MainTab.allCases, id: \.self) { tab in
                 tabButton(for: tab)
             }
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, minHeight: VFTabBarMetrics.customTabBarHeight)
-        .background(VFColor.cardTranslucent)
+        .padding(6)
+        .frame(maxWidth: .infinity)
+        // 탭 라벨은 접근성 크기까지 따라 키우면 다섯 칸이 서로 겹치고 잘린다.
+        // 막대 자체는 크기를 묶어두고, 대신 VoiceOver가 각 탭의 온전한 이름을 읽는다.
+        // 화면 본문은 이 제한과 무관하게 Dynamic Type을 그대로 따른다.
+        .dynamicTypeSize(...DynamicTypeSize.large)
+        .background(VFColor.translucentSurface)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(.white.opacity(0.9), lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.10), radius: 16, y: 6)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(VFColor.hairline, lineWidth: 1))
+        .shadow(color: VFShadow.overlayColor, radius: VFShadow.overlayRadius, y: VFShadow.overlayOffsetY)
         .accessibilityElement(children: .contain)
     }
 
@@ -94,52 +231,27 @@ private struct FloatingTabBar: View {
         return Button {
             selectedTab = tab
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Image(systemName: tab.systemImage)
-                    .font(.system(size: 18, weight: isSelected ? .bold : .semibold))
+                    .font(.system(size: 20, weight: isSelected ? .bold : .regular))
                 Text(tab.title)
-                    .font(.system(size: 11, weight: isSelected ? .bold : .semibold, design: .rounded))
+                    .font(Font.system(.caption2, design: .default).weight(isSelected ? .bold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .foregroundStyle(isSelected ? VFColor.victoryOrange : VFColor.secondaryText)
-            .frame(maxWidth: .infinity, minHeight: 48)
+            .foregroundStyle(isSelected ? VFColor.primaryActionDeep : VFColor.bodyTertiary)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .background {
                 if isSelected {
-                    Capsule()
-                        .fill(VFColor.victoryOrange.opacity(0.13))
-                        .overlay(Capsule().stroke(VFColor.victoryOrange.opacity(0.28), lineWidth: 1))
+                    Capsule().fill(VFColor.primaryActionPale)
                 }
             }
-            .scaleEffect(isSelected ? 1.03 : 1)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isSelected ? "\(tab.title), 선택됨" : tab.title)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-private enum MainTab: Hashable, CaseIterable {
-    case home
-    case feed
-    case calendar
-    case statistics
-
-    var title: String {
-        switch self {
-        case .home: "홈"
-        case .feed: "피드"
-        case .calendar: "캘린더"
-        case .statistics: "통계"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .home: "house.fill"
-        case .feed: "rectangle.stack.fill"
-        case .calendar: "calendar"
-        case .statistics: "chart.bar.fill"
-        }
+        .accessibilityIdentifier(tab.accessibilityIdentifier)
+        .accessibilityLabel(tab.title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -156,11 +268,9 @@ private enum MainTab: Hashable, CaseIterable {
 #Preview("메인 탭 LG 테마") {
     let preferences = UserPreferencesStore.preview(suiteName: "MainTabLGPreview", favoriteTeamID: "lg-twins")
     let appData = AppDataStore(preferences: preferences)
-    let themeProvider = AppThemeProvider(preferences: preferences, appData: appData)
     MainTabView()
         .environmentObject(preferences)
         .environmentObject(appData)
-        .environmentObject(themeProvider)
         .environment(\.appTheme, TeamTheme(team: KBOSeed.teams[0]))
 }
 
@@ -171,4 +281,14 @@ private enum MainTab: Hashable, CaseIterable {
         .environmentObject(preferences)
         .environmentObject(appData)
         .environment(\.appTheme, .neutral)
+}
+
+#Preview("탭 쉘 · AccessibilityXXXL") {
+    let preferences = UserPreferencesStore.preview(suiteName: "MainTabXXXLPreview")
+    let appData = AppDataStore(preferences: preferences)
+    MainTabView()
+        .environmentObject(preferences)
+        .environmentObject(appData)
+        .environment(\.appTheme, .neutral)
+        .environment(\.dynamicTypeSize, .accessibility3)
 }

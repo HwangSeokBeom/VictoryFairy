@@ -161,7 +161,7 @@ struct CommunityHomeView: View {
     }
 
     private var rulesCard: some View {
-        VFCard(background: VFColor.backgroundWarm) {
+        VFCard(background: VFColor.subtleSurface) {
             VStack(alignment: .leading, spacing: VFSpacing.sm) {
                 Button {
                     withAnimation(.snappy(duration: 0.18)) {
@@ -170,14 +170,14 @@ struct CommunityHomeView: View {
                 } label: {
                     HStack(spacing: VFSpacing.sm) {
                         Image(systemName: "shield.checkered")
-                            .foregroundStyle(VFColor.victoryOrange)
+                            .foregroundStyle(VFColor.primaryAction)
                         Text("커뮤니티 이용 안내")
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Spacer()
                         Image(systemName: isRulesExpanded ? "chevron.up" : "chevron.down")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                 }
                 .buttonStyle(.plain)
@@ -185,11 +185,11 @@ struct CommunityHomeView: View {
                 if isRulesExpanded {
                     Text("욕설/비방, 혐오 표현, 개인정보 노출, 도박/베팅 홍보, 저작권 침해 영상, 선수/구단 사칭은 허용되지 않아요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text("신고는 운영 검토를 위한 기능이고, 차단은 내 화면에서 특정 사용자의 응원톡을 숨기는 기능이에요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: VFSpacing.sm) {
                         Button {
@@ -197,10 +197,10 @@ struct CommunityHomeView: View {
                         } label: {
                             Label("커뮤니티 정책 보기", systemImage: "safari")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(VFColor.victoryOrange)
+                                .foregroundStyle(VFColor.primaryAction)
                                 .padding(.horizontal, VFSpacing.sm)
                                 .frame(minHeight: 30)
-                                .background(VFColor.victoryOrange.opacity(0.1))
+                                .background(VFColor.primaryAction.opacity(0.1))
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -210,10 +210,10 @@ struct CommunityHomeView: View {
                         } label: {
                             Label("차단 관리", systemImage: "person.crop.circle.badge.xmark")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(VFColor.primaryText)
+                                .foregroundStyle(VFColor.bodyPrimary)
                                 .padding(.horizontal, VFSpacing.sm)
                                 .frame(minHeight: 30)
-                                .background(VFColor.card.opacity(0.72))
+                                .background(VFColor.elevatedSurface.opacity(0.72))
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -226,15 +226,15 @@ struct CommunityHomeView: View {
     private var localModeBanner: some View {
         HStack(alignment: .top, spacing: VFSpacing.sm) {
             Image(systemName: "iphone")
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
             Text("서버 응원톡 대신 이 기기에 저장되는 로컬 응원톡으로 동작 중이에요.")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
         .padding(VFSpacing.sm)
-        .background(VFColor.victoryOrange.opacity(0.1))
+        .background(VFColor.primaryAction.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
@@ -247,7 +247,7 @@ struct CommunityHomeView: View {
             title: "응원톡을 불러오는 중이에요.",
             message: "잠시만 기다려 주세요.",
             systemImage: "arrow.clockwise",
-            tint: VFColor.victoryOrange
+            tint: VFColor.primaryAction
         )
     }
 
@@ -266,30 +266,30 @@ struct CommunityHomeView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .tint(VFColor.primaryText)
+                    .tint(VFColor.bodyPrimary)
                     Spacer()
                 }
 
                 ZStack(alignment: .topLeading) {
                     TextEditor(text: $inputText)
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .frame(minHeight: 104)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                         .scrollContentBackground(.hidden)
-                        .background(VFColor.backgroundWarm)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                                .stroke(VFColor.mutedLine.opacity(0.9), lineWidth: 1)
+                                .stroke(VFColor.hairline.opacity(0.9), lineWidth: 1)
                         )
                         .disabled(isPosting)
 
                     if inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text("응원 메시지를 남겨보세요")
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .padding(.top, 16)
                             .padding(.leading, 14)
                             .allowsHitTesting(false)
@@ -299,7 +299,7 @@ struct CommunityHomeView: View {
                 HStack {
                     Text("\(inputText.count)/\(maxLength)")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(inputText.count >= maxLength ? VFColor.lossRed : VFColor.secondaryText)
+                        .foregroundStyle(inputText.count >= maxLength ? VFColor.gameLoss : VFColor.bodySecondary)
                     Spacer()
                     Button {
                         Task { await submitPost() }
@@ -311,7 +311,7 @@ struct CommunityHomeView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
-                    .background(canSubmit ? VFColor.victoryOrange : VFColor.victoryOrange.opacity(0.34))
+                    .background(canSubmit ? VFColor.primaryAction : VFColor.primaryAction.opacity(0.34))
                     .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                     .disabled(!canSubmit)
                 }
@@ -324,7 +324,7 @@ struct CommunityHomeView: View {
             title: responseMessage ?? "아직 응원톡이 없어요. 첫 응원을 남겨보세요.",
             message: nil,
             systemImage: "bubble.left.and.bubble.right",
-            tint: VFColor.victoryOrange
+            tint: VFColor.primaryAction
         )
     }
 
@@ -350,19 +350,19 @@ struct CommunityHomeView: View {
             title: "응원톡을 열 수 없어요.",
             message: message,
             systemImage: "bubble.left.and.bubble.right",
-            tint: VFColor.drawGray
+            tint: VFColor.gameDraw
         )
     }
 
     private func retryCard(message: String) -> some View {
-        VFCard(background: VFColor.lossRed.opacity(0.08)) {
+        VFCard(background: VFColor.gameLoss.opacity(0.08)) {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 HStack(alignment: .top, spacing: VFSpacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(VFColor.lossRed)
+                        .foregroundStyle(VFColor.gameLoss)
                     Text(message)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                 }
@@ -381,12 +381,12 @@ struct CommunityHomeView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let message {
                         Text(message)
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -720,19 +720,19 @@ private struct CommunityPostCard: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(post.authorDisplayName ?? "익명 팬")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(VFColor.primaryText)
+                                .foregroundStyle(VFColor.bodyPrimary)
                             HStack(spacing: VFSpacing.xs) {
                                 Text(teamBadgeText)
                                     .font(.caption2.weight(.heavy))
-                                    .foregroundStyle(VFColor.victoryOrange)
+                                    .foregroundStyle(VFColor.primaryAction)
                                     .padding(.horizontal, VFSpacing.xs)
                                     .frame(minHeight: 22)
-                                    .background(VFColor.victoryOrange.opacity(0.11))
+                                    .background(VFColor.primaryAction.opacity(0.11))
                                     .clipShape(Capsule())
                                 if let createdAt = formattedCreatedAt {
                                     Text(createdAt)
                                         .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(VFColor.secondaryText)
+                                        .foregroundStyle(VFColor.bodySecondary)
                                 }
                             }
                         }
@@ -756,9 +756,9 @@ private struct CommunityPostCard: View {
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.headline.weight(.bold))
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .frame(width: 34, height: 34)
-                            .background(VFColor.backgroundWarm)
+                            .background(VFColor.subtleSurface)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -766,7 +766,7 @@ private struct CommunityPostCard: View {
                 }
                 Text(post.body)
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, VFSpacing.xs)
             }
@@ -802,7 +802,7 @@ private struct CommunityToast: View {
             .multilineTextAlignment(.center)
             .padding(.horizontal, VFSpacing.md)
             .frame(maxWidth: .infinity, minHeight: 42)
-            .background(VFColor.scoreboardNavy.opacity(0.92))
+            .background(VFColor.deepAccent.opacity(0.92))
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
             .shadow(color: Color.black.opacity(0.16), radius: 14, y: 8)
     }

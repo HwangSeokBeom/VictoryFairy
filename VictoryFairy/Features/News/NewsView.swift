@@ -49,7 +49,7 @@ struct NewsView: View {
 
                         Text(sourceDisclosure)
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -142,7 +142,7 @@ private struct NewsLoadingView: View {
                 ProgressView()
                 Text("야구 소식을 불러오는 중")
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                 Spacer()
             }
         }
@@ -159,27 +159,27 @@ private struct NewsCard: View {
                 HStack(spacing: VFSpacing.xs) {
                     Text(item.sourceName ?? "야구 소식")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                     if let publishedText {
                         Text("·")
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                         Text(publishedText)
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                 }
 
                 Text(item.title)
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let summary = item.summary?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
                     Text(summary)
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .lineLimit(2)
                 }
 
@@ -191,8 +191,8 @@ private struct NewsCard: View {
                     Label(linkTitle, systemImage: "safari")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
                         .frame(maxWidth: .infinity, minHeight: 40)
-                        .foregroundStyle(VFColor.primaryText)
-                        .background(VFColor.backgroundWarm)
+                        .foregroundStyle(VFColor.bodyPrimary)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)

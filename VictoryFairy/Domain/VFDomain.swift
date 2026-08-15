@@ -20,10 +20,10 @@ enum GameResult: String, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
-        case .win: VFColor.winGreen
-        case .loss: VFColor.lossRed
-        case .draw: VFColor.drawGray
-        case .canceled: VFColor.canceledGray
+        case .win: VFColor.gameWin
+        case .loss: VFColor.gameLoss
+        case .draw: VFColor.gameDraw
+        case .canceled: VFColor.gameCanceled
         }
     }
 
@@ -48,11 +48,11 @@ enum FeedResultFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: "전체 결과"
-        case .win: "승"
-        case .loss: "패"
-        case .draw: "무"
-        case .canceled: "취소"
+        case .all: "전체"
+        case .win: "승리한 날"
+        case .loss: "아쉬운 날"
+        case .draw: "비긴 날"
+        case .canceled: "취소된 날"
         }
     }
 

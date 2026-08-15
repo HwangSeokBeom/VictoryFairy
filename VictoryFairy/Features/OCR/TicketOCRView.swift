@@ -23,13 +23,13 @@ struct TicketOCRView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                    VFCard(background: VFColor.backgroundWarm) {
+                    VFCard(background: VFColor.subtleSurface) {
                         HStack(alignment: .top, spacing: VFSpacing.sm) {
                             Image(systemName: "lock.shield")
-                                .foregroundStyle(VFColor.victoryOrange)
+                                .foregroundStyle(VFColor.primaryAction)
                             Text("티켓 이미지는 서버로 전송되지 않아요. 기기에서 글자를 먼저 인식하고, 인식된 텍스트만 분석해요.")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -52,7 +52,7 @@ struct TicketOCRView: View {
 
                     Text(viewModel.message)
                         .font(.subheadline)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     confirmationCard
@@ -102,7 +102,7 @@ struct TicketOCRView: View {
             .font(.system(.subheadline, design: .rounded).weight(.semibold))
             .frame(maxWidth: .infinity, minHeight: 48)
             .foregroundStyle(.white)
-            .background(VFColor.scoreboardNavy)
+            .background(VFColor.deepAccent)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
@@ -111,20 +111,20 @@ struct TicketOCRView: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text("티켓에서 찾은 정보예요")
-                        .font(VFTypography.section)
-                        .foregroundStyle(VFColor.primaryText)
+                        .font(VFTypography.sectionTitle)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("OCR 결과는 틀릴 수 있어요. 저장 전 꼭 확인해 주세요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
 
                 if viewModel.suggestion.isLowConfidence {
                     Label("인식이 불확실해요.", systemImage: "exclamationmark.triangle")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 30)
-                        .background(VFColor.victoryOrange.opacity(0.1))
+                        .background(VFColor.primaryAction.opacity(0.1))
                         .clipShape(Capsule())
                 }
 
@@ -133,21 +133,21 @@ struct TicketOCRView: View {
                         ForEach(viewModel.suggestion.warnings, id: \.self) { warning in
                             Text(warning)
                                 .font(.caption)
-                                .foregroundStyle(VFColor.secondaryText)
+                                .foregroundStyle(VFColor.bodySecondary)
                         }
                     }
                 }
 
                 Toggle("날짜 적용", isOn: $hasEditedDate)
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    .tint(VFColor.victoryOrange)
+                    .tint(VFColor.primaryAction)
                 if hasEditedDate {
                     DatePicker("날짜", selection: $editedDate, displayedComponents: .date)
-                        .tint(VFColor.victoryOrange)
+                        .tint(VFColor.primaryAction)
                 } else {
                     Text("날짜는 현재 선택값을 유지해요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
 
                 editableTeamRow(title: "응원팀", selection: $editedFavoriteTeam)
@@ -158,7 +158,7 @@ struct TicketOCRView: View {
                 if let confidence = viewModel.suggestion.confidence {
                     Text("인식 신뢰도 \(Int((confidence * 100).rounded()))%")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
             }
         }
@@ -195,7 +195,7 @@ struct TicketOCRView: View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
             Menu {
                 Button("비워두기") {
                     selection.wrappedValue = ""
@@ -209,14 +209,14 @@ struct TicketOCRView: View {
                 HStack {
                     Text(selection.wrappedValue.isEmpty ? "직접 입력 유지" : selection.wrappedValue)
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .foregroundStyle(selection.wrappedValue.isEmpty ? VFColor.secondaryText : VFColor.primaryText)
+                        .foregroundStyle(selection.wrappedValue.isEmpty ? VFColor.bodySecondary : VFColor.bodyPrimary)
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
                 .padding(VFSpacing.sm)
                 .frame(minHeight: 44)
-                .background(VFColor.offWhite)
+                .background(VFColor.subtleSurface)
                 .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
             }
         }
@@ -232,14 +232,14 @@ struct TicketOCRView: View {
         VStack(alignment: .leading, spacing: VFSpacing.xs) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
-            TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(VFColor.secondaryText))
+                .foregroundStyle(VFColor.bodySecondary)
+            TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(VFColor.bodySecondary))
                 .textFieldStyle(.plain)
-                .foregroundStyle(VFColor.primaryText)
-                .tint(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.bodyPrimary)
+                .tint(VFColor.primaryAction)
                 .padding(VFSpacing.sm)
                 .frame(minHeight: 44)
-                .background(VFColor.offWhite)
+                .background(VFColor.subtleSurface)
                 .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         }
     }
@@ -248,8 +248,8 @@ struct TicketOCRView: View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text("추천 입력값")
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
+                    .font(VFTypography.sectionTitle)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 suggestionRow("경기 날짜", viewModel.suggestion.gameDate.map(DateFormatter.vfDisplayDate.string))
                 suggestionRow("응원팀", viewModel.suggestion.favoriteTeamName)
                 suggestionRow("상대팀", viewModel.suggestion.opponentTeamName)
@@ -264,10 +264,10 @@ struct TicketOCRView: View {
             VStack(alignment: .leading, spacing: VFSpacing.sm) {
                 Text("인식된 텍스트")
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text(viewModel.suggestion.rawText.isEmpty ? "아직 인식된 내용이 없어요." : viewModel.suggestion.rawText)
                     .font(.footnote)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -278,11 +278,11 @@ struct TicketOCRView: View {
         HStack(alignment: .firstTextBaseline, spacing: VFSpacing.sm) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .frame(width: 72, alignment: .leading)
             Text(value ?? "인식 안 됨")
                 .font(.system(.subheadline, design: .rounded).weight(value == nil ? .regular : .semibold))
-                .foregroundStyle(value == nil ? VFColor.secondaryText : VFColor.primaryText)
+                .foregroundStyle(value == nil ? VFColor.bodySecondary : VFColor.bodyPrimary)
             Spacer()
         }
     }

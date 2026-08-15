@@ -36,7 +36,7 @@ struct WinRateAnalysisView: View {
 
                 Text("내 직관 데이터 기준의 개인 기록 분석이며 공식 예측 정보가 아니에요.")
                     .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .padding(.horizontal, VFSpacing.xs)
             }
             .padding(VFSpacing.lg)
@@ -62,10 +62,10 @@ struct WinRateAnalysisView: View {
                     VStack(alignment: .leading, spacing: VFSpacing.xs) {
                         Text("전체 직관 승률")
                             .font(VFTypography.cardTitle)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Text("내 직관 데이터 기준")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                     Spacer()
                     Text("\(winRate)%")
@@ -75,11 +75,11 @@ struct WinRateAnalysisView: View {
                 }
 
                 HStack(spacing: VFSpacing.sm) {
-                    analysisPill("총", "\(totalGames)", VFColor.scoreboardNavy)
-                    analysisPill("승", "\(wins)", VFColor.winGreen)
-                    analysisPill("패", "\(losses)", VFColor.lossRed)
-                    analysisPill("무", "\(draws)", VFColor.drawGray)
-                    analysisPill("취소", "\(canceled)", VFColor.canceledGray)
+                    analysisPill("총", "\(totalGames)", VFColor.deepAccent)
+                    analysisPill("승", "\(wins)", VFColor.gameWin)
+                    analysisPill("패", "\(losses)", VFColor.gameLoss)
+                    analysisPill("무", "\(draws)", VFColor.gameDraw)
+                    analysisPill("취소", "\(canceled)", VFColor.gameCanceled)
                 }
             }
         }
@@ -87,9 +87,9 @@ struct WinRateAnalysisView: View {
 
     private var insightGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: VFSpacing.sm)], spacing: VFSpacing.sm) {
-            insightCard("가장 승률이 좋은 상대", bestOpponentText, "person.2.fill", VFColor.winGreen)
+            insightCard("가장 승률이 좋은 상대", bestOpponentText, "person.2.fill", VFColor.gameWin)
             insightCard("가장 많이 간 구장", mostVisitedStadiumText, "mappin.and.ellipse", theme.primary)
-            insightCard("최근 흐름", recentFlowText, "waveform.path.ecg", VFColor.victoryOrange)
+            insightCard("최근 흐름", recentFlowText, "waveform.path.ecg", VFColor.primaryAction)
         }
     }
 
@@ -99,7 +99,7 @@ struct WinRateAnalysisView: View {
                 HStack {
                     Text("상대팀 승률 랭킹")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Spacer()
                 }
                 Picker("상대팀 정렬", selection: $opponentSort) {
@@ -125,7 +125,7 @@ struct WinRateAnalysisView: View {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
                 Text("구장 승률 랭킹")
                     .font(VFTypography.cardTitle)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 if stadiumRows.isEmpty {
                     emptyText("구장별로 집계할 기록이 아직 없어요.")
                 } else {
@@ -143,11 +143,11 @@ struct WinRateAnalysisView: View {
                 HStack {
                     Text("최근 흐름")
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Spacer()
                     Text("최근 \(recentResults.count)경기")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
                 if recentResults.isEmpty {
                     emptyText("직관 기록을 추가하면 최근 흐름이 표시돼요.")
@@ -161,14 +161,14 @@ struct WinRateAnalysisView: View {
     private var sampleWarning: some View {
         HStack(spacing: VFSpacing.sm) {
             Image(systemName: "info.circle.fill")
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
             Text("아직 표본이 적어 재미용으로만 봐주세요.")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
             Spacer()
         }
         .padding(VFSpacing.md)
-        .background(VFColor.victoryOrange.opacity(0.1))
+        .background(VFColor.primaryAction.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
     }
 
@@ -176,7 +176,7 @@ struct WinRateAnalysisView: View {
         VStack(spacing: VFSpacing.xxs) {
             Text(title)
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
             Text(value)
                 .font(.system(.headline, design: .rounded).weight(.heavy))
                 .monospacedDigit()
@@ -198,10 +198,10 @@ struct WinRateAnalysisView: View {
                     .clipShape(Circle())
                 Text(title)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                 Text(value)
                     .font(.system(.headline, design: .rounded).weight(.heavy))
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.78)
             }
@@ -211,7 +211,7 @@ struct WinRateAnalysisView: View {
     private func emptyText(_ text: String) -> some View {
         Text(text)
             .font(.subheadline)
-            .foregroundStyle(VFColor.secondaryText)
+            .foregroundStyle(VFColor.bodySecondary)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 
@@ -309,7 +309,7 @@ struct WinRateAnalysisView: View {
         guard let team = KBOSeed.teams.first(where: { title.contains($0.shortName) || title.contains($0.name) }) else {
             return theme.primary
         }
-        return Color(hex: team.accentColorHex)
+        return team.accentColor
     }
 }
 
@@ -374,11 +374,11 @@ private struct AnalysisRankingBar: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .lineLimit(1)
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
                 Spacer()
                 Text("\(percent)%")
@@ -390,7 +390,7 @@ private struct AnalysisRankingBar: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(VFColor.mutedLine.opacity(0.65))
+                        .fill(VFColor.hairline.opacity(0.65))
                     Capsule()
                         .fill(tint.opacity(0.78))
                         .frame(width: max(8, proxy.size.width * CGFloat(percent) / 100))

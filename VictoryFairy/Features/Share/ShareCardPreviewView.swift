@@ -2,319 +2,392 @@ import Photos
 import SwiftUI
 import UIKit
 
-enum DiaryShareCardStyle: String, CaseIterable, Identifiable {
-    case score
-    case diary
-    case winRate
+/// 기록이 소유한 로컬 참조만 순서대로 읽어 첫 정상 이미지를 고른다.
+/// 로더가 네트워크 진입점을 받지 않으므로 실패해도 외부 미디어를 요청할 수 없다.
+enum MemorySharePhotoResolver {
+    static func firstReadable(
+        in refs: [String],
+        load: (String) -> UIImage?
+    ) -> (reference: String, image: UIImage)? {
+        for ref in refs {
+            if let image = load(ref) { return (ref, image) }
+        }
+        return nil
+    }
+}
 
-    var id: String { rawValue }
+/// jYs0S의 단일 기록 카드. 화면 크기나 Dynamic Type과 무관한 고정 300×360 구성이다.
+struct MemoryShareCardCanvas: View {
+    let content: MemoryShareCardContent
+    let photo: UIImage?
 
-    var title: String {
-        switch self {
-        case .score: "스코어 카드"
-        case .diary: "다이어리 카드"
-        case .winRate: "승률 카드"
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.black.opacity(0.14))
+                .frame(width: 296, height: 348)
+                .offset(y: 6)
+
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(VFColor.memoryCardSurface)
+                .frame(width: 296, height: 348)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(VFColor.hairline, lineWidth: 1.2)
+                )
+
+            VStack(alignment: .leading, spacing: 8) {
+                photoRegion
+                    .frame(width: 272, height: 230)
+
+                cardInformation
+                    .frame(width: 272, height: 90, alignment: .topLeading)
+            }
+        }
+        .frame(width: MemoryShareCardGeometry.logicalSize.width,
+               height: MemoryShareCardGeometry.logicalSize.height)
+        // `VFResultStamp`의 @ScaledMetric도 export에서는 고정되어야 한다.
+        .environment(\.dynamicTypeSize, .medium)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(content.accessibilitySummary)
+        .accessibilityIdentifier("memoryShare.card")
+    }
+
+    private var photoRegion: some View {
+        ZStack(alignment: .bottomTrailing) {
+            if let photo {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 272, height: 230)
+                    .clipped()
+            } else {
+                MemorySharePhotoPlaceholder()
+            }
+
+            VFResultStamp(result: content.result, size: 48)
+                .padding(10)
+                .accessibilityHidden(true)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var cardInformation: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(content.matchupAndScoreText)
+                .font(.system(size: 16, weight: .bold, design: .default))
+                .foregroundStyle(VFColor.bodyPrimary)
+                .monospacedDigit()
+                .lineLimit(2)
+                .minimumScaleFactor(0.76)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(content.metadataText)
+                .font(.system(size: 11, weight: .regular, design: .default))
+                .foregroundStyle(VFColor.bodySecondary)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            Text("승리요정")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .italic()
+                .foregroundStyle(VFColor.primaryActionDeep)
+                .lineLimit(1)
         }
     }
 }
 
-struct ShareCardPreviewView: View {
-    @Environment(\.appTheme) private var theme
-    @Environment(\.dismiss) private var dismiss
-    let log: AttendanceLogViewState?
-    var seasonWinRateText: String?
-    @State private var selectedStyle: DiaryShareCardStyle = .score
-    @State private var renderedImage: UIImage?
-    @State private var isShowingShareSheet = false
-    @State private var message: String?
-
-    init(log: AttendanceLogViewState? = nil, seasonWinRateText: String? = nil) {
-        self.log = log
-        self.seasonWinRateText = seasonWinRateText
-    }
-
+/// 사진이 없거나 모든 로컬 참조를 읽지 못할 때 쓰는 결정적·네트워크 없는 표면.
+private struct MemorySharePhotoPlaceholder: View {
     var body: some View {
-        ScrollView {
-            VStack(spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "카드 저장 및 공유", subtitle: "다이어리 기록을 안전한 공유 카드로 만들어요.")
-
-                Picker("카드 스타일", selection: $selectedStyle) {
-                    ForEach(DiaryShareCardStyle.allCases) { style in
-                        Text(style.title).tag(style)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                DiaryShareCardCanvas(log: cardLog, style: selectedStyle, seasonWinRateText: seasonWinRateText)
-                    .frame(width: 330, height: 586)
-                    .shadow(color: theme.primary.opacity(0.22), radius: 24, y: 12)
-
-                if let message {
-                    Text(message)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(VFColor.secondaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                HStack(spacing: VFSpacing.sm) {
-                    VFSecondaryButton(title: "이미지 저장", systemImage: "square.and.arrow.down") {
-                        Task { await saveRenderedCard() }
-                    }
-                    VFPrimaryButton(title: "공유하기", systemImage: "square.and.arrow.up") {
-                        renderedImage = renderCard()
-                        isShowingShareSheet = renderedImage != nil
-                    }
-                }
-
-                VFSecondaryButton(title: "닫기", systemImage: "xmark") {
-                    dismiss()
-                }
-            }
-            .padding(VFSpacing.lg)
-            .vfTabContentPadding()
-        }
-        .navigationTitle("공유 카드")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $isShowingShareSheet) {
-            if let renderedImage {
-                ActivityView(items: [renderedImage])
+        ZStack {
+            VFColor.highlightSurface
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(VFColor.primaryAction.opacity(0.30), lineWidth: 1)
+                .padding(10)
+            VStack(spacing: 8) {
+                Image(systemName: "photo")
+                    .font(.system(size: 30, weight: .regular))
+                    .foregroundStyle(VFColor.bodyTertiary)
+                Text("기록 사진 없음")
+                    .font(.system(size: 12, weight: .semibold, design: .default))
+                    .foregroundStyle(VFColor.bodySecondary)
             }
         }
-        .vfScreenBackground()
+        .frame(width: 272, height: 230)
+        .accessibilityIdentifier("memoryShare.placeholder")
     }
+}
 
-    private var cardLog: AttendanceLogViewState {
-        log ?? AttendanceLogSample.logs.first ?? .init(
-            id: UUID(),
-            date: .now,
-            dateText: DateFormatter.vfDisplayDate.string(from: .now),
-            matchup: "우리팀 vs 상대팀",
-            stadium: "구장 미정",
-            result: .win,
-            ourScore: nil,
-            opponentScore: nil,
-            seat: "",
-            companion: "",
-            memo: "직관 기록을 카드로 남겨보세요.",
-            caption: "직관 기록을 카드로 남겨보세요.",
-            diary: "직관 기록을 카드로 남겨보세요.",
-            tags: [],
-            photoLocalRefs: []
-        )
-    }
-
-    @MainActor
-    private func saveRenderedCard() async {
-        guard let image = renderCard() else {
-            message = "카드를 이미지로 만들지 못했어요."
-            return
-        }
-        renderedImage = image
-        let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
-        let granted: Bool
-        switch status {
-        case .authorized, .limited:
-            granted = true
-        case .notDetermined:
-            granted = await requestPhotoPermission()
-        default:
-            granted = false
-        }
-
-        guard granted else {
-            message = "사진 저장 권한이 없어 저장하지 못했어요. 공유하기는 계속 사용할 수 있어요."
-            return
-        }
-
-        do {
-            try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.creationRequestForAsset(from: image)
-            }
-            message = "이미지를 사진 앱에 저장했어요."
-        } catch {
-            message = "이미지 저장에 실패했어요. 공유하기를 사용해 주세요."
-        }
-    }
-
-    @MainActor
-    private func requestPhotoPermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-                continuation.resume(returning: status == .authorized || status == .limited)
-            }
-        }
-    }
-
-    @MainActor
-    private func renderCard() -> UIImage? {
+@MainActor
+enum MemoryShareCardRenderer {
+    static func render(content: MemoryShareCardContent, photo: UIImage?) -> UIImage? {
         let renderer = ImageRenderer(
-            content: DiaryShareCardCanvas(log: cardLog, style: selectedStyle, seasonWinRateText: seasonWinRateText)
-                .frame(width: 1080, height: 1920)
+            content: MemoryShareCardCanvas(content: content, photo: photo)
+                .frame(width: MemoryShareCardGeometry.logicalSize.width,
+                       height: MemoryShareCardGeometry.logicalSize.height)
         )
-        renderer.scale = 1
+        renderer.scale = MemoryShareCardGeometry.exportScale
         return renderer.uiImage
     }
 }
 
-struct DiaryShareCardCanvas: View {
-    @Environment(\.appTheme) private var theme
-    let log: AttendanceLogViewState
-    let style: DiaryShareCardStyle
-    var seasonWinRateText: String?
-    private let photoService = PhotoAttachmentService()
+enum MemoryShareSaveError: Error {
+    case permissionDenied
+}
+
+@MainActor
+enum MemorySharePhotoLibrarySaver {
+    static func save(_ image: UIImage) async throws {
+        let current = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        let granted: Bool
+        switch current {
+        case .authorized, .limited:
+            granted = true
+        case .notDetermined:
+            let status = await withCheckedContinuation { continuation in
+                PHPhotoLibrary.requestAuthorization(for: .addOnly) { result in
+                    continuation.resume(returning: result)
+                }
+            }
+            granted = status == .authorized || status == .limited
+        default:
+            granted = false
+        }
+
+        guard granted else { throw MemoryShareSaveError.permissionDenied }
+        try await PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.creationRequestForAsset(from: image)
+        }
+    }
+}
+
+/// 공유와 저장의 부작용 경계를 한곳에 둔다.
+/// 공유·취소·화면 닫기는 저장 클로저를 호출하지 않고, 명시적 저장만 호출한다.
+@MainActor
+final class MemoryShareOutputController: ObservableObject {
+    typealias Renderer = () -> UIImage?
+    typealias Saver = (UIImage) async throws -> Void
+
+    @Published var shareImage: UIImage?
+    @Published var isShowingShareSheet = false
+    @Published var message: String?
+    private(set) var explicitSaveInvocationCount = 0
+
+    private let renderer: Renderer
+    private let saver: Saver
+
+    init(renderer: @escaping Renderer, saver: @escaping Saver) {
+        self.renderer = renderer
+        self.saver = saver
+    }
+
+    func prepareNativeShare() {
+        guard let image = renderer() else {
+            message = "카드를 이미지로 만들지 못했어요."
+            return
+        }
+        shareImage = image
+        isShowingShareSheet = true
+    }
+
+    func saveToPhotos() async {
+        guard let image = renderer() else {
+            message = "카드를 이미지로 만들지 못했어요."
+            return
+        }
+        explicitSaveInvocationCount += 1
+        do {
+            try await saver(image)
+            message = "이미지를 사진 앱에 저장했어요."
+        } catch MemoryShareSaveError.permissionDenied {
+            message = "사진 저장 권한이 없어 저장하지 못했어요. 공유는 계속 사용할 수 있어요."
+        } catch {
+            message = "이미지 저장에 실패했어요. 공유를 사용해 주세요."
+        }
+    }
+
+    func shareSheetDidDismiss() {
+        isShowingShareSheet = false
+        shareImage = nil
+    }
+
+    /// 명시적으로 빈 구현이다. 미리보기 닫기는 어떤 저장도 하지 않는다.
+    func previewDidDismiss() {}
+}
+
+/// 고정 캔버스를 가용 화면 폭 안에서만 축소하는 미리보기 래퍼.
+private struct ScaledMemoryShareCardPreview: View {
+    let content: MemoryShareCardContent
+    let photo: UIImage?
 
     var body: some View {
-        ZStack {
-            background
-
-            VStack(alignment: .leading, spacing: 22) {
-                HStack {
-                    Text(style.title)
-                        .font(.system(size: 32, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Text("VictoryFairy")
-                        .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.78))
-                }
-
-                if style == .diary, let firstImage {
-                    Image(uiImage: firstImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(height: 420)
-                        .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-                        .overlay(alignment: .bottomLeading) {
-                            Text(log.resultScoreText)
-                                .font(.system(size: 34, weight: .heavy, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 22)
-                                .frame(minHeight: 64)
-                                .background(.black.opacity(0.48))
-                                .clipShape(Capsule())
-                                .padding(24)
-                        }
-                } else {
-                    scoreBlock
-                }
-
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(log.dateText)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.74))
-                    Text(log.matchup)
-                        .font(.system(size: 58, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.62)
-                    Text(log.stadium)
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.82))
-                }
-
-                memoBlock
-
-                Spacer()
-
-                HStack(spacing: 16) {
-                    shareMetric("결과", log.result.diaryTitle)
-                    shareMetric("응원팀", favoriteTeamText)
-                    shareMetric("승률", seasonWinRateText ?? "내 기록")
+        Color.clear
+            .aspectRatio(MemoryShareCardGeometry.aspectRatio, contentMode: .fit)
+            .overlay {
+                GeometryReader { proxy in
+                    let scale = min(proxy.size.width / MemoryShareCardGeometry.logicalSize.width,
+                                    proxy.size.height / MemoryShareCardGeometry.logicalSize.height)
+                    MemoryShareCardCanvas(content: content, photo: photo)
+                        .scaleEffect(scale, anchor: .topLeading)
+                        .frame(width: MemoryShareCardGeometry.logicalSize.width * scale,
+                               height: MemoryShareCardGeometry.logicalSize.height * scale,
+                               alignment: .topLeading)
                 }
             }
-            .padding(64)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 54, style: .continuous))
+            .frame(maxWidth: MemoryShareCardGeometry.logicalSize.width)
     }
+}
 
-    private var background: some View {
-        ZStack(alignment: .bottomTrailing) {
-            LinearGradient(
-                colors: [VFColor.scoreboardNavy, theme.secondary.opacity(0.92), VFColor.victoryOrange.opacity(0.86)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+struct ShareCardPreviewView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let content: MemoryShareCardContent
+    let photo: UIImage?
+    @StateObject private var output: MemoryShareOutputController
+    @State private var debugExportProof: String?
+
+    @MainActor
+    init(
+        log: AttendanceLogViewState,
+        photoLoader: @escaping (String) -> UIImage? = {
+            #if DEBUG
+            if let image = VFRecordDetailFixtures.inMemoryImage(
+                for: $0,
+                maxPixel: PhotoDisplayTarget.shareCard.maxPixel
+            ) {
+                return image
+            }
+            #endif
+            return PhotoAttachmentService().image(for: $0, target: .shareCard)
+        },
+        renderer: ((MemoryShareCardContent, UIImage?) -> UIImage?)? = nil,
+        saver: ((UIImage) async throws -> Void)? = nil
+    ) {
+        let content = MemoryShareCardContent(log: log)
+        let photo = MemorySharePhotoResolver.firstReadable(
+            in: content.photoLocalRefs,
+            load: photoLoader
+        )?.image
+        let render = renderer ?? { content, photo in
+            MemoryShareCardRenderer.render(content: content, photo: photo)
+        }
+        let save = saver ?? { image in
+            try await MemorySharePhotoLibrarySaver.save(image)
+        }
+
+        self.content = content
+        self.photo = photo
+        _output = StateObject(
+            wrappedValue: MemoryShareOutputController(
+                renderer: { render(content, photo) },
+                saver: save
             )
-            ForEach(0..<5, id: \.self) { index in
-                Rectangle()
-                    .fill(.white.opacity(0.055))
-                    .frame(height: 3)
-                    .rotationEffect(.degrees(-12))
-                    .offset(y: CGFloat(index * 120) - 160)
+        )
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: VFSpacing.lg) {
+                ScreenHeaderView(
+                    title: "추억 카드 미리보기",
+                    subtitle: "이 직관 기록 한 건을 이미지로 공유하거나 사진에 저장해요."
+                )
+
+                fixtureScenarioMarker
+
+                ScaledMemoryShareCardPreview(content: content, photo: photo)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                Text("이미지 1200 × 1440 · 5:6")
+                    .font(VFTypography.metadata)
+                    .foregroundStyle(VFColor.bodyTertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityIdentifier("memoryShare.geometry")
+
+                #if DEBUG
+                if let debugExportProof {
+                    Text(debugExportProof)
+                        .font(VFTypography.metadata)
+                        .foregroundStyle(VFColor.statusSuccess)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .accessibilityIdentifier("memoryShare.exportProof")
+                }
+                #endif
+
+                if let message = output.message {
+                    Text(message)
+                        .font(VFTypography.metadata)
+                        .foregroundStyle(VFColor.bodySecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("memoryShare.message")
+                }
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: VFSpacing.sm) { outputButtons }
+                    VStack(spacing: VFSpacing.xs) { outputButtons }
+                }
+
+                VFSecondaryButton(title: "닫기", systemImage: "xmark") {
+                    output.previewDidDismiss()
+                    dismiss()
+                }
+                .accessibilityIdentifier("memoryShare.close")
             }
-            Text(style == .winRate ? "%" : log.result.title)
-                .font(.system(size: 420, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.08))
-                .offset(x: 56, y: 80)
+            .padding(VFSpacing.md)
+            .vfTabContentPadding()
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("memoryShare.root")
         }
-    }
-
-    private var scoreBlock: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(style == .winRate ? "MY WIN RATE" : "SCORE")
-                .font(.system(size: 24, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.62))
-            Text(style == .winRate ? (seasonWinRateText ?? "내 직관 데이터") : log.resultScoreText)
-                .font(.system(size: 88, weight: .black, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.54)
+        .navigationTitle("추억 카드")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $output.isShowingShareSheet, onDismiss: {
+            output.shareSheetDidDismiss()
+        }) {
+            if let image = output.shareImage {
+                ActivityView(items: [image])
+            }
         }
-        .padding(36)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
-    }
-
-    private var memoBlock: some View {
-        Text(cardMemo)
-            .font(.system(size: 32, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.9))
-            .lineLimit(5)
-            .minimumScaleFactor(0.72)
-            .padding(30)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(0.13))
-            .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
-    }
-
-    private func shareMetric(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundStyle(VFColor.secondaryText)
-            Text(value)
-                .font(.system(size: 25, weight: .heavy, design: .rounded))
-                .foregroundStyle(VFColor.primaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
+        .task {
+            #if DEBUG
+            guard VFUITestConfiguration.activeMemoryShareScenarioIdentifier != nil,
+                  debugExportProof == nil,
+                  let image = MemoryShareCardRenderer.render(content: content, photo: photo),
+                  let data = image.pngData(),
+                  let decoded = UIImage(data: data),
+                  let cgImage = decoded.cgImage else { return }
+            debugExportProof = "디코딩 확인 · \(cgImage.width) × \(cgImage.height)"
+            #endif
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
-        .background(.white.opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .vfScreenBackground()
     }
 
-    private var firstImage: UIImage? {
-        log.photoLocalRefs.first.flatMap { photoService.image(for: $0, target: .shareCard) }
-    }
-
-    private var cardMemo: String {
-        switch style {
-        case .score:
-            return log.memo.nilIfBlank ?? log.caption.nilIfBlank ?? "오늘의 직관 기록"
-        case .diary:
-            return log.diary.nilIfBlank ?? log.memo.nilIfBlank ?? "오늘의 직관 기록"
-        case .winRate:
-            return "내 직관 데이터 기준으로 남기는 \(log.dateText) 기록"
+    @ViewBuilder
+    private var outputButtons: some View {
+        VFPrimaryButton(title: "공유", systemImage: "square.and.arrow.up") {
+            output.prepareNativeShare()
         }
+        .accessibilityIdentifier("memoryShare.share")
+
+        VFSecondaryButton(title: "사진에 저장", systemImage: "square.and.arrow.down") {
+            Task { await output.saveToPhotos() }
+        }
+        .accessibilityIdentifier("memoryShare.save")
     }
 
-    private var favoriteTeamText: String {
-        KBOSeed.teams.first { team in
-            log.matchup.contains(team.name) || log.matchup.contains(team.shortName)
-        }?.shortName ?? "우리팀"
+    @ViewBuilder
+    private var fixtureScenarioMarker: some View {
+        if let identifier = VFUITestConfiguration.activeMemoryShareScenarioIdentifier {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(identifier)
+                .accessibilityLabel(Text(verbatim: ""))
+        }
     }
 }
 
@@ -326,17 +399,4 @@ struct ActivityView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-private extension String {
-    var nilIfBlank: String? {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-}
-
-#Preview("공유 카드 미리보기") {
-    NavigationStack {
-        ShareCardPreviewView(log: AttendanceLogSample.logs.first, seasonWinRateText: "63%")
-    }
 }

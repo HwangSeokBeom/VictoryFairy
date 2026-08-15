@@ -126,8 +126,25 @@ private enum CalendarViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// Pencil `선택일 승리 페어리` 자리의 결과 → 페어리 매핑.
+///
+/// 뷰 안에 두면 밖에서 확인할 수 없어 따로 뺐다. 이 자리는 **선택한 기록의 결과**를
+/// 나타내므로 승리 페어리는 오직 승리에만 쓴다. 시즌 커버의 `시즌 시그니처 페어리`는
+/// 이름 그대로 상수 브랜드 표식이라 이 매핑을 쓰지 않는다.
+enum CalendarResultFairy {
+    static func kind(for result: GameResult) -> VFFairyKind {
+        switch result {
+        case .win: .victory
+        case .loss: .loss
+        case .draw: .draw
+        case .canceled: .cancelled
+        }
+    }
+}
+
 struct AttendanceCalendarView: View {
     @Environment(\.appTheme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var appData: AppDataStore
     @EnvironmentObject private var preferences: UserPreferencesStore
     let logs: [AttendanceLogViewState]
@@ -135,8 +152,13 @@ struct AttendanceCalendarView: View {
     var month = Date.vfDate(year: 2026, month: 4, day: 1)
     @AppStorage("calendarViewMode") private var calendarViewModeRaw = CalendarViewMode.basic.rawValue
     @State private var selectedDay: CalendarSelectedDay?
-    @State private var editorDate: Date?
-    @State private var isShowingLogEditor = false
+    @State private var detailRoute: AttendanceLogViewState?
+    /// 캘린더가 정해 준 날짜로 여는 기록 작성 경로.
+    ///
+    /// 예전에는 날짜(`Date?`)와 표시 여부(`Bool`) 두 값으로 나뉘어 있어, 날짜 없이
+    /// 열릴 수 있는 상태가 타입에 남아 있었다. 하나로 합치면 그 상태가 사라진다 —
+    /// 시트가 열렸다는 것은 곧 날짜가 있다는 뜻이다.
+    @State private var createRoute: CalendarCreateRoute?
     @State private var isShowingFilters = false
     @State private var isShowingMonthPicker = false
     @State private var resultFilter: CalendarResultFilter = .all
@@ -149,61 +171,16 @@ struct AttendanceCalendarView: View {
     @State private var draftRecordFilter: CalendarRecordFilter = .all
     @State private var pickerYear = 2026
     @State private var pickerMonth = 4
+    /// 화면 안의 모든 날짜 판단은 기준 달력으로 한다. 기기 시간대 설정에 흔들리면
+    /// 같은 기록이 기기마다 다른 날에 찍힌다.
+    private let referenceCalendar = CalendarMonth.referenceCalendar()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                ScreenHeaderView(title: "직관 캘린더", subtitle: "날짜별 직관 기록과 결과를 확인해요") {
-                    HeaderIconButton(systemImage: "calendar.badge.plus", accessibilityLabel: "직관 기록 추가") {
-                        openEditor(date: selectedDay?.date ?? month)
-                    }
-                }
+                calendarHeader
 
-                DataStateBanner(state: dataState)
-
-                VFCard(background: VFColor.backgroundWarm) {
-                    VStack(alignment: .leading, spacing: VFSpacing.md) {
-                        HStack(spacing: VFSpacing.sm) {
-                            monthButton(systemImage: "chevron.left", accessibilityLabel: "이전 달") {
-                                selectedDay = nil
-                                Task { await appData.moveCalendarMonth(by: -1) }
-                            }
-                            Button {
-                                openMonthPicker()
-                            } label: {
-                                HStack(spacing: VFSpacing.xs) {
-                                    Text(monthTitle)
-                                        .font(.system(size: 21, weight: .bold, design: .rounded))
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 12, weight: .bold))
-                                }
-                                .foregroundStyle(VFColor.primaryText)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("\(monthTitle), 월 선택")
-                            .accessibilityHint("연도와 월을 직접 선택합니다")
-                            .frame(maxWidth: .infinity)
-                            monthButton(systemImage: "chevron.right", accessibilityLabel: "다음 달") {
-                                selectedDay = nil
-                                Task { await appData.moveCalendarMonth(by: 1) }
-                            }
-                        }
-
-                        HStack {
-                            Text(summaryTitle)
-                                .font(.system(.subheadline, design: .rounded).weight(.bold))
-                                .foregroundStyle(VFColor.primaryText)
-                            Spacer()
-                        }
-
-                        FlowLayout(spacing: VFSpacing.xs) {
-                            summaryChip("승 \(count(.win))", color: VFColor.winGreen)
-                            summaryChip("패 \(count(.loss))", color: VFColor.lossRed)
-                            summaryChip("무 \(count(.draw))", color: VFColor.drawGray)
-                            summaryChip("취소 \(count(.canceled))", color: VFColor.canceledGray)
-                        }
-                    }
-                }
+                dataStateSection
 
                 viewModeToolbar
 
@@ -212,32 +189,22 @@ struct AttendanceCalendarView: View {
                 CalendarMonthView(month: month, logs: displayedCalendarLogs, viewMode: viewMode, selectedDate: selectedDay?.date) { date in
                     selectedDay = CalendarSelectedDay(date: date, logs: logs(on: date))
                 }
+                .accessibilityIdentifier("calendar.grid")
 
                 legend
 
-                if shouldShowFilteredEmptyState {
-                    EmptyStateView(
-                        title: emptyStateTitle,
-                        message: emptyStateMessage,
-                        buttonTitle: "이 날짜에 기록 추가",
-                        systemImage: "calendar.badge.plus"
-                    ) {
-                        openEditor(date: selectedDay?.date ?? month)
-                    }
-                } else if let log = selectedDay?.logs.first ?? matchingLogs.first {
-                    selectedPreview(log)
-                }
+                designOnlyStatusBanner
+
+                selectedDateDetail
+
+                fixtureScenarioMarker
             }
             .padding(VFSpacing.lg)
             .vfTabContentPadding()
         }
-        .sheet(item: $selectedDay) { day in
-            CalendarDayDetailSheet(day: day) { date in
-                openEditor(date: date)
-            }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
+        // 좁은 폭과 큰 글자 검증이 스크롤 컨테이너 자체의 실제 경계를 재야 하므로
+        // 루트에도 식별자를 둔다.
+        .accessibilityIdentifier("calendar.root")
         .sheet(isPresented: $isShowingFilters) {
             CalendarFilterSheet(
                 resultFilter: $draftResultFilter,
@@ -263,21 +230,51 @@ struct AttendanceCalendarView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isShowingLogEditor) {
+        .sheet(item: $createRoute) { route in
             NavigationStack {
-                LogEditorView(initialDate: editorDate)
+                // 고른 날짜를 그대로 넘긴다. 오늘로 바꾸지 않는다.
+                RecordCreateFlowView(context: .calendar(date: route.date))
             }
         }
+        .onAppear(perform: applyFixturePreselectionIfNeeded)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
+        // Pencil 섹션 헤더의 "자세히"가 실제로 기존 기록 상세 경로를 연다.
+        .navigationDestination(item: $detailRoute) { log in
+            AttendancePostDetailView(log: log)
+        }
         .vfScreenBackground()
+    }
+
+    /// 불러오기 상태를 알리는 자리.
+    ///
+    /// 복구할 수 있는 오류일 때는 문구만 띄우지 않고 다시 시도할 방법을 함께 준다.
+    /// 다시 불러오는 동안에도 보고 있던 달과 고른 날짜는 그대로 둔다. 캘린더는
+    /// 읽기 전용이므로 이 경로는 저장소를 바꾸지 않는다.
+    @ViewBuilder
+    private var dataStateSection: some View {
+        if case .error(let message) = dataState {
+            VFErrorPanel(message: message) {
+                Task { await appData.refreshContent() }
+            }
+            .accessibilityIdentifier("calendar.errorRetry")
+        } else {
+            DataStateBanner(state: dataState)
+        }
+    }
+
+    /// 픽스처가 지정한 날짜를 처음 한 번 선택 상태로 만든다.
+    /// 제품 경로에서는 `calendarPreselectedDate`가 nil이라 아무 일도 하지 않는다.
+    private func applyFixturePreselectionIfNeeded() {
+        guard selectedDay == nil,
+              let preselected = VFUITestConfiguration.calendarPreselectedDate else { return }
+        selectedDay = CalendarSelectedDay(date: preselected, logs: logs(on: preselected))
     }
 
     private func openEditor(date: Date) {
         selectedDay = nil
-        editorDate = date
         DispatchQueue.main.async {
-            isShowingLogEditor = true
+            createRoute = CalendarCreateRoute(date: date)
         }
     }
 
@@ -293,7 +290,7 @@ struct AttendanceCalendarView: View {
     }
 
     private var monthPickerYears: [Int] {
-        let currentYear = Calendar.current.component(.year, from: .now)
+        let currentYear = referenceCalendar.component(.year, from: .now)
         let fallbackYears = Array((currentYear - 5)...(currentYear + 1))
         let seasonYears = appData.availableSeasons.map(\.season)
         return Array(Set(fallbackYears + seasonYears + [2026])).sorted()
@@ -307,8 +304,8 @@ struct AttendanceCalendarView: View {
     }
 
     private func openMonthPicker() {
-        pickerYear = Calendar.current.component(.year, from: month)
-        pickerMonth = Calendar.current.component(.month, from: month)
+        pickerYear = referenceCalendar.component(.year, from: month)
+        pickerMonth = referenceCalendar.component(.month, from: month)
         isShowingMonthPicker = true
     }
 
@@ -322,19 +319,24 @@ struct AttendanceCalendarView: View {
 
     private func applyTodayMonth() {
         let today = Date()
-        pickerYear = Calendar.current.component(.year, from: today)
-        pickerMonth = Calendar.current.component(.month, from: today)
+        pickerYear = referenceCalendar.component(.year, from: today)
+        pickerMonth = referenceCalendar.component(.month, from: today)
         applyPickedMonth()
     }
 
+    /// Pencil `월 이동` 버튼. 원본은 38pt 원이지만 최소 터치 영역 44pt를 확보하기 위해
+    /// 보이는 원은 38pt로 두고 탭 영역만 44pt로 넓힌다.
     private func monthButton(systemImage: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(theme.primary)
-                .frame(width: 44, height: 44)
-                .background(theme.primary.opacity(0.1))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(VFColor.bodySecondary)
+                .frame(width: 38, height: 38)
+                .background(VFColor.elevatedSurface)
                 .clipShape(Circle())
+                .overlay(Circle().stroke(VFColor.hairline, lineWidth: 1.2))
+                .frame(width: VFControl.minimumTouchTarget, height: VFControl.minimumTouchTarget)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -342,7 +344,7 @@ struct AttendanceCalendarView: View {
 
     private func logs(on date: Date) -> [AttendanceLogViewState] {
         guard recordFilter != .unrecorded else { return [] }
-        return matchingLogs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        return matchingLogs.filter { referenceCalendar.isDate($0.date, inSameDayAs: date) }
     }
 
     private func count(_ result: GameResult) -> Int {
@@ -363,6 +365,83 @@ struct AttendanceCalendarView: View {
 
     private var favoriteTeam: KBOTeam? {
         appData.team(id: preferences.favoriteTeamID)
+    }
+
+    /// Pencil `캘린더 헤더`. 화면 제목이 곧 보고 있는 달이고, 그 아래에 이 달의 요약,
+    /// 오른쪽에 이전·다음 달 버튼이 온다.
+    private var calendarHeader: some View {
+        HStack(alignment: .top, spacing: VFSpacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Button {
+                    openMonthPicker()
+                } label: {
+                    HStack(spacing: VFSpacing.xxs) {
+                        Text(monthTitle)
+                            .font(VFTypography.display)
+                            .foregroundStyle(VFColor.bodyPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(VFColor.bodyTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(monthTitle), 월 선택")
+                .accessibilityHint("연도와 월을 직접 선택합니다")
+                .accessibilityIdentifier("calendar.monthTitle")
+
+                Text(monthSummaryText)
+                    .font(Font.system(.caption, design: .default))
+                    .foregroundStyle(VFColor.bodyTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("calendar.monthSummary")
+            }
+
+            Spacer(minLength: VFSpacing.xs)
+
+            HStack(spacing: VFSpacing.xs) {
+                monthButton(systemImage: "chevron.left", accessibilityLabel: "이전 달") {
+                    moveMonth(by: -1)
+                }
+                .accessibilityIdentifier("calendar.previousMonth")
+                monthButton(systemImage: "chevron.right", accessibilityLabel: "다음 달") {
+                    moveMonth(by: 1)
+                }
+                .accessibilityIdentifier("calendar.nextMonth")
+            }
+        }
+        .padding(.top, VFSpacing.xs)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// Pencil "이번 달 3번의 직관 · 2승 1무". 실제 집계만 쓰고 값을 지어내지 않는다.
+    private var monthSummaryText: String {
+        let visible = matchingLogs
+        guard !visible.isEmpty else { return "이번 달 기록이 없어요" }
+        var parts = ["이번 달 \(visible.count)번의 직관"]
+        let record = [
+            count(.win) > 0 ? "\(count(.win))승" : nil,
+            count(.loss) > 0 ? "\(count(.loss))패" : nil,
+            count(.draw) > 0 ? "\(count(.draw))무" : nil
+        ].compactMap { $0 }
+        if !record.isEmpty { parts.append(record.joined(separator: " ")) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// 달 이동은 뷰의 버튼 클로저가 아니라 이 한 곳에서만 한다.
+    /// 선택 날짜는 새 달에 맞춰 명시적으로 보정하고, 조용히 다른 달로 넘기지 않는다.
+    private func moveMonth(by offset: Int) {
+        let previousDay = selectedDay.map {
+            CalendarMonth.referenceCalendar().component(.day, from: $0.date)
+        }
+        selectedDay = nil
+        Task {
+            await appData.moveCalendarMonth(by: offset)
+            if let previousDay,
+               let clamped = CalendarMonth.clampedSelection(day: previousDay, in: appData.selectedCalendarMonth) {
+                selectedDay = CalendarSelectedDay(date: clamped, logs: logs(on: clamped))
+            }
+        }
     }
 
     private var summaryTitle: String {
@@ -389,6 +468,20 @@ struct AttendanceCalendarView: View {
     }
 
     private var viewModeToolbar: some View {
+        // 큰 글자에서는 세 가지 보기 이름이 한 줄에 들어가지 않는다. 글자를 줄여
+        // 잘라내는 대신 가로로 밀어 볼 수 있게 해서, 이름을 온전히 읽을 수 있게 한다.
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    viewModeRow.padding(.horizontal, 2)
+                }
+            } else {
+                viewModeRow
+            }
+        }
+    }
+
+    private var viewModeRow: some View {
         HStack(spacing: VFSpacing.sm) {
             HStack(spacing: VFSpacing.xs) {
                 ForEach(CalendarViewMode.allCases) { mode in
@@ -397,7 +490,7 @@ struct AttendanceCalendarView: View {
                     } label: {
                         Text(mode.title)
                             .font(.system(.subheadline, design: .rounded).weight(viewMode == mode ? .bold : .semibold))
-                            .foregroundStyle(viewMode == mode ? VFColor.victoryOrange : VFColor.secondaryText)
+                            .foregroundStyle(viewMode == mode ? VFColor.primaryAction : VFColor.bodySecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.82)
                             .frame(maxWidth: .infinity, minHeight: 38)
@@ -407,19 +500,19 @@ struct AttendanceCalendarView: View {
                     .background {
                         if viewMode == mode {
                             RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                                .fill(VFColor.victoryOrange.opacity(0.12))
+                                .fill(VFColor.primaryAction.opacity(0.12))
                         }
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                            .stroke(viewMode == mode ? VFColor.victoryOrange.opacity(0.3) : Color.clear, lineWidth: 1)
+                            .stroke(viewMode == mode ? VFColor.primaryAction.opacity(0.3) : Color.clear, lineWidth: 1)
                     }
                     .accessibilityLabel(viewMode == mode ? "\(mode.accessibilityTitle), 선택됨" : mode.accessibilityTitle)
                     .accessibilityAddTraits(viewMode == mode ? .isSelected : [])
                 }
             }
             .padding(VFSpacing.xs)
-            .background(VFColor.cardTranslucent)
+            .background(VFColor.translucentSurface)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.lg, style: .continuous))
             .overlay(
@@ -432,12 +525,12 @@ struct AttendanceCalendarView: View {
             } label: {
                 Label("필터", systemImage: activeFilterCount == 0 ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundStyle(activeFilterCount == 0 ? VFColor.primaryText : VFColor.victoryOrange)
+                    .foregroundStyle(activeFilterCount == 0 ? VFColor.bodyPrimary : VFColor.primaryAction)
                     .frame(width: 76, height: 46)
-                    .background(VFColor.cardTranslucent)
+                    .background(VFColor.translucentSurface)
                     .background(.ultraThinMaterial)
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(activeFilterCount == 0 ? .white.opacity(0.9) : VFColor.victoryOrange.opacity(0.3), lineWidth: 1))
+                    .overlay(Capsule().stroke(activeFilterCount == 0 ? .white.opacity(0.9) : VFColor.primaryAction.opacity(0.3), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(activeFilterCount == 0 ? "필터" : "필터, \(activeFilterCount)개 적용됨")
@@ -452,10 +545,10 @@ struct AttendanceCalendarView: View {
                 ForEach(activeFilterLabels, id: \.self) { label in
                     Text(label)
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 28)
-                        .background(VFColor.victoryOrange.opacity(0.1))
+                        .background(VFColor.primaryAction.opacity(0.1))
                         .clipShape(Capsule())
                 }
             }
@@ -549,19 +642,179 @@ struct AttendanceCalendarView: View {
             .clipShape(Capsule())
     }
 
+    /// Pencil `캘린더 범례`. 점 색이 무엇을 뜻하는지 글자로 함께 알린다.
+    /// 색만으로 결과를 구분하지 않기 위한 장치이기도 하다.
+    /// 글자가 커지면 한 줄에 다 들어가지 않으므로 가로 스크롤로 접근을 보장한다.
     private var legend: some View {
-        HStack(spacing: VFSpacing.md) {
-            ForEach(GameResult.allCases) { result in
-                HStack(spacing: VFSpacing.xs) {
-                    CalendarResultDot(result: result)
-                    Text(result.title)
-                        .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: VFSpacing.md) {
+                legendItem(color: VFColor.gameWin, title: "승리한 직관")
+                legendItem(color: VFColor.gameLoss, title: "아쉬운 직관")
+                legendItem(color: VFColor.gameDraw, title: "무승부")
+                HStack(spacing: 5) {
+                    VFHomePlateGlyph()
+                        .frame(width: 11, height: 11)
+                    Text("홈구장")
+                        .font(Font.system(.caption2, design: .default).weight(.medium))
+                        .foregroundStyle(VFColor.bodySecondary)
+                        .lineLimit(1)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("홈구장 표시")
+            }
+            .padding(.horizontal, VFSpacing.xxs)
+            .padding(.vertical, VFSpacing.xs)
+        }
+        .scrollClipDisabled()
+        .accessibilityIdentifier("calendar.legend")
+    }
+
+    private func legendItem(color: Color, title: String) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(title)
+                .font(Font.system(.caption2, design: .default).weight(.medium))
+                .foregroundStyle(VFColor.bodySecondary)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+    }
+
+    /// 예정·진행 중·연기는 제품에 데이터원이 없어 **디자인 전용 상태**다.
+    /// DEBUG 픽스처에서만 값이 오고, Release에서는 언제나 nil이라 이 뷰가 나오지 않는다.
+    @ViewBuilder
+    private var designOnlyStatusBanner: some View {
+        // 예정·진행 중·연기는 제품에 데이터원이 없다. 그래서 이 조각 전체가 DEBUG에만
+        // 존재한다. Release에서는 `EmptyView`가 되어 그릴 것 자체가 남지 않는다.
+        #if DEBUG
+        if let status = VFUITestConfiguration.calendarDesignOnlyStatus {
+            VFStatusBadge(title: status.title, tint: VFColor.gameLive)
+                // 상태마다 식별자가 달라야 테스트가 셋을 구분할 수 있다.
+                // 공통 접두사 `calendar.designStatus.`로 "아무 상태나" 조회도 된다.
+                .accessibilityIdentifier(status.accessibilityIdentifier)
+        }
+        #endif
+    }
+
+    /// UI 테스트가 픽스처 적용 여부를 화면에서 확인하기 위한 표식.
+    /// 조용히 제품 상태로 되돌아가면 이 요소가 없으므로 테스트가 실패한다.
+    @ViewBuilder
+    private var fixtureScenarioMarker: some View {
+        if let identifier = VFUITestConfiguration.activeCalendarScenarioIdentifier {
+            // 조회할 수 있는 요소여야 한다. `accessibilityHidden`을 붙이면 접근성 트리에서
+            // 통째로 빠져 UI 테스트가 영영 찾지 못한다. 대신 읽을 이름을 비워 둔다.
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(identifier)
+                .accessibilityLabel(Text(verbatim: ""))
+        }
+    }
+
+    /// Pencil `선택일 미리보기`. 섹션 헤더와 기록 카드 두 조각으로 이루어진다.
+    /// 카드는 피드와 같은 `VFRecordCard`라 팀·구장 표현이 앱 전체에서 일치한다.
+    @ViewBuilder
+    private var selectedDateDetail: some View {
+        let presentation = selectedDatePresentation
+        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+            VFSectionHeader(
+                title: presentation.title,
+                actionTitle: presentation.primaryRecord == nil ? nil : "자세히",
+                action: presentation.primaryRecord == nil ? nil : {
+                    detailRoute = presentation.primaryRecord
+                }
+            )
+            .accessibilityIdentifier("calendar.detailHeader")
+
+            if let record = presentation.primaryRecord {
+                NavigationLink {
+                    AttendancePostDetailView(log: record)
+                } label: {
+                    VFRecordCard(log: record)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("calendar.detailRecord")
+
+                // Pencil `선택일 승리 페어리`. 원본 표본이 승리 기록이라 승리 페어리로
+                // 그려져 있지만, 이름이 말하듯 이 자리는 **그 기록의 결과**를 나타낸다.
+                // (시즌 커버 쪽은 같은 컴포넌트를 `시그니처`라고 부른다 — 그쪽은 상수다.)
+                // 그래서 결과에 따라 바꾼다. 진 날에 승리 페어리를 띄우면 거짓말이 된다.
+                selectedResultFairy(for: record.result)
+
+                // 같은 날 기록이 더 있으면 개수를 숨기지 않고 알린다.
+                if presentation.eventCount > 1 {
+                    Text("이 날 기록 \(presentation.eventCount)개")
+                        .font(VFTypography.metadata)
+                        .foregroundStyle(VFColor.bodySecondary)
+                        .accessibilityIdentifier("calendar.detailEventCount")
+                }
+            } else {
+                selectedDateEmptyDetail(presentation)
             }
         }
-        .padding(.horizontal, VFSpacing.xs)
-        .padding(.vertical, VFSpacing.xs)
+        // 먼저 담는 요소로 만든 다음 이름을 붙인다. 그냥 VStack에 식별자만 얹으면
+        // SwiftUI가 그 값을 자식들에게 내려 덮어써서, 안쪽 식별자가 모두 사라진다.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("calendar.selectedDetail")
+    }
+
+    /// Pencil `선택일 승리 페어리` — `Fairy48_Victory` 48×48 자리.
+    ///
+    /// 원본은 승리 표본 하나만 그려 두었지만 이 자리는 결과 정체성이다. 결과마다
+    /// 다른 페어리를 쓰고, 결과를 모르면 아무것도 그리지 않는다. 없는 결과를
+    /// 승리로 채우지 않는다.
+    ///
+    /// VoiceOver로는 읽지 않는다. 바로 위 기록 카드가 이미 승·패·무를 글자로 말하고
+    /// 있어서, 페어리까지 읽으면 같은 결과를 두 번 듣게 된다. 색에만 기대지 않는다는
+    /// 조건은 그 글자가 이미 충족한다.
+    @ViewBuilder
+    private func selectedResultFairy(for result: GameResult) -> some View {
+        let kind = CalendarResultFairy.kind(for: result)
+        HStack {
+            Spacer(minLength: 0)
+            VFFairyGlyph(kind, size: .compact)
+                .frame(width: VFFairySize.compact.canvas, height: VFFairySize.compact.canvas)
+                .accessibilityIdentifier("calendar.selectedDate.fairy")
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// 고른 날에 기록이 없을 때. 다른 구장이나 경기를 지어내지 않고 기록 추가만 권한다.
+    private func selectedDateEmptyDetail(_ presentation: CalendarSelectedDatePresentation) -> some View {
+        VStack(alignment: .leading, spacing: VFSpacing.sm) {
+            Text(presentation.emptyMessage)
+                .font(VFTypography.supporting)
+                .foregroundStyle(VFColor.bodySecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            VFSecondaryButton(title: "이 날짜에 기록 추가", systemImage: "calendar.badge.plus") {
+                openEditor(date: presentation.date)
+            }
+            .accessibilityIdentifier("calendar.detailAddRecord")
+        }
+        .padding(VFSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(VFColor.elevatedSurface)
+        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
+                .stroke(VFColor.hairline, lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("calendar.detailEmpty")
+    }
+
+    /// 선택일 표시에 필요한 값만 모은 의미 모델. 색이나 뷰는 담지 않는다.
+    private var selectedDatePresentation: CalendarSelectedDatePresentation {
+        let date = selectedDay?.date ?? month
+        let events = selectedDay?.logs ?? []
+        return CalendarSelectedDatePresentation(
+            date: date,
+            events: events,
+            hasSelection: selectedDay != nil
+        )
     }
 
     private func selectedPreview(_ log: AttendanceLogViewState) -> some View {
@@ -574,10 +827,10 @@ struct AttendanceCalendarView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text(log.dateText)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(VFColor.tertiaryText)
+                        .foregroundStyle(VFColor.bodyTertiary)
                     Text(log.matchup)
                         .font(VFTypography.cardTitle)
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     HStack(spacing: VFSpacing.xs) {
                         Text(log.stadium)
                         if !log.photoLocalRefs.isEmpty {
@@ -586,10 +839,10 @@ struct AttendanceCalendarView: View {
                         }
                     }
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     Text(log.memo)
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .lineLimit(2)
                 }
                 Spacer()
@@ -632,7 +885,7 @@ private struct CalendarFilterSheet: View {
 
                     filterSection("사진") {
                         ForEach(CalendarPhotoFilter.allCases) { filter in
-                            filterChip(title: filter.title, isSelected: photoFilter == filter, tint: VFColor.scoreboardNavy) {
+                            filterChip(title: filter.title, isSelected: photoFilter == filter, tint: VFColor.deepAccent) {
                                 photoFilter = filter
                             }
                         }
@@ -640,7 +893,7 @@ private struct CalendarFilterSheet: View {
 
                     filterSection("기록 여부") {
                         ForEach(CalendarRecordFilter.allCases) { filter in
-                            filterChip(title: filter.title, isSelected: recordFilter == filter, tint: VFColor.victoryOrange) {
+                            filterChip(title: filter.title, isSelected: recordFilter == filter, tint: VFColor.primaryAction) {
                                 recordFilter = filter
                             }
                         }
@@ -681,7 +934,7 @@ private struct CalendarFilterSheet: View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
             Text(title)
                 .font(VFTypography.cardTitle)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
             FlowLayout(spacing: VFSpacing.xs) {
                 content()
             }
@@ -760,18 +1013,23 @@ private struct CalendarMonthView: View {
     var selectedDate: Date?
     let onDateTap: (Date) -> Void
 
-    private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+    /// 요일 라벨은 기준 달력과 로캘에서 가져온다. 배열을 직접 적어두지 않는다.
+    private let weekdays = CalendarMonth.weekdaySymbols()
+    /// 선택과 오늘 판정도 기준 달력에서 한다. 기기 시간대 설정에 흔들리면
+    /// 같은 픽스처가 기기마다 다른 날을 고르게 된다.
+    private let referenceCalendar = CalendarMonth.referenceCalendar()
     private let columns = Array(repeating: GridItem(.flexible(), spacing: VFSpacing.xs), count: 7)
 
     var body: some View {
-        VFCard {
-            VStack(spacing: VFSpacing.sm) {
+        VFCard(padding: VFSpacing.sm, cornerRadius: VFRadius.panel) {
+            VStack(spacing: 6) {
                 LazyVGrid(columns: columns, spacing: VFSpacing.xs) {
-                    ForEach(weekdays, id: \.self) { weekday in
+                    // Pencil 요일 행: 일요일만 산호색으로 구분한다.
+                    ForEach(Array(weekdays.enumerated()), id: \.element) { index, weekday in
                         Text(weekday)
-                            .font(.system(.caption, design: .rounded).weight(.bold))
-                            .foregroundStyle(VFColor.secondaryText)
-                            .frame(maxWidth: .infinity, minHeight: 28)
+                            .font(Font.system(.caption2, design: .default).weight(.semibold))
+                            .foregroundStyle(index == 0 ? VFColor.primaryAction : VFColor.bodyTertiary)
+                            .frame(maxWidth: .infinity, minHeight: 26)
                     }
 
                     ForEach(days, id: \.date) { day in
@@ -779,8 +1037,8 @@ private struct CalendarMonthView: View {
                             day: day,
                             logs: logs(on: day.date),
                             viewMode: viewMode,
-                            isSelected: selectedDate.map { Calendar.current.isDate($0, inSameDayAs: day.date) } ?? false,
-                            isToday: Calendar.current.isDateInToday(day.date)
+                            isSelected: selectedDate.map { referenceCalendar.isDate($0, inSameDayAs: day.date) } ?? false,
+                            isToday: referenceCalendar.isDateInToday(day.date)
                         ) {
                             onDateTap(day.date)
                         }
@@ -790,39 +1048,15 @@ private struct CalendarMonthView: View {
         }
     }
 
+    /// 달의 기하 구조는 순수 계산인 `CalendarMonth`가 만든다.
+    /// 뷰는 그 결과를 그리기만 하고 날짜를 직접 계산하지 않는다.
     private var days: [CalendarDay] {
-        let calendar = Calendar.current
-        guard let monthInterval = calendar.dateInterval(of: .month, for: month),
-              let monthRange = calendar.range(of: .day, in: .month, for: month) else {
-            return []
-        }
-
-        let firstWeekday = calendar.component(.weekday, from: monthInterval.start)
-        let leadingCount = firstWeekday - 1
-        let previousDates = (0..<leadingCount).compactMap {
-            calendar.date(byAdding: .day, value: $0 - leadingCount, to: monthInterval.start)
-        }
-        let monthDates = monthRange.compactMap { day in
-            calendar.date(byAdding: .day, value: day - 1, to: monthInterval.start)
-        }
-        let trailingCount = (7 - ((previousDates.count + monthDates.count) % 7)) % 7
-        let trailingDates = (0..<trailingCount).compactMap {
-            calendar.date(byAdding: .day, value: $0, to: monthInterval.end)
-        }
-
-        return (previousDates.map { CalendarDay(date: $0, isInDisplayedMonth: false) }
-            + monthDates.map { CalendarDay(date: $0, isInDisplayedMonth: true) }
-            + trailingDates.map { CalendarDay(date: $0, isInDisplayedMonth: false) })
+        CalendarMonth.make(containing: month).days
     }
 
     private func logs(on date: Date) -> [AttendanceLogViewState] {
-        logs.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        logs.filter { referenceCalendar.isDate($0.date, inSameDayAs: date) }
     }
-}
-
-private struct CalendarDay: Hashable {
-    let date: Date
-    let isInDisplayedMonth: Bool
 }
 
 private struct CalendarDayCell: View {
@@ -833,13 +1067,25 @@ private struct CalendarDayCell: View {
     let isToday: Bool
     let action: () -> Void
     private let photoService = PhotoAttachmentService()
+    /// 날짜 원이 글자 크기를 따라 커지도록 한다. 위쪽에서 상한을 건다.
+    @ScaledMetric(relativeTo: .subheadline) private var scaledDayDiameter: CGFloat = 32
 
     var body: some View {
         Button(action: action) {
             content
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
+        // 날짜 자체가 정체성이다. 격자 순번이나 한국어 표시 문구를 쓰지 않는다.
+        .accessibilityIdentifier(day.accessibilityIdentifier)
+        .accessibilityLabel(semantics.label)
+        // 결과·선택·오늘·다른 달을 색이 아니라 읽는 값으로도 전달한다.
+        .accessibilityValue(semantics.value)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// 색 없이도 남는 의미. 순수 계산이라 화면 없이 검증할 수 있다.
+    private var semantics: CalendarDaySemantics {
+        CalendarDaySemantics(day: day, events: logs, isSelected: isSelected, isToday: isToday)
     }
 
     @ViewBuilder
@@ -856,7 +1102,7 @@ private struct CalendarDayCell: View {
                         if logs.count > 1 {
                             Text("\(logs.count)개")
                                 .font(.system(size: 8, weight: .heavy, design: .rounded))
-                                .foregroundStyle(isSelected ? .white.opacity(0.88) : VFColor.secondaryText)
+                                .foregroundStyle(isSelected ? .white.opacity(0.88) : VFColor.bodySecondary)
                                 .lineLimit(1)
                         }
                     }
@@ -872,7 +1118,7 @@ private struct CalendarDayCell: View {
                             .font(.system(size: 8, weight: .heavy, design: .rounded))
                             .lineLimit(1)
                             .minimumScaleFactor(0.65)
-                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.secondaryText)
+                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.bodySecondary)
                             .frame(maxWidth: 38)
                         Text(teamResultText(for: first))
                             .font(.system(size: 8, weight: .black, design: .rounded))
@@ -902,13 +1148,27 @@ private struct CalendarDayCell: View {
 
     private func baseContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content()
-            .background(isSelected ? VFColor.scoreboardNavy : (logs.first.map { $0.result.color.opacity(0.08) } ?? Color.clear))
+            .background(cellBackground)
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                    .stroke(isSelected ? VFColor.victoryOrange : (isToday ? VFColor.victoryOrange.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
+                    .stroke(cellBorder, lineWidth: isSelected || isToday ? 1.4 : 1)
             )
             .opacity(dayOpacity)
+    }
+
+    /// Pencil 기본 달력은 선택을 날짜 원 하나로만 표시한다. 셀 전체를 칠하지 않는다.
+    /// 팀·사진 모드는 칸 안에 정보가 더 많아 기존의 칸 강조를 유지한다.
+    private var cellBackground: Color {
+        guard viewMode != .basic else { return .clear }
+        return isSelected ? VFColor.deepAccent : (logs.first.map { $0.result.color.opacity(0.08) } ?? Color.clear)
+    }
+
+    private var cellBorder: Color {
+        if viewMode == .basic {
+            return isToday && !isSelected ? VFColor.primaryAction.opacity(0.55) : .clear
+        }
+        return isSelected ? VFColor.primaryAction : (isToday ? VFColor.primaryAction.opacity(0.55) : .clear)
     }
 
     @ViewBuilder
@@ -920,7 +1180,7 @@ private struct CalendarDayCell: View {
                     .clipped()
                 LinearGradient(colors: [.black.opacity(0.58), .clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom)
                 VStack(alignment: .leading) {
-                    Text("\(Calendar.current.component(.day, from: day.date))")
+                    Text("\(day.day)")
                         .font(.system(.caption, design: .rounded).weight(.heavy))
                         .foregroundStyle(.white)
                     Spacer()
@@ -937,7 +1197,7 @@ private struct CalendarDayCell: View {
             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous)
-                    .stroke(isSelected ? VFColor.victoryOrange : (isToday ? VFColor.victoryOrange.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
+                    .stroke(isSelected ? VFColor.primaryAction : (isToday ? VFColor.primaryAction.opacity(0.55) : Color.clear), lineWidth: isSelected || isToday ? 1.4 : 1)
             )
             .opacity(dayOpacity)
         } else {
@@ -949,7 +1209,7 @@ private struct CalendarDayCell: View {
                     } else {
                         Image(systemName: "photo")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.scoreboardNavy.opacity(0.74))
+                            .foregroundStyle(isSelected ? .white.opacity(0.9) : VFColor.deepAccent.opacity(0.74))
                             .frame(width: 20, height: 18)
                         resultDots
                     }
@@ -964,16 +1224,44 @@ private struct CalendarDayCell: View {
         }
     }
 
+    /// Pencil `일 원`. 32pt 원 안에 숫자 하나. 선택된 날은 산호색으로 채운다.
     private func dayNumber() -> some View {
-        Text("\(Calendar.current.component(.day, from: day.date))")
-            .font(.system(.subheadline, design: .rounded).weight(day.isInDisplayedMonth ? .semibold : .regular))
-            .foregroundStyle(isSelected ? .white : (day.isInDisplayedMonth ? VFColor.primaryText : VFColor.secondaryText.opacity(0.45)))
+        let isSunday = day.isSunday
+        let numberColor: Color = {
+            if isSelected, viewMode == .basic { return VFColor.bodyOnDark }
+            if isSelected { return .white }
+            if !day.isInDisplayedMonth { return VFColor.bodyTertiary.opacity(0.4) }
+            return isSunday ? VFColor.primaryAction : VFColor.bodyPrimary
+        }()
+
+        return Text("\(day.day)")
+            .font(Font.system(.subheadline, design: .default).weight(isSelected ? .bold : .regular).monospacedDigit())
+            .foregroundStyle(numberColor)
+            .lineLimit(1)
+            // 두 자리 숫자가 줄어들 수 있는 한계까지만 허용한다. 0.7까지 줄이면
+            // 큰 글자에서 "12"가 "…"로 잘려 날짜를 읽을 수 없게 된다.
+            .minimumScaleFactor(0.9)
+            // 달력은 일곱 칸이 가로로 고정된 격자다. 숫자를 끝없이 키우면 두 자리가
+            // 칸에 들어가지 못해 잘린다. 그래서 **날짜 숫자만** 한계를 둔다.
+            // 요약·범례·선택일 상세는 제한 없이 그대로 커진다.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+            .frame(minWidth: numberDiameter, minHeight: numberDiameter)
+            .background {
+                if isSelected, viewMode == .basic {
+                    Circle().fill(VFColor.primaryAction)
+                }
+            }
+    }
+
+    /// 날짜 원의 지름. 글자 크기를 따라 커지되 격자가 감당할 수 있는 선까지만 간다.
+    private var numberDiameter: CGFloat {
+        min(max(scaledDayDiameter, 32), 44)
     }
 
     private var resultDots: some View {
         HStack(spacing: 2) {
             ForEach(Array(logs.prefix(3))) { log in
-                CalendarResultDot(result: log.result, size: logs.count > 1 ? 5.5 : 7.5)
+                CalendarResultDot(result: log.result, size: 5)
                     .accessibilityHidden(true)
             }
         }
@@ -984,7 +1272,7 @@ private struct CalendarDayCell: View {
             .font(.system(size: 9, weight: .heavy, design: .rounded))
             .foregroundStyle(.white)
             .frame(width: 17, height: 17)
-            .background(VFColor.scoreboardNavy)
+            .background(VFColor.deepAccent)
             .clipShape(Circle())
             .accessibilityLabel("\(logs.count)개 기록")
     }
@@ -1026,24 +1314,6 @@ private struct CalendarDayCell: View {
         return log.result.title
     }
 
-    private var accessibilityLabel: String {
-        let dayText = "날짜 \(Calendar.current.component(.day, from: day.date))"
-        var parts = [dayText]
-        if isSelected {
-            parts.append("선택됨")
-        }
-        if logs.count > 1 {
-            parts.append("\(logs.count)개 기록")
-        }
-        if let first = logs.first {
-            parts.append(first.result.title)
-            parts.append(first.matchup)
-        }
-        if hasPhoto {
-            parts.append("사진 있음")
-        }
-        return parts.joined(separator: ", ")
-    }
 }
 
 private struct CalendarResultDot: View {
@@ -1058,6 +1328,14 @@ private struct CalendarResultDot: View {
     }
 }
 
+/// 캘린더가 고른 날짜로 기록 작성을 여는 경로.
+///
+/// 날짜가 곧 정체성이다. 같은 날짜로 다시 열어도 새 시트가 겹쳐 뜨지 않는다.
+private struct CalendarCreateRoute: Identifiable {
+    var id: Date { date }
+    let date: Date
+}
+
 private struct CalendarSelectedDay: Identifiable {
     // 안정 ID: 날짜. 필터 변경 후 같은 날짜를 다시 세팅하면(refreshSelectedDay)
     // 시트가 다시 뜨지 않고 그 자리에서 로그만 갱신된다.
@@ -1070,116 +1348,5 @@ private struct CalendarSelectedDay: Identifiable {
         formatter.locale = Locale(identifier: "ko_KR")
         formatter.dateFormat = "yyyy.MM.dd"
         return "\(formatter.string(from: date)) 직관 기록"
-    }
-}
-
-private struct CalendarDayDetailSheet: View {
-    @Environment(\.appTheme) private var theme
-    @Environment(\.dismiss) private var dismiss
-    let day: CalendarSelectedDay
-    var onAddLog: (Date) -> Void = { _ in }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                    Text(day.title)
-                        .font(VFTypography.section)
-                        .foregroundStyle(VFColor.primaryText)
-                        .padding(.top, VFSpacing.sm)
-
-                    if day.logs.isEmpty {
-                        Text("선택한 날짜에 기록이 없어요.")
-                            .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
-                    } else {
-                        ForEach(day.logs) { log in
-                            VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                                VFCard {
-                                    VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                                        HStack(alignment: .top, spacing: VFSpacing.sm) {
-                                            Text(log.matchup)
-                                                .font(VFTypography.cardTitle)
-                                                .foregroundStyle(VFColor.primaryText)
-                                                .fixedSize(horizontal: false, vertical: true)
-                                            Spacer()
-                                            ResultBadge(result: log.result, scoreText: log.result == .canceled ? nil : log.scoreText)
-                                        }
-                                        Text(log.stadium)
-                                            .font(.subheadline)
-                                            .foregroundStyle(VFColor.secondaryText)
-                                        HStack(spacing: VFSpacing.xs) {
-                                            Text(log.scoreText)
-                                            Text("·")
-                                            Text(log.dateText)
-                                            if !log.seat.isEmpty {
-                                                Text("·")
-                                                Text(log.seat)
-                                            }
-                                        }
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(VFColor.secondaryText)
-                                        if !log.photoLocalRefs.isEmpty {
-                                            PhotoAttachmentStrip(photoLocalRefs: log.photoLocalRefs, maxHeight: 86)
-                                                .accessibilityLabel("사진 있음")
-                                        }
-                                        Text(log.memo)
-                                            .font(VFTypography.body)
-                                            .foregroundStyle(VFColor.primaryText)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                }
-
-                                NavigationLink {
-                                    AttendancePostDetailView(log: log)
-                                } label: {
-                                    Label("자세히 보기", systemImage: "arrow.right")
-                                        .font(.system(.headline, design: .rounded).weight(.semibold))
-                                        .frame(maxWidth: .infinity, minHeight: 48)
-                                        .foregroundStyle(theme.textOnPrimary)
-                                        .background(theme.primary)
-                                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, VFSpacing.lg)
-                .padding(.top, VFSpacing.md)
-                .padding(.bottom, 96)
-            }
-            .safeAreaInset(edge: .bottom) {
-                Button {
-                    dismiss()
-                    onAddLog(day.date)
-                } label: {
-                    Label("이 날짜에 기록 추가", systemImage: "calendar.badge.plus")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                        .foregroundStyle(VFColor.primaryText)
-                        .background(VFColor.offWhite)
-                        .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, VFSpacing.lg)
-                .padding(.top, VFSpacing.sm)
-                .padding(.bottom, VFSpacing.sm)
-                .background(.ultraThinMaterial)
-            }
-            .vfScreenBackground()
-        }
-    }
-}
-
-#Preview("캘린더 데이터") {
-    NavigationStack {
-        AttendanceCalendarView(logs: AttendanceLogSample.logs)
-    }
-}
-
-#Preview("캘린더 빈 상태") {
-    NavigationStack {
-        AttendanceCalendarView(logs: [])
     }
 }

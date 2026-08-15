@@ -53,7 +53,10 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var statisticsState: RemoteDataState = .loading
     @Published private(set) var lastSaveMessage: String?
     @Published private(set) var selectedFeedResultFilter: FeedResultFilter = .all
-    @Published private(set) var selectedCalendarMonth: Date = Date.vfDate(year: 2026, month: 4, day: 1)
+    // 캘린더 픽스처는 시작 달만 정한다. 그 뒤의 이동은 제품 경로 그대로 동작한다.
+    // 매 렌더마다 값을 덮어쓰면 달 이동 자체가 불가능해진다.
+    @Published private(set) var selectedCalendarMonth: Date =
+        VFUITestConfiguration.initialCalendarMonth(Date.vfDate(year: 2026, month: 4, day: 1))
     @Published private(set) var selectedSeason: Int
     @Published private(set) var availableSeasons: [SeasonOption]
     @Published private(set) var userProfile: UserProfileDTO?
@@ -227,11 +230,23 @@ final class AppDataStore: ObservableObject {
         team(id: id)?.name ?? "선택 안 함"
     }
 
-    func completeOnboarding(favoriteTeamID: String?) {
-        preferences.completeOnboarding(favoriteTeamID: favoriteTeamID)
+    /// 온보딩 완료. 응원 팀과 주 관람 구장이 모두 있어야 저장된다.
+    @discardableResult
+    func completeOnboarding(favoriteTeamID: String?, primaryStadiumID: String?) -> Bool {
+        let saved = preferences.completeOnboarding(
+            favoriteTeamID: favoriteTeamID,
+            primaryStadiumID: primaryStadiumID
+        )
+        guard saved else { return false }
         Task {
             await syncPreferencesToServer()
         }
+        return true
+    }
+
+    /// 주 관람 구장만 바꾼다. 응원 팀은 그대로 둔다.
+    func updatePrimaryStadium(_ stadiumID: String?) {
+        preferences.setPrimaryStadium(stadiumID)
     }
 
     func updateFavoriteTeam(_ favoriteTeamID: String?) {
@@ -268,6 +283,7 @@ final class AppDataStore: ObservableObject {
             opponentTeamID: opponentTeamID,
             stadiumName: viewModel.stadium,
             result: viewModel.result.serverValue,
+            // 적히지 않은 점수는 계속 비어 있다. 0으로 채우면 없는 사실이 저장된다.
             ourScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
             opponentScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
             seatText: seat.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
@@ -328,6 +344,7 @@ final class AppDataStore: ObservableObject {
             opponentTeamID: opponentTeamID,
             stadiumName: viewModel.stadium,
             result: viewModel.result.serverValue,
+            // 적히지 않은 점수는 계속 비어 있다. 0으로 채우면 없는 사실이 저장된다.
             ourScore: viewModel.result == .canceled ? nil : viewModel.ourScore,
             opponentScore: viewModel.result == .canceled ? nil : viewModel.opponentScore,
             seatText: seat.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
@@ -367,11 +384,19 @@ final class AppDataStore: ObservableObject {
         }
     }
 
-    func deleteAttendanceLog(_ log: AttendanceLogViewState) async {
+    /// 기록을 지운다.
+    ///
+    /// 기기 저장소에서 지우지 못했으면 **아무것도 지우지 않고** 실패를 알린다. 예전에는
+    /// 실패를 삼키고 화면에서만 사라지게 해서, 다시 열면 되살아나는 기록을 사용자가
+    /// 지웠다고 믿게 만들었다. 서버 삭제 실패는 다르다 — 기기에서 이미 지웠으므로
+    /// 오프라인 삭제로 보고 성공으로 다룬다.
+    @discardableResult
+    func deleteAttendanceLog(_ log: AttendanceLogViewState) async -> RecordDeletionOutcome {
         do {
             try await localAttendanceLogRepository?.deleteAttendanceLog(id: log.id.uuidString)
         } catch {
-            logAPIFallback(endpoint: "DELETE local attendance-log", fallback: "memory", error: error)
+            logAPIFallback(endpoint: "DELETE local attendance-log", fallback: "none", error: error)
+            return .failed("기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요.")
         }
         removeLog(id: log.id)
 
@@ -384,6 +409,7 @@ final class AppDataStore: ObservableObject {
             logAPIFallback(endpoint: "DELETE /api/v1/attendance-logs/:id", fallback: "localOnly", error: error)
         }
         await refreshStatistics()
+        return .deleted
     }
 
     func createDiaryDraft(request: DiaryDraftRequest) async throws -> DiaryDraftDTO {

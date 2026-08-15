@@ -1,0 +1,3735 @@
+# Pencil 디자인 구현 기록
+
+VictoryFairy iOS 앱을 Pencil 원본에 맞춰 다시 그린 작업의 결정 사항을 남긴다.
+저장소 아키텍처 문서를 대신하지 않으며, 디자인 판단만 다룬다.
+
+## 디자인 원본
+
+- 파일: `/Users/hwangseokbeom/Documents/VictoryFairy.pen` (저장소 밖, 추적하지 않음)
+- 열람 방법: Pencil MCP — `get_app_state`(문서·스키마), `execute`의 `GetVariables`/`Get`
+  (변수와 노드 트리, `ctx.bounds`로 배치 확인), `get_screenshot`(시각 확인).
+  `get_editor_state`·`get_variables`·`batch_get`·`snapshot_layout`은 **이 서버에 없는
+  이름이다.** 그 이름으로 부르면 "No handler found for method"가 나고, MCP가 고장난 것으로
+  오인하기 쉽다.
+- 최상위 프레임 **16개**, 재사용 컴포넌트 **30개**, 문서 변수 **40개**
+- `.pen` 파일은 수정하지 않았다.
+
+## 프레임 인벤토리와 매핑
+
+### 실제 화면 (393pt, `clip: true`) — 11개
+
+| Pencil 프레임 | 성격 | 대응 |
+| --- | --- | --- |
+| 홈 | 전체 화면 | `Features/Home/HomeView.swift` |
+| 기록 피드 | 전체 화면 | `Features/Feed/FeedViews.swift` |
+| 기록 상세 | 전체 화면 | `AttendancePostDetailView` (토큰 재적용) |
+| 캘린더 | 전체 화면 | `Features/Calendar/CalendarViews.swift` |
+| 기록 작성 1·2·3단계 | 전체 화면 3개 | `Features/LogEditor/LogEditorView.swift` (단계형 편집) |
+| 시즌 아카이브 | 전체 화면 | `Features/Statistics/StatisticsViews.swift` |
+| 마이 | 전체 화면 | `Features/Profile/ProfileSettingsView.swift` (`마이` 탭) |
+| 온보딩 팀선택 | 전체 화면 | `Features/Onboarding/TeamSelectionView.swift` |
+| 스플래시 | 전체 화면 | iOS 런치 스크린이 담당. 별도 SwiftUI 화면을 만들지 않았다. |
+
+### 화면이 아닌 프레임 — 5개
+
+| Pencil 프레임 | 성격 | 대응 |
+| --- | --- | --- |
+| 일러스트 키트 | 컴포넌트 모음 | `DesignSystem/VFIllustrations.swift` |
+| 컴포넌트 시스템 | 컴포넌트 모음 | `SharedComponents/VFCoreComponents.swift` |
+| 상태와 피드백 | 상태 변형 모음 (3열) | 빈 상태·로딩·오류·토스트·다이얼로그·바텀시트 컴포넌트 |
+| 팀 포인트 컬러 시스템 | 토큰 명세 | `Domain/TeamTheme.swift`의 `VFTeamAccent` |
+| 앱 아이콘 | 산출물 명세 | 기존 `AppIcon.appiconset` 유지 |
+
+> 과제 설명은 프레임 약 18개를 예상했지만 실제 문서의 최상위 프레임은 16개다.
+> `상태와 피드백` 한 프레임 안에 상태 변형이 여러 개 들어 있어 세는 기준에 따라 달라진다.
+
+## 디자인 토큰
+
+`DesignSystem/VFDesignSystem.swift`에 Pencil 문서 변수를 그대로 옮겼다.
+
+- **배경/표면**: `appBackground`(paper), `elevatedSurface`(surface), `subtleSurface`(cream),
+  `highlightSurface`(butter-pale), `translucentSurface`
+- **글자**: `bodyPrimary`(ink), `bodySecondary`(ink-soft), `bodyTertiary`(ink-faint), `bodyOnDark`
+- **강조**: `primaryAction`(coral), `primaryActionDeep`, `primaryActionPale`, `deepAccent`(navy),
+  `supportAccent`(sage), `infoAccent`(sky), `attentionAccent`(butter)
+- **선**: `hairline`(line, 1.2pt), `inkOutline`(line-ink, 1.4~1.5pt)
+- **경기 결과**: `gameWin`(stamp-red), `gameLoss`(navy), `gameDraw`/`gameCanceled`(ink-faint)
+- **간격**: 4 / 8 / 12 / 16 / 20 / 24 / 32, 화면 좌우 여백 16, 섹션 간격 22
+- **모서리**: photo 6, sm 10, field 12, md 14, card 16, panel 18, lg 20, sheet 24, pill
+- **그림자**: card(blur 8/y2), lifted(14/y5), overlay(22/y8), button(y3)
+- **모션**: 탭 전환 0.22s, 선택 0.18s, 로딩 0.9s 주기. 모두 Reduce Motion을 존중한다.
+
+### 타이포그래피
+
+Pencil은 Jua(display) / Gaegu(hand) / Gothic A1(ui)을 쓴다. 세 글꼴 모두 저장소에
+라이선스 파일이 없고, 이번 작업에서 폰트 파일을 추가하지 않기로 했다. 시스템 서체의
+디자인 변형으로 역할을 대신한다.
+
+- display → `.rounded` 굵게
+- hand → `.serif` (일기 같은 개인적인 목소리)
+- ui / mono → `.default`, 숫자는 `monospacedDigit()`
+
+모든 역할이 `Font.TextStyle` 기반이라 Dynamic Type을 그대로 따른다.
+
+## 재사용 컴포넌트
+
+`SharedComponents/VFCoreComponents.swift` — 카드, 프라이머리/세컨더리 버튼, 칩,
+팀 뱃지, 결과 스탬프, 섹션 헤더, 메타 행, 폼 필드, 토스트, 테이프, 월 구분선,
+원형 아이콘 버튼, 빈 상태/로딩/오류 패널.
+
+`SharedComponents/VFRecordComponents.swift` — 홈 폴라로이드 카드, 피드 티켓 기록 카드.
+
+`DesignSystem/VFIllustrations.swift` — 야구공, 페넌트, 반짝, 테이프, 구름, 비구름,
+글러브, 티켓, 야간조명. Pencil 벡터를 그대로 옮겼고 SF Symbol로 대체하지 않았다.
+`DesignSystem/VFVectorPath.swift`의 작은 SVG 파서가 원본 path 데이터를 그린다.
+
+컴포넌트는 표시용 데이터만 받는다. 팀 이름·스코어·날짜 같은 예시 값을 내부에 넣지
+않으며 네트워크나 저장소에 접근하지 않는다.
+
+## 반응형 결정
+
+- 고정 높이를 쓰지 않고 Pencil 값을 **최소 높이**로 둔다. 글자가 커지면 세로로 자란다.
+- 기록 카드(티켓)는 접근성 글자 크기에서 가로 티켓 배치로는 잘리므로 **세로 배치로
+  전환**한다. 정보는 하나도 숨기지 않는다.
+- 홈 시즌 스트립은 `ViewThatFits`로 3칸 가로 → 세로로 접힌다.
+- 탭바는 자체 Dynamic Type 범위를 `.large`까지로 묶는다. AccessibilityXXXL에서 다섯
+  라벨이 겹치고 잘리는 것을 시뮬레이터 캡처로 확인한 뒤 내린 결정이다. VoiceOver는
+  여전히 각 탭의 온전한 이름을 읽고, 화면 본문은 제한 없이 커진다.
+- 캘린더 월 이동 버튼은 Pencil이 38pt지만 보이는 원만 38pt로 두고 탭 영역은 44pt다.
+
+## 접근성 결정
+
+- 경기 결과는 **색만으로 구분하지 않는다**. 승·패·무 글자 자체가 구분 수단이라
+  Differentiate Without Color에서도 의미가 남는다.
+- 팀 뱃지 위 글자색은 상대 휘도 계산으로 정하며 팀마다 테스트로 검증한다.
+- 일러스트는 기본적으로 장식이라 VoiceOver에서 숨기고, 의미를 전달해야 할 때만
+  라벨을 붙인다.
+- 탭·카드·행은 `accessibilityElement`로 묶어 읽는 순서를 정리했다.
+- 최소 터치 영역 44pt를 토큰으로 고정하고 테스트로 확인한다.
+
+## Pencil에 없는 상태
+
+Pencil은 이상적인 화면 위주라, 아래는 앱 동작에 맞춰 같은 디자인 언어로 채웠다.
+
+- 오프라인 / 로컬 캐시 사용 중 (`DataStateBanner`의 `localOnly`, `serverErrorUsingLocal`)
+- 서버 오류 후 로컬 데이터로 계속 보여주는 상태
+- 필터 적용 결과가 0건인 경우 (Pencil `검색 없음` 패널을 재사용)
+- 사진 없는 기록 (폴라로이드/티켓 모두 종이 질감으로 채움)
+- 통계 데이터 부족 상태
+
+## 의도한 차이
+
+1. **탭 구성 5개.** Pencil `탭바`가 홈/기록/캘린더/시즌/마이를 정의한다. 기존 네
+   경로(home·feed·calendar·statistics)는 식별자를 그대로 두고 라벨만 Pencil을 따랐고,
+   `마이`는 기존 `ProfileSettingsView`를 홈 시트에서 최상위 탭으로 올린 것이다.
+   화면이 사라지지 않았고 오히려 더 쉽게 닿는다.
+2. **홈 알림 버튼 없음.** Pencil 홈 헤더에 종 아이콘이 있지만 앱에 알림 화면이 없다.
+   동작하지 않는 버튼을 두는 대신 넣지 않았다. 설정은 `마이` 탭이 담당한다.
+3. **시즌 커버 문장.** Pencil은 "잠실의 기적을 두 눈으로 본 사람" 같은 감성 문장을
+   쓰지만 서버에 그런 필드가 없다. 지어내지 않고 실제 전적으로 문장을 만든다.
+4. **lucide → SF Symbols.** Pencil 아이콘은 lucide다. 해당 세트를 앱에 넣지 않고 뜻이
+   같은 SF Symbol로 옮겼다. 반면 **일러스트는 앱의 정체성**이라 벡터를 그대로 옮겼다.
+5. **글꼴 대체.** 위 타이포그래피 항목 참고.
+6. **팀 표현은 로고가 아니라 약칭.** 저장소에 구단 로고 에셋이 없고 Pencil도 약칭
+   표기를 쓴다. 한글 팀은 한 글자(삼·두·롯·키·한), 로마자 팀은 약칭 그대로
+   (LG·KIA·KT·SSG·NC).
+7. **구단 공식 색은 데이터에 그대로 남는다.** 화면 강조색만 Pencil의 채도 낮춘
+   팀 포인트 컬러를 쓴다. `KBOTeam.primaryColorHex`는 건드리지 않았다.
+8. **다크 모드.** Pencil은 밝은 외형 하나만 정의한다. 추측으로 다크 팔레트를 만들지
+   않았다. 아래 남은 과제 참고.
+
+## 남은 과제
+
+- **다크 모드 팔레트가 없다.** Pencil이 다크 변형을 정의하지 않아 이번 작업에서는
+  만들지 않았다. 종이 팔레트는 밝은 외형을 전제로 하므로, 다크를 지원하려면 디자인
+  원본에 다크 변형이 먼저 필요하다.
+- **기록 작성 1·2·3단계**는 기존 `LogEditorView`의 단계 흐름에 토큰만 재적용했다.
+  Pencil 3개 프레임의 세부 배치까지 1:1로 맞추지는 않았다.
+- **기록 상세 / 마이 / 온보딩 팀선택**도 같은 수준이다. 디자인 언어는 일치하지만
+  프레임 단위 재배치는 하지 않았다.
+- **스플래시**는 iOS 런치 스크린이 담당한다. Pencil 스플래시의 장식(반짝 요소)은
+  런치 스크린 정적 이미지로 옮기지 않았다.
+- UI 테스트(XCUITest) 타깃은 아직 없다. 탭 전환을 자동으로 캡처하려면 필요하다.
+
+---
+
+## 갱신 기록 — 최신 Pencil 문서 반영 (진행 중)
+
+이 문서의 위쪽 내용은 **이전 Pencil 문서**를 설명한다. 최신 문서로 바뀐 부분만 아래에 적는다.
+아직 전체를 다시 쓰지 않았으므로, 위 내용과 아래 내용이 충돌하면 아래가 맞다.
+
+### 최신 원본
+
+- SHA-256 `04e9f6710479b708705425d5a792149d94a9131371d6dacadf6aadf9d6c49874`
+- 935,197 바이트
+- 최상위 프레임 22개, 재사용 컴포넌트 49개, 변수 45개
+
+### 커밋 수 정정
+
+이전 보고서는 `20be841` 이후 "새 커밋 5개"라고 적었으나 실제로는 **4개**였다
+(`git rev-list --count 20be841..HEAD` = 4): 9fce4be, 27c539b, c82273b, 46dddd2.
+이번 패스에서 커밋이 추가되며, 정확한 수는 `git log --oneline 20be841..HEAD`로 확인한다.
+
+### 이번 패스에서 완료
+
+- XCUITest 타깃 `VictoryFairyUITests` 생성, 공유 스킴 Test 액션에 연결
+- 탭·화면 루트 접근성 식별자(`tab.*`, `screen.*`)와 온보딩 단계 식별자
+- `VFUITestConfiguration` — `-VFUITest` 실행 인자로만 동작하는 테스트 전용 상태 설정
+- 내비게이션 UI 테스트 8개 통과(탭 도달, 선택 상태, 탭바 중복 없음, 안전 영역, 좁은 폭, 큰 글자)
+- Release 아카이브 생성 및 내용 검증
+
+### Release 아카이브 근거
+
+- 스킴 `VictoryFairy-Production`, 구성 Release, 결과 ARCHIVE SUCCEEDED
+- 번들 식별자 `com.hwangseokbeom.victoryfairy`, 마케팅 버전 1.1.0, 빌드 번호 1
+- `Assets.car`에 AppIcon 세 가지 렌디션(기본 / UIAppearanceDark / ISAppearanceTintable) 포함
+- `LaunchMark`, `LaunchBackground`(라이트·다크) 포함, `UILaunchScreen` 키 유지
+- 아이콘·알파 관련 경고 없음
+- 배포 서명은 검증하지 않았다(로컬 미서명 아카이브)
+
+### 아직 남은 것
+
+10개 전용 화면(홈·피드·캘린더·시즌·기록 상세·기록 작성 1~3·마이·팀 선택)은 여전히
+토큰만 적용된 상태이며 프레임 단위 재구성이 남아 있다. 온보딩 UI 테스트 15개는 결정적
+첫 실행 상태를 만들 수 없어 건너뛴 상태다(아래 참고).
+
+### 온보딩 UI 테스트가 건너뛰기인 이유
+
+`-VFUITestReset`은 UserDefaults의 앱 관리 키를 지우지만, 응원 팀이 앱의 프로필/저장소
+계층에서 다시 복원된다. 시뮬레이터에서 초기화 후에도 이전 팀이 남고 온보딩이 보완 단계로
+시작하는 것을 확인했다. 제대로 고치려면 테스트 훅이 해당 저장소까지 초기화해야 하는데,
+이번 작업 범위에서 건드리지 않기로 한 영속성 계층을 수정해야 한다. 실패를 숨기지 않고
+`XCTSkip`으로 명시했으며, 통과로 보고하지 않는다.
+
+---
+
+## 홈 — 04_Home_Default_TeamSelected (프레임 단위 구현 완료)
+
+- Pencil 원본 SHA-256 `04e9f6710479b708705425d5a792149d94a9131371d6dacadf6aadf9d6c49874` (변동 없음)
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 최종 상태 **FRAME_LEVEL_IMPLEMENTATION**
+
+### 프레임 → 소스 매핑
+
+- `04_Home_Default_TeamSelected` → `Features/Home/HomeView.swift`
+- `TeamIdentityHeader` → `VFTeamIdentityHeader` (SharedComponents/VFHomeComponents.swift)
+- `MatchupCard_Expanded` → `VFMatchupHeroCard`
+- 매치업 카드 내 `구장 스트립` → `VFStadiumGameStrip`
+- `Glyph_HomePlate` → `VFHomePlateGlyph`
+- `시즌 스트립` → `VFSeasonStrip`
+- `폴라로이드 카드` → 기존 `VFPolaroidCard`
+- `기록 CTA` → 기존 `VFPrimaryButton`
+
+순서도 원본을 따른다: 워드마크 → 팀 아이덴티티 헤더 → 매치업 히어로 →
+가장 최근의 직관 → 기록 CTA → 시즌 스트립. 그 아래 승리요정 지수와 바로가기는
+Pencil에 없지만 이미 있는 기능이라 삭제하지 않고 남겼다.
+
+### 팀 아이덴티티
+
+레일 + 심볼 + 팀명 + "응원 중" 칩이 함께 정체성을 만든다. 색 하나에 기대지 않는다.
+`Color.vfOnDarkVariant`가 팀 색을 밝은 쪽으로 유도해 남색 카드 위 대비를 확보하므로,
+팀마다 별도 색을 적어두지 않는다. 열 팀 모두 단위 테스트와 UI 테스트로 확인한다.
+
+### 구장 아이덴티티
+
+- **주 관람 구장**: 팀 아이덴티티 헤더 메타("주 관람 대구")와 빈 히어로의 구장 스트립
+- **경기 구장**: 히어로의 구장 스트립. 표시 중인 기록이 실제로 열린 곳이다.
+
+둘을 섞지 않는다는 것을 `testRecordStadiumIsNotConflatedWithPrimaryStadium`이 지킨다.
+구장 그래픽은 추상 모티프이며 실제 구조물을 그린 것이 아니다. 수용 인원·주소·좌표·
+교통·주차·날씨는 만들지 않았다.
+
+### 실제 데이터 편차 (의도한 것)
+
+Pencil 히어로는 "오늘 경기"(상대·시작 시각·선발 투수)를 보여주지만, 홈에는 예정 경기
+데이터원이 없다. 유일한 경기 조회는 기록 작성용 후보 검색이라 홈의 데이터원이 아니다.
+없는 경기를 지어내지 않고, 히어로 자리에 **실제 최근 직관**을 같은 구성으로 넣었다.
+기록이 없으면 팀과 주 관람 구장만 남긴 정직한 빈 히어로를 보여준다.
+Pencil 표본 값(원태인·네일·4.16 THU·18:30·삼성 6 : 3 LG·8번)이 제품 코드에 들어가지
+않았음을 테스트가 확인한다.
+
+### 상태 범위
+
+개인화 성공, 기록 없음(빈 히어로 + 0 집계), 사진 없는 기록, 긴 한글 팀·구장 이름,
+좁은 폭, AccessibilityXXXL. 승/패/무 결과는 히어로 상태 배지와 결과 색으로 구분되며
+글자가 함께 있어 색에만 기대지 않는다.
+
+### 접근성
+
+팀 헤더는 접근성 글자 크기에서 세로로 접히고, 팀명·메타·"응원 중"을 자르지 않는다.
+장식 벡터(레일·심볼·플레이트)는 VoiceOver에서 숨기고, 카드 단위로 라벨과 값을 준다.
+안정 식별자: `home.root`, `home.wordmark`, `home.teamIdentity`, `home.matchupHero`,
+`home.gameStadium`, `home.seasonStrip`, `home.recordCTA`, `home.recentRecord`.
+
+### 검증 근거
+
+- 단위 76개 통과(HomeTests 11 포함), UI 20개 통과 + 온보딩 15개 건너뜀
+- 캡처: 기본 홈, 밝은 팀 강조색(한화), 어두운 팀 강조색(KT), AccessibilityXXXL,
+  좁은 폭(SE 375pt)
+- AccessibilityXXXL 캡처에서 팀명 잘림과 칩 붕괴를 발견해 수정한 뒤 재확인
+- Debug(Dev)·Release(Production) 빌드, 아이콘·릴리스 게이트 모두 통과
+
+### 남지 않은 것
+
+홈 자체에 남은 과제는 없다. 나머지 아홉 개 전용 화면은 여전히 토큰만 적용된 상태다.
+
+---
+
+## 피드 — 05_Feed_RecordList (프레임 단위 구현 완료)
+
+- Pencil 원본 SHA-256 `04e9f6710479b708705425d5a792149d94a9131371d6dacadf6aadf9d6c49874` (변동 없음)
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 최종 상태 **FRAME_LEVEL_IMPLEMENTATION**
+
+### 프레임 → 소스 매핑
+
+- `05_Feed_RecordList` → `Features/Feed/FeedViews.swift`
+- `피드 헤더` → `FeedView.header` (제목 + 요약 + `VFProminentIconButton`)
+- `필터 행` → `FeedView.filterRow` (`VFChip` + 시즌 칩)
+- `4월 헤더` / `3월 헤더` → `VFMonthDivider(title:romanTitle:)`
+- `기록 카드` → `VFRecordCard`
+- `스탬프/승·패·무` → `VFResultStamp`
+- 로딩·빈 상태·오류 → `VFLoadingPanel` / `VFEmptyStatePanel` / `VFErrorPanel`
+
+### 그룹과 정렬
+
+`date`로 묶는다. 미리 만들어둔 표시 문자열은 쓰지 않는다. 월 키는 `yyyy-MM`,
+정렬은 최신 월 → 최신 기록 순이며, 같은 날이면 기록 ID로 순서를 고정한다.
+영문 월 라벨은 `en_US_POSIX`로 고정해 기기 언어와 무관하게 같은 값이 나온다.
+연도 경계와 같은 날 중복까지 단위 테스트로 확인한다.
+
+### 필터
+
+정체성은 `FeedResultFilter`의 rawValue(all·win·loss·draw·canceled)다.
+표시 문구는 Pencil을 따라 전체 / 승리한 날 / 아쉬운 날로 바꿨고, Pencil이 그리지
+않은 무·취소는 같은 말투로 비긴 날 / 취소된 날로 확장했다(문구 확장, 범주 추가 아님).
+선택 상태는 색뿐 아니라 접근성 선택 특성으로도 드러난다.
+
+### 팀 아이덴티티
+
+매치업 문자열을 `AttendanceMatchup`이 canonical 팀으로 풀어, 상대 팀도 동등하게
+읽히도록 유지한다. 결과는 스탬프 글자(승·패·무)가 함께 말하므로 팀 색이나 결과 색
+하나에 기대지 않는다.
+
+### 구장 아이덴티티
+
+카드의 구장 줄은 Pencil을 따라 잔디색(`supportAccent`) 세미볼드로 올렸다.
+여기 나오는 구장은 **그 기록이 열린 구장**이며 사용자의 주 관람 구장이 아니다.
+`testFeedCardShowsRecordStadiumNotPrimaryStadium`이 이를 지킨다.
+
+### 실제 데이터 편차 (의도한 것)
+
+Pencil 표본 기록(9회말 역전·엄마랑 등)은 제품 코드에 넣지 않았고 테스트가 확인한다.
+사진이 있는 기록은 픽스처로 만들지 않는다. 사진 파일을 만들면 앱 컨테이너에 지워지지
+않는 가짜 데이터가 남기 때문이다. 대신 사진 파일이 없을 때의 자리표시자를 고쳐,
+사진 없음과 파일 유실이 같은 모습으로 보이게 했다.
+
+### 상태 범위
+
+채워진 목록, 여러 달, 같은 날 두 건, 연도 경계, 로딩, 기록 없음, 필터 결과 없음,
+복구 가능한 오류와 다시 시도, 사진 없음, 긴 메모, 긴 구장 이름, 승·패·무·취소.
+
+### 결정적 UI 테스트 픽스처 경계
+
+`VFFeedFixtures.swift`는 파일 전체가 `#if DEBUG`다. `VFUITestConfiguration.feedLogs`와
+`feedState`는 그 블록이 사라지면 인자를 그대로 돌려주므로 제품 대체 데이터가 될 수 없다.
+Release 아카이브 바이너리에서 `VFFeedFixtures` 문자열이 **0회** 나오는 것으로 확인했다.
+픽스처는 고정 날짜와 시드 UUID만 쓰고 사진 파일을 만들지 않는다.
+`-VFUITestInitialTab`으로 특정 탭에서 바로 시작할 수 있게 한 것도 같은 DEBUG 경계 안에 있다.
+
+### 접근성
+
+카드는 하나의 요소로 묶여 날짜·매치업·결과·스코어·구장을 한 문장으로 읽는다.
+접근성 글자 크기에서는 카드가 세로 배치로 바뀌어 아무 정보도 자르지 않는다.
+장식(절취선·날짜 스텁·사진 영역)은 VoiceOver에서 숨긴다.
+안정 식별자: `screen.feed`, `feed.addRecord`, `feed.month.<yyyy-MM>`,
+`feed.record.<uuid>`, `feed.loading`, `feed.empty`, `feed.filteredEmpty`, `feed.error`.
+
+### 검증 근거
+
+- 단위 95개 통과(FeedTests 19 포함), UI 42개 통과 + 온보딩 15개 건너뜀
+- 캡처 10장: 채워짐, 여러 달, 빈 상태, 오류, 로딩, 긴 구장 이름, 밝은/어두운 팀 강조색,
+  AccessibilityXXXL, 좁은 폭(SE 375pt)
+- Debug(Dev)·Release(Production) 빌드, 아이콘·릴리스 게이트, Release 아카이브 모두 통과
+
+### 남은 것
+
+사진이 실제로 있는 기록의 캡처는 만들지 않았다. 픽스처가 사진 파일을 쓰지 않기로 한
+결정 때문이며, 사진이 있는 레이아웃은 홈 폴라로이드 캡처와 프리뷰로 대신 확인한다.
+
+---
+
+## 캘린더 — 06_Calendar_Month_GameSelected (부분 구현)
+
+- Pencil 원본 SHA-256 `04e9f6710479b708705425d5a792149d94a9131371d6dacadf6aadf9d6c49874` (변동 없음)
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 현재 상태 **PARTIAL** (프레임 단위 완료 아님)
+
+### 이번 패스에서 완료
+
+- `Domain/CalendarMonth.swift` — 달 기하 구조를 뷰에서 꺼내 순수 계산으로 옮겼다.
+  기준 달력을 그레고리력 / Asia/Seoul / 일요일 시작으로 **명시**한다. 이전에는
+  `Calendar.current`를 써서 기기 시간대에 따라 격자가 달라질 수 있었다.
+- 주 단위로 떨어지는 격자, 자정 정규화, 앞뒤 달 실제 날짜 채움
+- `month(byAdding:)` — 항상 1일로 정규화해 반복 이동이 어긋나지 않는다
+- `clampedSelection(day:in:)` — 31일 선택 후 30일까지인 달로 가면 30일로 당긴다.
+  조용히 다음 달로 넘어가지 않는다
+- 요일 라벨을 로캘에서 가져온다(하드코딩 배열 제거)
+- 헤더를 Pencil 구성으로: 달 자체가 화면 제목(+월 선택 chevron), 아래 월 요약,
+  오른쪽 원형 이전/다음 버튼. 달 이동 연산을 버튼 클로저에서 빼 한 곳으로 모았다
+- 범례를 Pencil 4개 항목으로: 승리한 직관 / 아쉬운 직관 / 무승부 / 홈구장(플레이트 글리프).
+  큰 글자에서도 닿도록 가로 스크롤
+- 단위 테스트 22개
+
+### 의도한 편차
+
+Pencil 캘린더는 승리 점을 금색(`gold`)으로 그리지만, 금색은 이미 **선택된 날 원의 채움색**
+이자 브랜드 액션 색이다. 결과 색과 선택 상태 색이 겹치면 구분이 무너지므로,
+승/패/무 점은 앱 전체가 쓰는 `gameWin`/`gameLoss`/`gameDraw` 토큰을 유지했다.
+범례 색도 같은 토큰에서 나온다.
+
+### 이어진 패스에서 추가로 완료
+
+- 선택일 미리보기를 Pencil 구성으로 재배치: `VFSectionHeader` + `VFRecordCard`.
+  피드와 같은 카드를 쓰므로 팀·구장 표현이 앱 전체에서 일치한다
+- `CalendarSelectedDatePresentation` — 선택일 표시용 의미 모델.
+  같은 날 기록을 하나도 버리지 않고 모두 들고 있으면서 대표 하나를 결정적으로 고르고,
+  전체 개수를 접근성으로 알린다
+- 카드가 보여주는 구장은 **기록의 구장**이다. 사용자의 주 관람 구장으로 대체하지 않는다
+- 기록이 없는 날은 경기를 지어내지 않고 정직한 빈 패널 + 기존 기록 추가 경로
+- Pencil "자세히"가 `navigationDestination`으로 실제 기록 상세를 연다
+  (이전에는 아무도 읽지 않는 상태만 세팅하는 죽은 동작이었다)
+
+### 아직 남은 것 (프레임 단위 완료 아님)
+
+- 예정·진행 중·연기 등 결과 이전 상태의 마커 의미(제품에 데이터원 없음)
+- 캘린더 전용 결정적 UI 테스트 픽스처
+- 캘린더 XCUITest
+- 캘린더 좁은 폭 / AccessibilityXXXL 확인
+- 캘린더 캡처 매트릭스(26장 중 2장만 확보)
+- 앱 타깃 파일 추가 이후 Release 아카이브 재확인
+
+### 캘린더 — 결정적 픽스처와 디자인 전용 상태 (검증 패스)
+
+- `Services/VFCalendarFixtures.swift` — 시나리오 22개. 파일 전체가 `#if DEBUG`다.
+  고정 Asia/Seoul 날짜와 시드 UUID만 쓰고, SwiftData에 쓰지 않으며 사진 파일도 만들지
+  않는다. 반복 실행해도 시뮬레이터에 흔적이 남지 않는다.
+- `VFUITestConfiguration`에 `calendarLogs` / `calendarMonth` / `calendarState` /
+  `calendarPreselectedDate` 이음새를 추가했다. DEBUG 블록이 사라지면 인자를 그대로
+  돌려주므로 제품 대체 데이터가 될 수 없다.
+- **디자인 전용 상태**: 예정·진행 중·연기는 제품에 데이터원이 없다.
+  `CalendarDesignOnlyStatus`로만 존재하며 DEBUG 픽스처를 통해서만 그려진다.
+  제품의 `GameResult`에서는 나올 수 없고, 시각으로 추론하지도 않는다.
+- **픽스처 활성화 표식**: 화면에 `calendar.scenario.<이름>` 요소를 심어, 요청한 픽스처가
+  조용히 제품 상태로 되돌아갔는지 UI 테스트가 화면에서 확인할 수 있게 했다.
+  (온보딩에서 실행 인자만 믿었다가 놓쳤던 실패 방식을 막기 위한 것이다.)
+
+### 캘린더 — 이 패스에서 고친 결함
+
+모두 재현 → 원인 → 최소 수정 → 회귀 검사 순으로 처리했다. 절반은 **캡처를 눈으로 보고**
+발견했다. 빌드와 테스트는 통과하고 있었다.
+
+1. **선택일 상세를 시트가 덮었다.** 날짜를 고르면 `selectedDay`가 `.sheet(item:)`도 함께
+   열어 Pencil 인라인 상세를 가렸다. 인라인 상세가 구현된 지금 그 시트는 역할이 겹치므로
+   자동 표시와 도달 불가능해진 `CalendarDayDetailSheet`를 함께 제거했다.
+2. **픽스처 표식을 찾을 수 없었다.** `accessibilityHidden(true)`를 붙여 접근성 트리에서
+   통째로 빠져 있었다. 캘린더 UI 테스트 37개가 모두 같은 이유로 실패해 드러났다.
+3. **화면이 기기 달력을 썼다.** 날짜 숫자·요일·기록 묶기·월 선택기가 `Calendar.current`를
+   썼다. 기기 시간대가 다르면 Asia/Seoul 자정으로 정규화한 날짜에 다른 숫자가 찍힐 수
+   있다. 도메인이 이미 계산해 둔 `day.day`·`day.isSunday`를 쓰고 나머지는 기준 달력으로
+   옮겼다. 화면과 도메인 양쪽에서 `Calendar.current`를 금지하는 검사를 함께 넣었다.
+4. **오류에서 빠져나올 방법이 없었다.** 문구만 띄우고 다시 시도할 방법이 없었다. 피드와
+   같은 `VFErrorPanel`을 붙였다. 다시 시도해도 보고 있던 달·고른 날짜·보기 모드는 그대로다.
+5. **컨테이너 식별자가 자식 식별자를 덮어썼다.** 평범한 `VStack`에 식별자만 얹으면
+   SwiftUI가 그 값을 자식들에게 내려보낸다. 그래서 기록 카드가 `calendar.detailRecord`가
+   아니라 `calendar.selectedDetail`을 달고 있었고, 안쪽 식별자가 전부 사라졌다.
+   `accessibilityElement(children: .contain)`으로 먼저 담는 요소를 만든 뒤 이름을 붙인다.
+6. **픽스처가 달 이동을 막았다.** 달을 화면 그릴 때마다 픽스처 값으로 덮어써서, 화살표를
+   눌러도 곧바로 되돌아왔다. 픽스처는 이제 **시작 달만** 정하고 그 뒤는 제품 경로 그대로다.
+7. **큰 글자에서 날짜가 "…"로 잘렸다.** AccessibilityXXXL에서 두 자리 날짜가 모두 잘려
+   달력을 읽을 수 없었다. 일곱 칸 고정 격자이므로 **날짜 숫자에만** 상한을 두고
+   (`accessibility1`), `minimumScaleFactor`를 0.9로 올려 잘림 대신 크기를 지켰다.
+   요약·범례·선택일 상세는 제한 없이 그대로 커진다. 보기 모드 줄은 큰 글자에서 가로로
+   밀어 볼 수 있게 해, 이름을 줄여 자르지 않는다.
+8. **큰 글자 검증이 사실은 보통 크기를 검사하고 있었다.** 실행 인자 값을
+   `UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge`로 적었는데 실제 값은
+   `UICTContentSizeCategoryAccessibilityXXXL`이다. 앱은 조용히 기본 크기로 떴고 여덟 개
+   검사가 모두 통과했다. 캡처를 보고 알아챘다. 지금은 월 제목 높이를 재서 큰 글자가
+   정말 적용됐는지 확인한 뒤에야 다음 단언으로 넘어간다.
+9. **아카이브 검사가 아무것도 검사하지 않고 통과했다.** 바이너리에 UTF-8이 아닌 바이트가
+   섞여 `sort`가 실패했고, 빈 목록을 훑느라 모든 항목이 "없음"으로 통과했다. 로캘을
+   바이트 단위로 고정하고, 제품 캘린더가 **있는지**도 함께 확인하도록 바꿨다.
+
+### 캘린더 — 검증 범위
+
+- 단위·거버넌스: `CalendarTests`(22) · `CalendarFixtureGovernanceTests`(30) ·
+  `CalendarDaySemanticsTests`(12)
+- UI: `CalendarUITests`(38) — 픽스처 활성화, 루트와 쉘, 날짜 기하, 선택 의미, 기록과
+  정체성, 결과·디자인 전용 상태, 데이터 상태와 재시도, 이동 경로
+- 반응형: `CalendarResponsiveUITests`(15) — 좁은 폭 기하 7개(iPhone SE 3세대) +
+  AccessibilityXXXL 8개
+- 캡처 도구: `CalendarCaptureUITests`(9) — 조작이 필요한 상태의 증거를 남긴다
+
+좁은 폭 검사는 375pt급 기기에서만 뜻이 있으므로, 넓은 기기에서 돌면 통과로 위장하지 않고
+건너뛴다고 명시적으로 알린다. 큰 글자 검사도 같은 이유로 적용 여부를 먼저 확인한다.
+
+### 캘린더 — Release 격리 증명
+
+소스의 `#if DEBUG`는 필요하지만 충분하지 않다. 조건이 잘못 걸리거나 파일이 다른 타깃에
+들어가면 소스는 그대로인데 결과물에는 남는다. `scripts/verify_fixture_exclusion.sh`가
+아카이브 안의 **모든 실행 코드**를 훑어 확인한다. 주 실행 파일만 보면 놓친다 — Debug
+빌드는 대부분의 코드를 `*.debug.dylib`에 두고 주 실행 파일은 40KB 껍데기다.
+
+- 픽스처 타입 이름, 시나리오 이름, 실행 인자 키, 고정 UUID 접두사, 화면 표식 접두사,
+  디자인 전용 문구가 **없을 것**
+- `CalendarMonth`, `calendar.selectedDetail`, `calendar.detailAddRecord`,
+  `calendar.previousMonth`, `AttendanceCalendar`가 **있을 것**
+
+뒤쪽 확인이 없으면 "캘린더를 통째로 빼면 통과"하는 게이트가 된다. `live`·`scheduled` 같은
+흔한 낱말은 쓰지 않는다. 다른 곳에서 정당하게 나올 수 있어 거짓 실패를 만든다.
+
+확인 토큰은 15바이트를 넘는 것만 고른다. 짧은 문자열은 Swift가 코드 안에 즉시값으로 심어
+`strings`에 잡히지 않는다. 없어서가 아니라 보이지 않아서 실패한다.
+
+이 게이트는 양쪽으로 확인했다. Release 아카이브에서는 통과하고, 픽스처가 실제로 들어 있는
+Debug 번들에서는 실패한다. 한쪽만 확인하면 "아무것도 못 찾는 검사"와 구분되지 않는다.
+
+### 온보딩 건너뛴 검사 — 분류 정정
+
+예전 사유는 사실이 아니었다. "`-VFUITestReset`이 UserDefaults만 지우고 응원 팀은
+프로필/저장소 계층에서 되살아난다"고 적어 두었는데, 실제로 팀과 완료 플래그를 심어 저장한
+뒤 초기화하고 다시 띄우니 온보딩 첫 화면이 정상으로 나온다. **초기화는 동작한다.**
+
+진짜 이유는 열세 개가 재설계 **이전** 흐름(환영 → 소개 → 팀)을 전제로 쓰여 있고
+`onboarding.overview.next` 같은 식별자를 찾는다는 것이다. 재설계된 온보딩은 쪽 넘김 소개
+화면이라 그 단계가 없다. 되살리려면 새 흐름에 맞춘 재작성이 필요하고, 그것은 캘린더
+마무리가 아니라 온보딩 작업이다.
+
+새 흐름에서도 뜻이 통하는 두 개(test10, test13)는 건너뛰지 않고 계속 돌린다. 통째로
+건너뛰면 실제로 지켜지고 있는 것까지 확인을 멈추게 된다.
+
+---
+
+## 시즌 아카이브 — 07_Statistics_SeasonArchive (프레임 단위 구현 완료)
+
+- Pencil 원본 SHA-256 `9b5af6aee3ed8cc72383d4d465dae2b62e75462dc5da3507d22f5f5055bb1a4a`
+- 935,281 바이트 · 최상위 프레임 22개 · 재사용 컴포넌트 49개 · 문서 변수 46개
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 최종 상태 **FRAME_LEVEL_IMPLEMENTATION**
+- 프레임 노드 `N9cSUg`, 393×1197
+
+### Pencil 원본 변화 — STATISTICS_ONLY_DELTA
+
+캘린더 작업 시점의 원본은 `04e9f671…c49874` / 935,197바이트 / 변수 45개였다. 지금은
+`9b5af6ae…5b1a4a` / 935,281바이트 / 변수 46개다. 컴포넌트 수(49)와 최상위 프레임 수(22)는
+그대로이고, 늘어난 것은 **문서 변수 하나와 84바이트**뿐이다.
+
+문서 변수 46개의 값을 `VFDesignSystem`과 하나씩 대조했다. paper·ink·line·navy·butter·
+coral·sage·gold·live·win·night 계열, 반경(10/14/20), 간격(4/8/16/24), 팀 10색까지 전부
+이미 구현된 토큰과 **값이 같다**. 값이 바뀐 변수가 없으므로 완성된 홈·피드·캘린더가
+이번 변화로 다시 칠해질 일이 없다. 시즌 아카이브 프레임이 쓰는 변수도 모두 기존 토큰에
+대응된다. 따라서 이번 변화는 **STATISTICS_ONLY_DELTA**로 분류한다.
+
+프레임이 쓰는 값 가운데 토큰이 없던 것은 리터럴 두 개뿐이라 **덧붙이기만** 했다.
+공유 토큰의 값은 하나도 바꾸지 않았다.
+
+- `bodyOnDarkSecondary` `#8FAEC6` — 남색 커버 위의 보조 글자
+- `chartEmptyMark` `#A59C8C` 25% — 기록이 없는 달의 빈 점
+- `VFTypography.numericDisplay` — Pencil font-mono 48/700 자리. 고정 48pt 대신
+  `largeTitle` 역할이라 Dynamic Type을 그대로 따른다
+
+### 프레임 → 소스 매핑
+
+| Pencil 노드 | 화면 | 실제 데이터원 |
+| --- | --- | --- |
+| `시즌 헤더` / `화면 제목` | `StatisticsView.seasonHeader` | 고른 시즌 |
+| `시즌 부제` | 같은 곳 | 직관 횟수 + 실제 구장 수 |
+| `시즌 선택` | `seasonSelector` + `SeasonPickerSheet` | `AppDataStore.availableSeasons` |
+| `시즌 커버` | `SeasonCoverCard` | 시즌 전적 |
+| `커버 라벨` + 팀 표시 | `SeasonCoverCard.eyebrow` | `UserPreferencesStore.favoriteTeamID` |
+| `커버 문장` | `SeasonHeadline` | 실제 승·패·무·취소 |
+| `승률` `.625` | `SeasonRecord.winRateText` | 승 ÷ 승패 |
+| `커버 전적` | `SeasonRecord.recordText` | 결과별 집계 |
+| `커버 반짝` | `VFIllustrationView(.sparkle)` | 장식 |
+| `사진 콜라주` | — | 구현하지 않음(아래 참고) |
+| `시즌 기록 섹션` | `highlightsSection` | 네 줄 모두 실제 기록 |
+| `가장 많이 간 구장` | `SeasonHighlight.mostVisitedStadium` | 기록에 남은 구장 |
+| `가장 많이 만난 상대` | `.mostFacedOpponent` | `AttendanceMatchup` |
+| `올해의 순간` | `.largestWinMargin`으로 대체 | 실제 점수 |
+| `최다 연승` | `.longestWinStreak` | 승패 순서 |
+| `타임라인 섹션` | `SeasonTrendChart` | 월별 직관 횟수 |
+| `리포트 공유` | `ShareCardPreviewView(seasonWinRateText:)` | 계산된 승률 |
+| — | `SeasonResultDistributionView` | 결과별 집계(추가) |
+| — | `stadiumSection` | 실제 구장 순위(추가) |
+| — | `KBOStandingsView` | 서버 순위표(기존 기능 보존) |
+
+### 계산 소유권
+
+`StatisticsService`는 Foundation만 쓰는 순수 계산 계층으로 남아 있다. 뷰 본문에서
+계산하던 것을 모두 옮겼다.
+
+- 문장 생성 · 합계 · 승률 · 취소 처리 규칙 · 결과 분포 · 월별 흐름 · 구장 정렬과 집계 ·
+  연승 · 최다 점수 차 · 시즌 발견과 정렬 · 차트 요약
+
+화면은 `SeasonArchivePresentation` 하나를 받아 그리기만 한다. `StatisticsViewModel`은
+뷰가 아니므로 화면 없이도 같은 값을 만들 수 있고, 그래서 계산을 전부 단위 테스트로
+검증할 수 있다. DI 프레임워크나 유스케이스 계층은 도입하지 않았다.
+
+### 승률 분모 규칙
+
+**승률 = 승 ÷ (승 + 패).** 무승부와 취소 경기는 분모에 넣지 않는다.
+
+- 이 규칙은 앱이 이미 쓰던 것과 같다(`StatisticsService.summary`의 `decided`,
+  `StatisticsMapper`). 새로 만든 규칙이 아니라 기존 제품 규칙을 명시화했다.
+- 취소는 경기가 열리지 않은 것이고 무승부는 승패가 갈리지 않은 것이라, 둘 다 "이길 수
+  있었던 경기"가 아니다.
+- 승패가 하나도 없으면 0%가 아니라 **값 자체가 없다**(`—`). 0%는 "다 졌다"는 뜻이라
+  거짓말이 된다.
+- 취소·무승부는 **직관 횟수**에는 그대로 들어간다. 간 것은 사실이다.
+- 표기는 야구 관례를 따른다. 소수 셋째 자리, 앞의 0을 뗀 `.714`. VoiceOver는 숫자를
+  그대로 읽으면 알아듣기 어려우므로 "승률 71.4퍼센트, 5승 2패 기준"으로 풀어 읽고,
+  화면에 찍힌 `.714`는 접근성 **값**으로 남겨 자동 검증이 가능하게 했다.
+
+### 의도한 편차
+
+1. **`.625`를 옮기지 않았다.** Pencil은 `8경기 · 5승 2패 1무` 옆에 `.625`를 적어 두었지만
+   자기 전적으로 계산하면 5÷7 = `.714`다. 표본 값이라 규칙대로 다시 계산한다.
+2. **커버 문장을 만들어 쓴다.** "잠실의 기적을 두 눈으로 본 사람"은 사람이 쓴 예시다.
+   그런 문장을 주는 필드가 서버에도 기기에도 없다. 실제 숫자와 실제 구장 이름만으로
+   여덟 갈래의 결정적 문장을 만든다. 같은 기록에서는 언제나 같은 문장이 나온다.
+3. **`올해의 순간`을 `가장 크게 이긴 날`로 바꿨다.** "박병호의 9회 역전 스리런"을 만들려면
+   선수·이닝·타구 데이터가 필요한데 이 앱에는 없다. 지어내지 않고, 실제 점수로 확인할 수
+   있는 최다 점수 차 승리로 **구조가 같은 자리**를 채운다. 점수가 없으면 값을 만들지 않고
+   "점수가 적힌 승리가 아직 없어요"로 남긴다.
+4. **타임라인 기간이 다르다.** Pencil은 3월~9월 일곱 칸을 고정으로 그리지만, 이 앱에는
+   시즌이 언제 시작하고 끝나는지 알려 주는 데이터원이 없다. 없는 기간을 만들어 내지 않고
+   **첫 기록이 있는 달부터 마지막 기록이 있는 달까지**를 그린다. 그 사이의 빈 달은 Pencil과
+   같은 빈 점으로 남아 시즌의 모양이 그대로 보인다.
+5. **사진 콜라주를 넣지 않았다.** Pencil은 Unsplash 사진 세 장을 붙여 두었다. 제품에는
+   시즌 대표 사진을 고르는 규칙도, 기록 사진을 가져오는 경로도 없다(피드 사진 과제와 같은
+   미해결 항목). 남의 사진을 제품에 심지 않고 자리를 비웠다.
+6. **결과 분포와 구장 순위를 더했다.** Pencil 프레임에는 없지만 과제가 요구하는 값이고,
+   둘 다 실제 집계에서 나온다. 도넛 대신 **라벨이 붙은 가로 막대**를 쓴다. 색만으로
+   뜻을 전하지 않도록 승·패·무·취소 네 항목을 0이어도 모두 적는다.
+7. **리그 순위표를 별도 화면으로 옮겼다.** 이전 화면은 `KBO 현재 / 내 직관` 두 구획을
+   탭으로 갈랐다. Pencil 시즌 아카이브는 순수하게 개인 아카이브라 순위표가 없다. 기능을
+   지우는 대신 아카이브 맨 아래 한 줄에서 `KBOStandingsView`로 이어지게 했다.
+8. **`SeasonStatsView`를 지웠다.** 어디서도 열리지 않는 화면인데 `7승 4패 1무`,
+   `잠실 8회`, `KIA 4회` 같은 값이 소스에 박혀 있었다. 제품에 표본 통계가 남아 있을
+   이유가 없다.
+9. **섹션 헤더의 "전체 보기"는 두지 않았다.** Pencil도 비활성으로 그렸고, 구장 목록은
+   상위 몇 개로 자르지 않고 전부 보여주므로 더 볼 것이 없다. 대신 `가장 많이 간 구장`과
+   `가장 많이 만난 상대` 줄이 각각 구장별·상대팀별 통계 화면으로 이어진다. 아무 일도
+   하지 않는 버튼을 화면에 두지 않는다.
+
+### 상태 범위
+
+| 상태 | 화면 | 근거 |
+| --- | --- | --- |
+| 불러오는 중 | `VFLoadingPanel` | `statistics.loading` |
+| 기록 없음 | `VFEmptyStatePanel` | `statistics.empty` |
+| 기록 한 건 | 아카이브 전체 | 문장이 `firstRecord`로 바뀐다 |
+| 표본 부족 | 안내 줄 | 승률을 숨기지 않고 흔들릴 수 있다고 알린다 |
+| 승패 없음 | 승률 `—` | 0%로 쓰지 않는다 |
+| 취소만 | 전용 문장 | "발걸음했지만 경기는 열리지 않았어요" |
+| 구장 없음 | `statistics.stadiumAnalysis.empty` | 구장을 지어내지 않는다 |
+| 점수 없음 | 하이라이트 비활성 | 합계·승률은 그대로 계산된다 |
+| 복구 가능한 오류 | `VFErrorPanel` + 재시도 | 시즌을 잃지 않는다 |
+
+### 결정적 픽스처 경계
+
+`VFStatisticsFixtures`는 파일 전체가 `#if DEBUG`다. 시나리오 **23개**를 갖고 있고,
+날짜와 ID는 모두 고정값이다. `Date.now`·무작위 `UUID`·`Calendar.current`를 쓰지 않고,
+SwiftData에 쓰지 않으며 파일도 만들지 않는다. 사진 참조도 두지 않는다.
+
+- 기준 시즌은 Pencil이 그린 **모양**과 같다. 8경기 · 5승 2패 1무, 3월 3번 / 4월 5번,
+  라이온즈파크 5번, KIA 3번, 4월 3연승. 승률만 규칙대로 `.714`가 된다.
+- 픽스처는 **시작 시즌만** 정한다. 그 뒤의 시즌 선택은 제품 경로(`selectSeason`) 그대로
+  흐른다. 화면을 그릴 때마다 덮어쓰면 시즌을 바꿀 수 없게 된다 — 캘린더에서 겪은 결함이다.
+- 캘린더와 시나리오 이름이 겹치는 것(`loading`, `recoverableError` 등)은 의도한 것이다.
+  화면마다 같은 개념을 가리킨다. 켜는 **실행 인자 키**가 서로 다르고
+  (`-VFUITestCalendarFixture` / `-VFUITestStatisticsFixture`), 각 이음새가 자기 키만
+  읽는다는 것을 테스트가 확인한다.
+
+### 픽스처 활성화 증명
+
+모든 UI 테스트가 첫 단언으로 화면에서 `statistics.scenario.<시나리오>`를 찾는다. 표식이
+없으면 조용히 제품 상태로 돌아간 것이므로 그 자리에서 실패한다. 표식은
+`accessibilityHidden`을 붙이지 않는다 — 붙이면 접근성 트리에서 통째로 빠져 UI 테스트가
+영영 찾지 못한다(캘린더에서 겪은 결함). 거버넌스 테스트가 이 조건을 소스에서 확인한다.
+
+알 수 없는 이름은 어떤 픽스처도 켜지 않는다는 것도 따로 확인한다.
+
+### 이 패스에서 테스트가 잡은 결함
+
+1. **시즌 칩이 "2,026 시즌"으로 읽혔다.** `accessibilityLabel("… \(archive.season) 시즌")`은
+   `LocalizedStringKey`로 해석돼 연도를 **수량**으로 포맷했다. 연도는 수량이 아니므로
+   `Text(verbatim:)`으로 문자 그대로 읽게 고쳤다. 같은 실수를 막는 거버넌스 테스트를 뒀다.
+2. **큰 글자에서 팀 이름이 "삼성 라…"로 잘렸다.** 커버 라벨과 팀 표시를 한 줄에 두어
+   AccessibilityXXXL에서 자리가 모자랐다. 팀 이름은 이 화면이 누구의 시즌인지 말해 주는
+   값이라 줄일 수 없으므로, 좁아지면 아래로 접히도록 `ViewThatFits`를 뒀다.
+   접근성 이름은 잘려도 그대로 남아 **이름으로는 잡히지 않는다.** 그래서 줄바꿈이 실제로
+   일어났는지를 좌표로 확인하는 검사를 따로 뒀다(`testSR18`, `testSR19`).
+
+### 접근성 식별자
+
+한국어 표시 문구를 정체성으로 쓰지 않는다. 읽어 주는 이름과 식별자는 서로 다른 값이다.
+
+`statistics.root` · `.title` · `.subtitle` · `.selectedSeason` · `.season.<연도>` ·
+`.seasonPicker` · `.hero` · `.hero.eyebrow` · `.headline` · `.winRate` ·
+`.totalAttendance` · `.wins` · `.losses` · `.draws` · `.canceled` · `.distribution` ·
+`.distribution.summary` · `.trend` · `.trend.month.<월>` · `.trend.summary` ·
+`.highlights` · `.highlight.<종류>` · `.stadiumAnalysis` · `.stadiumAnalysis.empty` ·
+`.stadium.<구장ID 또는 rank<n>>` · `.team.<팀ID>` · `.loading` · `.empty` ·
+`.insufficientData` · `.error` · `.retry` · `.seasonReport` · `.leagueStandings` ·
+`.scenario.<시나리오>`
+
+등록부에 없는 구장은 순위로 구분한다(`statistics.stadium.rank1`). 한국어 구장 이름을
+식별자로 만들지 않는다.
+
+### 차트 규칙
+
+두 차트 모두 의미 모델에서 값을 받고, 뷰 본문에서 기하를 계산하지 않는다. 비율은
+서비스가 이미 계산해 두고, 화면은 그 비율을 폭으로 옮기기만 한다.
+
+- **결과 분포** — 라벨이 붙은 가로 막대. 승·패·무·취소를 0이어도 모두 적어 색 없이도
+  값이 남는다. 0건이면 막대를 그리지 않고 문장만 남긴다. 한 종류뿐이면 막대 하나가
+  전체 폭을 차지한다.
+- **월별 직관** — Pencil 점 쌓기. 한 칸에 그리는 점은 10개까지고, 넘으면 숫자로 말한다.
+  칸이 여섯 개를 넘거나 접근성 글자 크기이면 **같은 값을 목록으로** 바꾼다. 어느 쪽이든
+  달마다 `statistics.trend.month.<월>` 식별자와 읽어 줄 값이 그대로 남는다.
+- 두 차트 모두 요약 문장을 화면에 함께 띄운다. 차트를 볼 수 없어도 같은 값이 남는다.
+- 그라디언트·글로·의사 3D·무작위 애니메이션은 쓰지 않는다.
+
+### 검증 범위
+
+- 단위·거버넌스: `StatisticsTests`(38) · `StatisticsFixtureGovernanceTests`(32)
+- UI: `StatisticsUITests`(42) — 픽스처 활성화와 화면 구조, 시즌 선택, 핵심 수치,
+  상태 9종, 차트, 팀 아이덴티티 10구단 전수, 구장 아이덴티티 9구장 전수, 탐색
+- 반응형: `StatisticsResponsiveUITests`(19) — 좁은 폭 8개(iPhone SE 3세대) +
+  AccessibilityXXXL 11개
+- 캡처 도구: `StatisticsCaptureUITests`(28)
+
+좁은 폭 검사는 375pt급 기기에서만 뜻이 있으므로, 넓은 기기에서 돌면 통과로 위장하지 않고
+건너뛴다고 명시적으로 알린다. 큰 글자 검사는 월 제목이 아니라 **시즌 제목 높이**를 재서
+적용 여부를 먼저 확인한다.
+
+### Release 격리 증명
+
+`scripts/verify_calendar_fixture_exclusion.sh`는 이번에 두 화면을 함께 보도록
+`scripts/verify_fixture_exclusion.sh`로 이름을 바꾸고 시즌 아카이브 항목을 더했다.
+
+- **없을 것**: `VFStatisticsFixtures`, `StatisticsFixture`, 시나리오 이름 12개,
+  `-VFUITestStatisticsFixture`, UUID 접두사 `57A7DA7A`, 표식 접두사 `statistics.scenario.`
+- **있을 것**: `SeasonArchivePresentation`, `statistics.selectedSeason`,
+  `statistics.stadiumAnalysis`, `statistics.distribution`, `SeasonCoverCard`
+
+`insufficientData`는 검사 목록에서 뺐다. 제품 식별자 `statistics.insufficientData`와 글자가
+겹쳐, 픽스처가 완전히 빠진 아카이브에서도 걸린다. 제품에서 정당하게 나올 수 있는 토큰은
+이 검사에 쓸 수 없다 — 거짓 실패만 만든다. 실제로 첫 실행에서 이 항목이 걸려 알아냈다.
+
+게이트는 양쪽으로 확인했다. Release 아카이브에서 통과(0건)하고, 픽스처가 실제로 들어 있는
+Debug 번들에서 실패(38건)한다. 한쪽만 확인하면 "아무것도 못 찾는 검사"와 구분되지 않는다.
+
+### 검증 근거 (실행 결과)
+
+- 단위 테스트: **229개 통과, 실패 0** (`VictoryFairyTests`, iPhone 17 Pro)
+  - 이 중 시즌 아카이브 몫은 `StatisticsTests` 38개 + `StatisticsFixtureGovernanceTests` 32개
+- UI 테스트: **208개 실행, 실패 0, 건너뜀 28** (`VictoryFairyUITests`, iPhone 17 Pro)
+  - 건너뛴 28개 = 캘린더 좁은 폭 7 + 시즌 좁은 폭 8 + 온보딩 13
+  - 좁은 폭 15개는 넓은 기기에서 뜻이 없어 스스로 건너뛴다. 통과로 위장하지 않는다.
+- 좁은 폭·큰 글자 실기기 검증: **iPhone SE 3세대(375pt)에서 19개 전부 실행, 건너뜀 0, 실패 0**
+- 캡처: 28개 상태 × 2기기(iPhone 17 Pro / iPhone SE 3세대) = **56장**
+- Debug 빌드 성공 · Release 아카이브 성공
+- `verify_app_icon.sh` 통과 · `verify_release_readiness.sh` 통과
+- `verify_fixture_exclusion.sh`: Release 아카이브 통과(0건) / Debug 번들 실패(38건)
+
+### Release 아카이브 근거
+
+- 스킴 `VictoryFairy-Production`, 구성 Release, 결과 **ARCHIVE SUCCEEDED**
+- 번들 식별자 `com.hwangseokbeom.victoryfairy`, 마케팅 버전 1.1.0, 빌드 번호 1 (변동 없음)
+- `Assets.car`에 AppIcon 세 렌디션(default / UIAppearanceDark / ISAppearanceTintable) 포함
+- `LaunchMark`, `LaunchBackground`(라이트·다크) 포함, `UILaunchScreen` 키 유지
+- 테스트 번들 미포함, 아이콘·알파 경고 없음
+- 서명 설정은 손대지 않았다(`CODE_SIGN_STYLE = Automatic`, `DEVELOPMENT_TEAM` 그대로).
+  다만 이 아카이브는 `CODE_SIGNING_ALLOWED=NO`로 만든 **미서명** 결과물이므로,
+  App Store 배포 서명이 검증됐다고 말할 수 없다.
+
+### 온보딩 건너뛴 검사 — 이번 실행 결과
+
+`OnboardingUITests` 15개 가운데 **2개 통과, 13개 건너뜀**. 건너뛴 13개는 재설계 이전
+흐름의 `onboarding.overview.next` 단계를 찾는다. 앞선 패스에서 정정한 분류 그대로이며,
+이번 작업이 온보딩을 건드리지 않았음을 이 숫자가 함께 보여 준다.
+
+### 남은 시즌 아카이브 과제 — 없음
+
+시즌 아카이브의 구현·테스트·반응형·캡처·아카이브가 모두 통과했다. 아래 항목들은 이 화면의
+미완성 부분이 **아니므로** 성격에 맞게 옮겨 적는다.
+
+- **사진 콜라주를 넣지 않은 것** → *의도한 실데이터 편차*. 시즌 대표 사진을 고르는 규칙도,
+  기록 사진을 읽는 경로도 없다. 없는 것을 만들지 않기로 한 결정이지 빠뜨린 일이 아니다.
+- **`MetricCard`·`StatRankingRow`가 참조되지 않는 것** → *정리 부채*. 공용 컴포넌트
+  라이브러리에 남아 있을 뿐 시즌 아카이브의 기능과 무관하다.
+- **프로젝트 전체 다크 모드가 없는 것** → *프로젝트 전역 과제*. 원본에 다크 변형이 없어
+  어느 한 화면에서 결정할 수 있는 일이 아니다.
+- **픽셀 단위 비교를 하지 않은 것** → *주장하지 않은 검증 수준*. 측정 비교 없이 픽셀 일치를
+  말하지 않기로 한 것이며, 하지 못한 검증이 아니다.
+
+`AttendanceLogViewState.ourScore`는 이름이 "우리 팀 점수"지만 실제로는 응원 팀 점수다.
+API 호환을 위해 그대로 두었고, 최다 점수 차 계산도 이 의미를 그대로 따른다.
+
+---
+
+## 기록 상세 — 08_RecordDetail (프레임 단위 구현 완료)
+
+- Pencil 원본 SHA-256 `9b5af6aee3ed8cc72383d4d465dae2b62e75462dc5da3507d22f5f5055bb1a4a`
+  (시즌 아카이브 패스와 **변동 없음**)
+- 935,281 바이트 · 최상위 프레임 22개 · 재사용 컴포넌트 49개 · 문서 변수 46개
+- 이전 상태 **TOKEN_ONLY_MIGRATION** → 최종 상태 **FRAME_LEVEL_IMPLEMENTATION**
+- 프레임 노드 `XwqMs`, 393×1581
+
+### Pencil 델타 — RECORD_DETAIL_ONLY_DELTA
+
+원본 해시가 직전 패스와 **완전히 같다.** 즉 이번 패스 동안 디자인 문서는 한 글자도 바뀌지
+않았다. 그러므로 다뤄야 할 차이는 "Pencil이 바뀐 것"이 아니라 "Pencil 프레임과 현재 구현이
+다른 것"이고, 그 범위는 기록 상세 화면 하나에 갇힌다. 프레임이 쓰는 변수는 모두 이미 구현된
+토큰에 대응되어 새 전역 토큰을 만들지 않았다. 완성된 홈·피드·캘린더·시즌 아카이브는 이번
+작업으로 다시 칠해지지 않는다.
+
+### 이 프레임이 표현하는 것
+
+저장된 **직관 기록 한 건**이다. 경기 상세도 아니고 별도의 "추억" 개체도 아니다. Pencil은
+이닝별 라인스코어처럼 경기 상세에 가까운 요소도 그리지만, 제품의 도메인(`AttendanceLog`)이
+가진 것은 날짜·매치업·구장·결과·점수·좌석·동행·메모·일기·태그·사진 참조뿐이다. 화면은 그
+경계를 그대로 따른다.
+
+### 프레임 → 소스 매핑
+
+| Pencil 노드 | 화면 | 실제 데이터원 | 없을 때 |
+| --- | --- | --- | --- |
+| `내비바` 제목 | `navigationTitle` | 기록 날짜 | 항상 있음 |
+| `히어로 사진` | `RecordDetailMediaView` | `photoLocalRefs` | 상태별 안내 |
+| `승 스탬프` | `VFResultStamp` | `result` | 항상 있음 |
+| `손글씨 제목` | `RecordDetailPresentation.title` | `memo` | 줄 자체를 뺀다 |
+| `장소 메타` | `.placeMeta` | 구장 + 좌석 | 있는 것만 잇는다 |
+| `스코어보드` | `RecordDetailScoreboard` | 매치업 + 점수 | 점수 자리에 사유 |
+| `라인스코어` | — | 없음 | 구현하지 않음 |
+| `구장 히어로` | `RecordDetailStadiumView` | 기록 구장 | 등록 여부별 안내 |
+| `일기 섹션` | `noteSection` | `diary` | 없음 안내 |
+| `일기 서명` | `.note.signature` | 구장 + 사용자 이름 | 둘 중 하나만 없어도 뺀다 |
+| `순간 섹션` | `highlightSection` | `highlightTags` | 섹션 자체를 뺀다 |
+| `디테일 섹션` | `detailsSection` | 동행 · 좌석 | 셀 단위로 뺀다 |
+| `무드 섹션` | `moodRow` | `moodTags.first` | 줄 자체를 뺀다 |
+| `상세 액션` | `actions` | 공유 · 수정 경로 | 항상 있음 |
+| — | 삭제 | `AppDataStore` | Pencil에 없어 더보기로 |
+
+### 매핑 소유권
+
+`RecordDetailService`는 Foundation만 쓰는 순수 계산 계층이다. 매치업 해석, 구장 확인,
+결과 매핑, 점수 형식, 날짜 정책, 저장소 표시 문구 걸러내기가 모두 여기에 있고 화면에는
+없다. 화면은 `RecordDetailPresentation` 하나를 받아 그리기만 한다. 미디어 상태만은 파일
+시스템을 봐야 알 수 있어 밖에서 확인해 넘긴다 — 서비스는 파일을 읽지 않는다.
+
+거버넌스 테스트가 화면 소스에 `log.matchup`·`log.stadium`·`AttendanceMatchup.resolve`
+같은 재해석이 다시 생기지 않는지 확인한다.
+
+### 저장소가 채운 표시 문구를 되돌린다
+
+`AttendanceLogMapper`는 값이 비어 있으면 `"좌석 미정"`·`"미입력"`·`"직관 기록"`을 채운다.
+상세가 그 문구를 사용자가 쓴 값처럼 보여 주면 없는 사실을 있는 것처럼 말하게 된다.
+서비스가 이 세 값을 다시 "없음"으로 되돌리고, 그러면 제목·좌석·동행 줄이 조용히 사라진다.
+
+### 팀과 구장
+
+- 팀은 canonical 등록부(`KBOSeed`)에서만 온다. 상세 전용 팀 목록을 만들지 않았고,
+  테스트가 소스에 팀 이름 리터럴이 없는지 확인한다.
+- 응원 팀이 매치업 문자열 어디에 적혀 있든 **나의 팀** 자리로 온다. 응원 팀을 모르면
+  적힌 순서를 그대로 쓴다.
+- 구장은 기록에 적힌 것을 그대로 쓴다. 주 관람 구장·팀 홈 구장·기본 구장으로 바꾸지
+  않는다. 홈/원정 표시는 등록부의 홈 팀 목록으로만 판단하고, 응원 팀을 모르면 단정하지
+  않는다.
+- 등록부에 없는 이름은 지우지 않고 "등록되지 않은 구장"으로 이름과 함께 보여 준다.
+  구장이 아예 없으면 "구장 정보 없음"이다. 아홉 구장 전부와 미등록·미기록 두 경우를
+  테스트한다.
+
+### 사진 상태
+
+"사진 없음"과 "파일이 사라짐"과 "열 수 없음"을 각각 다르게 말한다. 셋을 같은 회색
+사각형으로 뭉개면 무엇이 잘못됐는지 알 수 없다. `PhotoAttachmentService.mediaState(for:)`가
+참조 → 파일 존재 → 디코딩 순으로 확인해 상태를 정하고, 화면은 상태마다 다른 문구와 다른
+식별자를 쓴다.
+
+테스트용 사진은 **파일을 만들지 않는다.** `vf-uitest-inmemory-photo` 접두사를 가진 참조만
+그릴 때마다 메모리에서 그린다. 그래서 번들에 넣을 테스트 전용 이미지 리소스가 아예 없고,
+시뮬레이터에도 흔적이 남지 않는다. 접두사가 맞지 않으면 `nil`이라 제품이 만든 참조는 절대
+이 그림으로 대체되지 않는다.
+
+### 편집과 삭제
+
+- 편집은 기존 `LogEditorView(editingLog:)` 경로를 그대로 연다. 두 번째 편집기를 만들지
+  않았고, 테스트가 기존 좌석·동행 값이 채워져 열리는지 확인한다.
+- 삭제는 화면이 아니라 `AppDataStore`가 수행한다. **기기 저장소에서 지우지 못하면 아무것도
+  지우지 않고 실패를 알린다.** 예전에는 실패를 삼키고 화면에서만 사라지게 해서, 다시 열면
+  되살아나는 기록을 사용자가 지웠다고 믿게 만들었다. 서버 삭제 실패는 다르다 — 기기에서
+  이미 지웠으므로 오프라인 삭제로 보고 성공으로 다룬다.
+- 확인 대화상자 문구는 Pencil `09_States`의 `삭제 다이얼로그`를 그대로 쓴다.
+
+### 이 패스에서 테스트가 잡은 결함
+
+1. **취소 버튼에 이름이 없었다.** `confirmationDialog`로 만들었더니 취소 버튼이 접근성
+   트리에 **이름 없는 버튼**(`|`)으로 나왔다. 화면을 읽는 사람에게는 무엇을 누르는지 알 수
+   없는 칸이다. 수정자를 떼어도 그대로였다. Pencil `09_States`의 삭제 다이얼로그는 원래
+   화면 가운데 뜨는 카드에 두 버튼이 나란한 형태 — 즉 액션 시트가 아니라 얼럿이다.
+   얼럿으로 바꾸니 두 버튼의 이름과 식별자가 모두 정상으로 노출된다. Pencil에 더 맞으면서
+   접근성 결함도 사라졌다.
+2. **대화상자 버튼이 접근성 트리에 두 번 노출된다.** 제품 결함은 아니지만 조회가 실패하므로
+   테스트가 `firstMatch`로 집는다.
+
+### 의도한 편차
+
+1. **이닝별 라인스코어를 넣지 않았다.** 이닝 기록 데이터원이 없다. 숫자를 지어내는 대신
+   최종 점수만 보여 준다.
+2. **경기 시작 시각을 넣지 않았다.** Pencil `장소 메타`는 "18:30 경기"까지 적지만 도메인에
+   시각이 없다. 구장과 좌석만 잇는다.
+3. **날씨·먹은 것·응원 준비물을 넣지 않았다.** `그날의 작은 것들` 네 칸 가운데 도메인이
+   실제로 저장하는 것은 동행과 좌석뿐이다. 나머지 두 칸은 만들지 않았다.
+4. **별점을 넣지 않았다.** 평점 필드가 없다. 기분 태그만 남긴다.
+5. **`순간` 문장을 태그로 바꿨다.** Pencil은 "9회초 박병호, 역전 스리런"처럼 선수와 이닝을
+   적지만 그런 데이터원이 없다. 실제로 저장되는 하이라이트 태그를 보여 준다.
+6. **일기 서명의 이름은 사용자 설정에서 온다.** 없으면 서명을 만들지 않는다.
+7. **내비 오른쪽을 공유가 아니라 더보기로 두었다.** Pencil은 공유 아이콘을 두지만 바로
+   아래에 "추억 카드로 공유하기" 버튼이 이미 있어 같은 동작이 두 번 나온다. 대신 내비바
+   컴포넌트의 기본값인 더보기 메뉴로 두고, Pencil 프레임에 자리가 없는 삭제를 여기에 담았다.
+8. **탭바가 상세에서도 보인다.** 커스텀 탭바가 셸(`MainTabView`)의 `safeAreaInset`이라
+   밀어 넣은 화면에서도 남는다. Pencil 프레임에는 탭 영역이 없지만, 이를 바꾸려면 완성된 네
+   화면이 공유하는 셸을 건드려야 해서 이번 범위 밖으로 두었다. 대신 탭바가 하나뿐인지와
+   마지막 콘텐츠가 그 위에 남는지를 테스트한다.
+9. **공식 기록 링크를 남겼다.** Pencil에는 없지만 서버가 주는 실제 값이고 기존 기능이다.
+
+### 접근성 식별자
+
+한국어 표시 문구를 정체성으로 쓰지 않는다. 읽어 주는 이름과 식별자는 서로 다른 값이다.
+
+`recordDetail.root` · `.title` · `.placeMeta` · `.scoreboard` · `.result` · `.score` ·
+`.team.<팀ID>` · `.opponent.<팀ID 또는 missing>` · `.stadium.<구장ID 또는 unknown|missing>` ·
+`.media` · `.media.<photo|empty|missingFile|decodeFailed|loading>` · `.note` ·
+`.note.empty` · `.mood` · `.highlights` · `.details` · `.fact.<companion|seat>` ·
+`.share` · `.edit` · `.overflow` · `.delete` · `.delete.confirm` · `.delete.cancel` ·
+`.officialRecord` · `.loading` · `.error` · `.retry` · `.scenario.<시나리오>`
+
+뒤로 가기와 날짜에는 따로 식별자를 두지 않았다. 뒤로 가기는 시스템 내비게이션 버튼
+(`BackButton`)이 이미 정체성을 갖고, 날짜는 화면 제목 자체라 내비게이션 바 이름으로
+조회한다(`app.navigationBars["2026년 4월 12일"]`). 같은 것에 이름을 두 번 붙이지 않는다.
+매치업 히어로는 `scoreboard`가 그 영역이다.
+
+### 결정적 픽스처
+
+`VFRecordDetailFixtures`는 파일 전체가 `#if DEBUG`다. 시나리오 **27개**를 갖고 있고,
+날짜와 ID는 고정값(`D37A11ED` 접두사)이다. `Date.now`·무작위 `UUID`·`Calendar.current`를
+쓰지 않고, SwiftData에 쓰지 않으며 **사진 파일도 만들지 않는다**.
+
+상세는 스스로 뜨는 화면이 아니라 눌러서 들어가는 화면이다. 그래서 픽스처는 상세만 정하고,
+목록은 기존 피드/캘린더 픽스처가 만든다. 모든 UI 테스트가 실제로 목록에서 기록을 눌러
+들어간 뒤 `recordDetail.scenario.<시나리오>` 표식을 확인한다. 이렇게 하면 Feed→상세와
+캘린더→상세 두 경로가 검증에 함께 딸려 온다.
+
+삭제 실패는 저장소를 건드리지 않고 결과만 정하는 이음새로 만든다. 그래서 실패 경로를
+확인해도 실제 기록이 사라지지 않는다.
+
+### 피드 사진 캡처 공백 — 닫힘
+
+`AttachmentPhotoView`에 DEBUG 전용 분기를 하나 더했다. `vf-uitest-inmemory-photo` 접두사를
+가진 참조만 메모리에서 그림을 만들어 돌려준다. 피드와 상세가 같은 컴포넌트를 쓰므로 이
+장치 하나로 두 화면 모두 사진을 그릴 수 있다.
+
+다만 그것만으로는 부족했다. 기존 피드 픽스처의 기록에는 사진 참조가 하나도 없어서, 장치가
+있어도 피드에는 여전히 사진이 나오지 않았다. 그래서 피드 픽스처에 사진을 든 상태
+(`withPhoto`)를 하나 더하고, 그 상태를 찍는 캡처를 두어 공백을 닫았다.
+
+닫아도 되는 조건을 모두 확인했다.
+
+- 제품 사진 동작이 바뀌지 않는다 — 접두사가 맞지 않으면 `nil`이라 기존 경로로 그대로 간다
+- 파일을 쓰지 않는다 — 그릴 때마다 메모리에서 만든다
+- Release에 남지 않는다 — 분기 자체가 `#if DEBUG`이고, 아카이브 게이트가 접두사 부재를 확인한다
+- 피드를 다시 설계하지 않았다 — 피드 소스는 한 줄도 바뀌지 않았다
+- 기존 피드 테스트가 그대로 통과한다
+
+### 검증 범위와 결과
+
+- 단위·거버넌스: `RecordDetailTests`(29) · `RecordDetailFixtureGovernanceTests`(31)
+- UI: `RecordDetailUITests`(41) — 진입 경로, 내비게이션, 매치업과 정체성, 미디어 4상태,
+  일기 3상태, 결과 6상태, 불러오기와 복구, 편집, 삭제, 그 밖의 내용
+- 반응형: `RecordDetailResponsiveUITests`(19) — 좁은 폭 9개(iPhone SE 3세대) +
+  AccessibilityXXXL 10개
+- 캡처 도구: `RecordDetailCaptureUITests`(32) · `FeedPhotoCaptureUITests`(2)
+
+실행 결과(iPhone 17 Pro):
+
+- 단위 테스트 **290개 통과, 실패 0**
+- UI 테스트 **302개 실행, 실패 0, 건너뜀 37**
+  - 건너뛴 37개 = 캘린더 좁은 폭 7 + 시즌 좁은 폭 8 + 기록 상세 좁은 폭 9 + 온보딩 13
+- 좁은 폭·큰 글자 실기기 검증: iPhone SE 3세대(375pt)에서 **19개 전부 실행, 건너뜀 0, 실패 0**
+- 캡처: iPhone 17 Pro 33장 + iPhone SE 3세대 32장 = **65장**
+- Debug 빌드 성공 · Release 아카이브 성공
+- `verify_app_icon.sh` 통과 · `verify_release_readiness.sh` 통과
+- `verify_fixture_exclusion.sh`: Release 아카이브 통과(0건) / Debug 번들 실패(57건)
+
+### Release 아카이브 근거
+
+- 스킴 `VictoryFairy-Production`, 구성 Release, 결과 **ARCHIVE SUCCEEDED**
+- 아카이브 경로 `/tmp/VictoryFairy-archives/VictoryFairy-RecordDetail.xcarchive` (저장소 밖)
+- 번들 식별자 `com.hwangseokbeom.victoryfairy`, 마케팅 버전 1.1.0, 빌드 번호 1 (변동 없음)
+- AppIcon 세 렌디션 · `LaunchMark` · `LaunchBackground` · `UILaunchScreen` 유지
+- 테스트 번들 미포함, 아이콘·런치 경고 없음
+- 서명 설정은 손대지 않았다. 다만 `CODE_SIGNING_ALLOWED=NO`로 만든 **미서명** 결과물이므로
+  App Store 배포 서명이 검증됐다고 말할 수 없다.
+
+### 이번 패스에서 고친 회귀
+
+캘린더 테스트 세 곳이 예전 상세 화면의 매치업 원문(`"삼성 vs LG"`)을 찾고 있었다. 새 상세는
+두 팀을 각각 온전한 이름으로 보여 주므로 그 문자열이 화면에서 사라졌다. 문구가 아니라
+화면 정체성(`recordDetail.root`)으로 도착을 확인하도록 고쳤다. 검사 강도는 그대로이고,
+오히려 표시 문구가 바뀌어도 깨지지 않는다.
+
+### 다음 화면
+
+기록 작성 1·2·3단계, 마이(프로필), 팀 선택기가 남아 있다. 이번 패스는 그 화면들을
+시작하지 않았다.
+
+---
+
+## 개정 Pencil — Victory Fairy 기반 (토큰과 기본 글리프)
+
+이 절부터는 **개정된 Pencil 원본**을 다룬다. 위쪽의 완료된 화면 기록은 그때의 원본을
+근거로 한 것이며 그대로 유효하다. 지우거나 고치지 않는다.
+
+### 개정 원본
+
+- SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`
+- 1,882,899 바이트 · 수정 시각 2026-07-30 09:36:28 +0900
+- 최상위 프레임 **27개** · 재사용 컴포넌트 **98개** · 문서 변수 **58개** · 테마 없음
+- 이전 원본 `9b5af6ae…5b1a4a`(935,281바이트 · 22프레임 · 49컴포넌트 · 46변수)는
+  홈·피드·캘린더·시즌 아카이브·기록 상세의 근거로 **계속 남는다**
+
+감사 결론은 화면 재설계가 아니라 **아이콘 시스템 개정**이었다. 늘어난 49개 컴포넌트는
+전부 페어리 계열이고, 기존 46개 변수는 값이 하나도 바뀌지 않았다.
+
+### 읽은 보드
+
+- `02_VictoryFairy_Glyph_System` — 공통 구축 규격(바디 블롭 · 도트 눈 · 미니멀 입 ·
+  다이아몬드 안테나)과 `FairyGlyph_*` 12종, `Fairy48_*` 8종
+- `10_Fairy_Validation` — 어피어런스 행, 표면 대비(라이트/다크), 소형 사이즈 재검증,
+  평가 체크리스트
+
+### 페어리 변수 12개
+
+값은 `execute`/`GetVariables`로 직접 읽었다. 다섯은 원본에 처음 등장한 값이고
+일곱은 이미 있는 토큰과 **같은 값**이다.
+
+새로 생긴 값 — `VFFairyColor`에 리터럴로 둔다.
+
+- `fairyMemory` `#9D93C8` → `VFFairyColor.memory`
+- `fairyMemorySurface` `#EDEAF5` → `VFFairyColor.memorySurface`
+- `fairyConcern` `#B95F55` → `VFFairyColor.concern`
+- `fairyFaceOnDark` `#F6F3EA` → `VFFairyColor.faceOnDark`
+- `fairyIconBgDark` `#070C16` → `VFFairyColor.iconBackgroundDark`
+
+별칭 — 기존 토큰을 **가리킨다.** 같은 hex를 다시 적지 않는다. 값을 복제해 두면
+나중에 한쪽만 바뀌어 조용히 어긋나기 때문이다.
+
+- `fairyVictory` `#F2B63C` → `VFColor.primaryAction` (gold/coral/butter)
+- `fairyTeam` `#5E7FA6` → `VFColor.infoAccent` (sky)
+- `fairyStadium` `#2F7A56` → `VFColor.supportAccent` (sage)
+- `fairyLive` `#E5484D` → `VFColor.gameLive` (live/stamp-red)
+- `fairyNeutral` `#8B909E` → `VFColor.bodyTertiary` (ink-faint)
+- `fairyFaceOnLight` `#14171F` → `VFColor.bodyPrimary` (ink)
+- `fairyIconBg` `#0E1526` → `VFColor.nightSurface` (night/navy)
+
+`fairyFaceOnDark`(#F6F3EA)와 본문용 `bodyOnDark`(#F6F5F0)는 **값이 다르다.**
+비슷하다고 합치면 얼굴 대비가 원본과 어긋나므로 따로 둔다.
+
+기존 토큰은 하나도 바뀌지 않았다. 완성된 화면이 이번 작업으로 다시 칠해지지 않는다.
+
+### 기본 글리프 — `DesignSystem/VFFairyGlyphs.swift`
+
+`FairyGlyph_*` 12종(base·victory·success·team·stadium·memory·loss·draw·cancelled·
+live·empty·error)과 `Fairy48_*` 8종(victory·loss·draw·cancelled·success·empty·
+error·memory)을 옮겼다. base·team·stadium·live는 원본에 48px 축소본이 없다.
+team·stadium의 축소본은 `TeamFairy48`·`StadiumFairy48_*`라는 별개 컴포넌트이며
+이후 패스의 몫이다.
+
+공통 구조는 모든 종류가 똑같다. 몸통 경로 하나, 안테나 줄기, 안테나 다이아몬드,
+눈 두 개, 입 하나. 종류마다 다른 것은 몸 색·얼굴 색·눈 모양·입 모양, 그리고
+96px에서만 나타나는 곁들임(승리 스파크·저장 스파크·일시정지 바·라이브 펄스)뿐이다.
+서로 다른 일러스트로 갈라지지 않는다.
+
+### 48px은 절반이 아니다
+
+배치는 정확히 절반이지만 **선 두께와 눈 지름은 아니다.** 그대로 줄이면 선이 사라지고
+눈이 점으로 뭉개져서 Pencil이 광학 보정을 해 두었다.
+
+- 몸통 외곽선 2.016 → 1.2 (절반이면 1.008)
+- 선 요소 2.6 → 1.8 (절반이면 1.3)
+- 뜬 눈 지름 7 → 4 (절반이면 3.5)
+- 다이아몬드 외곽선 1.1 → 1.1 (그대로)
+- 곁들임은 48px에서 전부 뺀다
+
+그래서 `VFFairySize`는 배치를 배율로, 두께를 원본 값으로 따로 들고 있다.
+
+### 광학 중심
+
+몸통 여백이 대칭이 아니다. 왼쪽 17, 위·오른쪽·아래 16이다. 처음에는 실수로 보고
+대칭을 기대하는 검사를 썼다가 실패해서 원본을 다시 읽었다. 안테나가 오른쪽 위로
+뻗으므로 몸통을 0.5pt 오른쪽으로 밀어야 글리프 전체가 가운데 있어 보인다.
+핸드오프의 "광학 중심 유지"가 이것이다. 대칭으로 "고치면" 원본과 어긋난다.
+
+### 벡터 소유권
+
+`DesignSystem/VFVectorPath.swift` 하나만 쓴다. 두 번째 파서를 들이지 않았다.
+기존 파서가 M/L/H/V/C/S/Q/T/**A**/Z와 상대·절대, 명령 반복까지 이미 다루므로
+고칠 것이 없었다. 라이브 펄스가 호(`a`) 명령을 쓰는데, 호가 직선으로 흐르면 그 모양만
+조용히 사라지므로 실제로 펴지는지 확인하는 검사를 따로 두었다.
+
+경로와 viewBox는 원본 문자열 그대로 옮겼다. 다시 그리지 않았으므로 테스트가 Pencil
+노드 값과 직접 비교할 수 있다.
+
+### 라이트 · 다크 · 모노크롬
+
+`10_Fairy_Validation`의 `표면 대비 · 라이트/다크`는 **똑같은 인스턴스를 `paper` 위와
+`night` 위에 아무 재정의 없이** 나란히 놓는다. 즉 인앱 글리프는 표면에 따라 다시
+칠하지 않는다. 없는 다크 팔레트를 지어내지 않았고, 두 경우가 같은 값으로 풀린다는
+사실 자체를 테스트가 지킨다.
+
+어피어런스 행의 Default/Dark/Tinted/Monochrome 네 셀은 **앱 아이콘**의 렌디션이지
+인앱 글리프가 아니다. 아이콘은 이번 패스에서 건드리지 않았다.
+
+모노크롬은 아이콘 Monochrome 셀의 규칙(몸과 다이아몬드를 한 톤으로 눕히고 배경이
+네거티브 스페이스로 비친다)을 글리프에 옮긴 것이다. 다만 **표정은 남긴다.** 아이콘에서
+표정은 장식이지만 글리프에서는 색을 대신하는 유일한 의미 신호라, 지우면 모노크롬을
+만든 이유가 사라진다. 몸 톤은 Pencil이 이미 무채색 페어리로 쓰고 있는 `cream`을
+그대로 쓴다. 색을 지워도 승·패·무·취소·라이브가 서로 다른 표정으로 남는지 검사한다.
+
+### 접근성 계약
+
+읽어 줄 문장은 **부르는 쪽이 준다.** 컴포넌트가 문구를 지어내지 않고, 라벨을 주지
+않으면 장식으로 보고 숨긴다. 기본값이 "숨김"이라 라벨을 깜빡한 페어리가 컴포넌트
+이름이나 원시값으로 읽히는 일이 없다.
+
+`VFFairyPairing`이 "혼자서는 뜻을 전하지 못한다"는 것을 타입으로 남긴다.
+
+- `decorative` — 기본형만
+- `requiresResultText` — 승·패·무·취소·라이브·저장·기록없음·오류·추억
+- `requiresTeamName` — 팀 정체성
+- `requiresStadiumName` — 구장 정체성
+
+Pencil이 "결과·상태 글리프 라벨 병기 필수", "구장 페어리는 항상 구장명과 병기"라고
+적어 둔 것을 문서가 아니라 코드에 둔 것이다. 팀·구장 래퍼가 이 계약을 지켜야 한다.
+
+### 유틸리티 아이콘 카브아웃
+
+`VFFairyIconPolicy.nativeUtilityActions` — 뒤로·닫기·수정·삭제·설정·chevron·더보기·
+다시 시도·카메라·사진 선택·이전 달·다음 달·펼침·파괴적 동작은 네이티브로 남는다.
+페어리로 바꾸지 않는다. 사용자가 시스템 전체에서 익힌 모양이 있고, 캐릭터로 바꾸면
+무엇을 누르는 자리인지 알기 어려워진다. 되돌리기 어려운 동작일수록 더 그렇다.
+
+페어리를 쓰는 자리는 브랜드·팀·구장·결과 정체성, 감정적 기억, 그리고 Pencil이 명시적으로
+놓아 둔 빈 상태와 오류 상태뿐이다. 이번 패스는 어느 화면에도 놓지 않았다.
+
+### 화면 밀도 지침
+
+Pencil 평가 항목의 "화면당 페어리 1~3개 제한"을 `VFFairyIconPolicy`에 상수로 남겼다.
+이후 배치 패스가 지켜야 할 규칙이다.
+
+- 유틸리티 동작마다 페어리를 붙이지 않는다
+- 캘린더 칸마다 얼굴을 넣지 않는다
+- 기록 카드마다 캐릭터 장식을 넣지 않는다
+- 바로 옆 문구와 같은 말을 하는 페어리를 겹쳐 두지 않는다
+- 화면당 감정을 전하는 큰 페어리 하나, 또는 작은 정체성 뱃지 몇 개
+
+문자열 세기만으로 판정하는 검사는 거짓 실패를 만들기 쉬워 두지 않았다. 대신 화면 소스가
+아직 페어리를 쓰지 않는다는 것을 확인하는 검사를 두어, 배치가 시작되면 의식적으로
+고치게 했다.
+
+### 팀 · 구장 래퍼 경계
+
+`VFFairyGlyphs.swift`는 팀도 구장도 알지 못한다. `KBOSeed`·`KBOTeam`·`KBOStadium`·
+`VFTeamAccent`·저장소·네트워크를 들이지 않으며, 팀 이름이나 구장 이름 리터럴도 없다.
+`import`는 `SwiftUI` 하나뿐이고 검사가 이를 지킨다. 팀 페어리와 구장 페어리는 이 기반
+위에 얹는 별개 래퍼이며, 다시 쓰지 않고 감쌀 수 있도록 구조를 열어 두었다.
+
+### 이번 패스에서 건드리지 않은 것
+
+홈·피드·캘린더·시즌 아카이브·기록 상세·온보딩·기록 작성·마이·팀 선택기 소스,
+AppIcon 자산, LaunchMark 자산, 픽스처, 아카이브 스크립트. 전부 그대로다.
+
+`project.pbxproj`는 한 곳만 손댔다. 앱 타깃은 동기화 그룹이라 새 소스가 자동으로
+들어가지만 **테스트 타깃은 명시 목록**이라, 새 테스트 파일을 넣지 않으면 46개 검사가
+조용히 실행되지 않는다. 처음 실행했을 때 총계가 290개 그대로여서 알아챘다.
+
+### 다음 패스
+
+1. 팀 페어리 10구단 + 중립 + `TeamFairy48`
+2. 구장 페어리 9구장 + 제네릭/미지정 + 뱃지·행·모노 변형
+3. AppIcon 쿼텟 교체 (Monochrome 네 번째 렌디션 여부 결정 필요)
+4. LaunchMark 쿼텟 교체
+5. 공용 컴포넌트 배치 — `TeamIdentityHeader`의 팀 심볼, 빈/오류 패널
+6. 화면 배치 — 온보딩 완료, 홈, 캘린더, 시즌 아카이브
+
+---
+
+## 개정 Pencil — Team Fairy (10구단 + 중립)
+
+기본 글리프 위에 얹는 첫 번째 의미 래퍼다. 원본은 앞 절과 같다 —
+SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`,
+1,882,899바이트, 2026-07-30 09:36:28 +0900.
+
+### 읽은 보드
+
+`02_TeamFairy_System` — "Team Fairy — 10개 구단 · 크림 바디 + 팀컬러 캡 + 구단명 유래
+무로고 특징". 선택 상태의 근거로 `OnboardingTeamCard`와 `08_TeamSelector 선택 팀
+프리뷰`도 배치 참고로만 읽었다. 두 화면 모두 이번 패스에서 고치지 않았다.
+
+### 컴포넌트
+
+`TeamFairy_Samsung` `OXOEK` · `TeamFairy_LG` `sWD1i` · `TeamFairy_Doosan` `OMk4g` ·
+`TeamFairy_KIA` `Kl4cR` · `TeamFairy_KT` `CukKm` · `TeamFairy_SSG` `b1C5P` ·
+`TeamFairy_NC` `b4qwn` · `TeamFairy_Lotte` `iJM6Q` · `TeamFairy_Kiwoom` `LaM0I` ·
+`TeamFairy_Hanwha` `wg4Vb` · `TeamFairy_Neutral` `I7iUy` — 모두 96×96.
+`TeamFairy48` `B90BdV` — 48×48.
+
+### 팀 등록부 소유권
+
+팀 목록은 `KBOSeed`, 팀 색은 `VFTeamAccent`가 소유한다. `VFTeamFairies.swift`에는
+두 번째 팀 등록부도, 팀 색 리터럴도, 팀 표시 이름도 없다. 특징 표는 canonical ID를
+특징에 잇기만 하고, 색은 `VFTeamAccent.color(forTeamID:)`로 받아 온다. 예전 짧은 ID는
+`KBOSeed.normalizedTeamID`가 정규화한다.
+
+### 10구단 + 중립 매핑
+
+구단 이름의 **뜻**에서 온 특징만 쓴다. 로고도 공식 마스코트도 옮기지 않았다.
+
+- `samsung-lions` → 사자 갈기 (몸통 뒤)
+- `lg-twins` → 안테나 둘 + 투톤 캡
+- `doosan-bears` → 곰 귀와 귀 안쪽, 주둥이
+- `kia-tigers` → 호랑이 귀, 이마 줄무늬, 볼 줄
+- `kt-wiz` → 마법사 모자 (표준 캡 대신)
+- `ssg-landers` → 로켓 핀과 창문
+- `nc-dinos` → 공룡 스파이크와 등 가시 둘
+- `lotte-giants` → 큰 몸 + 하이크라운 캡 (버튼 없음)
+- `kiwoom-heroes` → 히어로 마스크와 망토, 마스크 위 밝은 눈
+- `hanwha-eagles` → 독수리 날개 둘과 눈썹
+- 중립 → 표준 캡에 `fairyTeam`(sky). 구단을 암시하지 않는다
+
+### 요소 수가 원본과 같다
+
+각 특징이 만드는 조각 수를 Pencil 컴포넌트의 자식 수와 그대로 맞췄고 테스트가 지킨다.
+11 / 13 / 15 / 15 / 9 / 12 / 13 / 9 / 12 / 13 / 10, 그리고 48px은 모두 8.
+조각을 빠뜨리거나 더하면 이 검사가 잡는다.
+
+### 공유 기하
+
+몸통 경로와 viewBox는 `VFFairyGeometry`의 것을 그대로 쓴다. 열한 종류가 **같은
+실루엣**이고, 롯데만 자이언츠라는 이름에 맞춰 68×68로 키운다(경로는 같고 크기만 다르다).
+얼굴과 안테나도 열한 종류가 같은 자리, 같은 크기다. LG만 안테나를 하나 더 단다.
+
+얼굴은 기본 글리프보다 **2pt 아래**에 있다. 캡이 위쪽을 차지하기 때문이다. 그래서
+`TeamFairy_*`는 `FairyGlyph_Team`과 다른 컴포넌트다 — 후자는 크림 바디도 캡도 없고
+몸 자체가 sky색이다. 둘을 같은 것으로 보면 안 된다.
+
+선 두께도 기본 글리프와 다르다: 몸통 2(2.016 아님), 선 요소 2.4(2.6 아님),
+다이아몬드 1.3(1.1 아님).
+
+### TeamFairy48
+
+배치는 정확히 절반이지만 그대로 줄인 것이 아니다.
+
+- 선: 몸통 2 → 1.4, 챙 1.8 → 1.2, 선 요소 2.4 → 1.6, 다이아몬드 1.3 → 1.1
+- 눈 지름 7 → 4 (절반이면 3.5)
+- **재봉선·버튼·구단 특징이 모두 빠진다.** 자식이 8개뿐이다
+- 입 viewBox가 `[41,57,14,6]`에서 경로에 딱 맞는 `[43,59,10,3]`으로 좁아진다
+
+48px에서는 열 팀이 **완전히 같은 모양**이고 캡 색만 다르다. 그래서 작은 크기에서
+팀 이름을 곁에 두는 것은 권고가 아니라 필수다. 테스트가 이 두 가지를 함께 지킨다.
+
+기본 글리프의 일반 축소본으로 대신할 수 없다. `VFFairyKind.team`에는 Pencil 48px
+원본이 아예 없고, 팀 48px에는 기본 글리프에 없는 캡이 있다.
+
+### 선택과 미선택
+
+**Pencil에는 `TeamFairy_*_Selected`가 없다.** 구장 페어리에는
+`StadiumFairy_Badge_Selected`가 따로 있지만 팀 페어리에는 없다. 선택은 페어리 그림이
+아니라 감싸는 카드가 알린다.
+
+- `OnboardingTeamCard` — 네이티브 체크 아이콘(`gold`) + "선택됨" 글자(`coral-deep`)
+- `08_TeamSelector 선택 팀 프리뷰` — 팀 컬러 레일(4pt) + `circle-check` 아이콘
+
+그래서 `VFTeamFairySelection`은 그림을 바꾸지 않는다(테스트가 확인한다). 대신 감싸는
+쪽이 무엇을 반드시 그려야 하는지를 계약으로 남긴다 — 선택에는 **체크 표시가 필수**이고,
+자리에 따라 "선택됨" 글자나 팀 레일이 더해진다. 색만으로 선택을 알리는 일이 없다.
+
+체크 표시는 네이티브로 남는다. 페어리로 바꾸지 않으며, 페어리가 직접 그리지도 않는다.
+탭 영역·선택 특성·동작·포커스는 모두 감싸는 버튼이 가진다.
+
+### 라이트 · 다크 · 모노크롬
+
+기본 글리프와 같다. Pencil이 같은 인스턴스를 `paper` 위와 `night` 위에 아무 재정의
+없이 놓으므로, 표면에 따라 다시 칠하지 않는다. 테스트가 두 외형이 같은 팔레트로
+풀리는지 확인한다.
+
+모노크롬은 열 팀을 **한 톤으로 눕힌다.** 색이 사라지면 팀도 사라지므로 곁의 글자가
+유일한 신호가 된다. 다만 구조는 남긴다 — 몸(가장 밝음) · 캡(중간) · 얼굴(가장 어두움)
+세 단계를 유지해 캡이 몸에 녹아 사라지지 않게 했다. 기본 글리프 모노크롬과 같은
+원칙이되, 팀 페어리는 층이 하나 더 있어 두 톤이 아니라 세 톤을 쓴다.
+
+### 대비
+
+캡이 팀 색이라, 몸이나 외곽선 가운데 **적어도 한쪽과는** 뚜렷이 갈려야 한다. 양쪽과
+모두 어중간한 중간 톤이면 캡이 사라진다. 열 팀 모두 `max(캡:몸, 캡:외곽선) ≥ 3.9`로
+통과한다.
+
+밝기 양 끝은 기억이 아니라 저장소 값으로 계산해서 골랐다.
+
+- 가장 어두운 강조색 **두산 `#1A2C55`** — 외곽선과는 1.05로 거의 붙지만 크림 몸과
+  11.84라 형태가 또렷하다
+- 가장 밝은 강조색 **한화 `#E5691F`** — 몸과는 2.85로 가장 낮지만 외곽선과 4.34라
+  윤곽이 형태를 지킨다
+
+얼굴은 팀 색과 닿지 않고 크림 몸 위에 놓이므로 열 팀 모두 15.51로 안전하다. 키움만
+눈이 팀 색 마스크 위에 올라가는데 그 조합도 8.78이다.
+
+### 접근성
+
+읽어 줄 문장은 부르는 쪽이 준다. 라벨이 없으면 장식으로 보고 숨긴다 — 곁에 이미 팀
+이름이 적혀 있는 카드 안에서는 그렇게 써야 같은 팀을 두 번 읽지 않는다.
+`VFTeamFairy.pairing`은 기반의 `VFFairyPairing.requiresTeamName`을 그대로 따른다.
+
+팀 ID·특징 이름·컴포넌트 이름은 VoiceOver로 새어 나가지 않는다. 소스에 고정 문구
+라벨이 없고 원시값을 문장에 섞지 않는다는 것을 검사가 확인한다.
+
+### 이번 패스에서 건드리지 않은 것
+
+`VFTeamIdentityHeader`를 포함해 어떤 화면에도 팀 페어리를 놓지 않았다. 홈·피드·
+캘린더·시즌 아카이브·기록 상세·온보딩·기록 작성·마이·팀 선택기 소스, AppIcon 자산,
+LaunchMark 자산, 픽스처, 아카이브 스크립트 모두 그대로다. 화면과 공용 컴포넌트가
+아직 팀 페어리를 쓰지 않는다는 것을 검사가 확인하므로, 배치가 시작되면 그 검사를
+의식적으로 고쳐야 한다.
+
+`project.pbxproj`는 새 테스트 파일 등록 하나만 더했다. 테스트 타깃이 명시 목록이라
+넣지 않으면 56개 검사가 조용히 실행되지 않는다.
+
+### 이 패스에서 검사가 잡은 것
+
+프리뷰 하나가 "롯데 자이언츠"를 문자열로 박아 두고 있었다. 그리기 소스에 팀 표시
+이름이 없어야 한다는 검사가 잡았고, 등록부에서 이름을 가져오도록 고쳤다. 나머지
+프리뷰는 처음부터 등록부를 쓰고 있었다.
+
+### 다음 패스
+
+`pass/stadium-fairies` — 9구장 + 제네릭/미지정, 그리고 48px·모노·뱃지·선택 상태·
+컴팩트 행 변형. 구장 페어리에는 팀과 달리 Pencil이 그린 선택 변형
+(`StadiumFairy_Badge_Selected`, 골드 링 + 체크)이 있다.
+
+---
+
+## 개정 Pencil — Stadium Fairy (9구장 + 제네릭 + 미지정)
+
+원본은 앞 절과 같다 — SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, 1,882,899바이트.
+이번 패스 시작 시각 기준 수정 시각은 2026-07-30 11:51:46 +0900으로, 앞 패스가 적어 둔
+09:36:28과 다르다. **해시와 크기는 완전히 같으므로 내용은 한 바이트도 바뀌지 않았고**,
+파일이 한 번 다시 저장되기만 했다.
+
+### 읽은 보드
+
+`02_StadiumFairy_System` (`uefu4`) — "Stadium Fairy — 9개 구장 · 잉크 라인 디테일 +
+구장별 특징 (항상 구장명과 병기)". 컴포넌트 16개가 모두 이 보드에 있다.
+
+### 컴포넌트
+
+`StadiumFairy_Jamsil` `D0fWH` · `StadiumFairy_Gocheok` `hi9mL` ·
+`StadiumFairy_SSG` `jPJTN` · `StadiumFairy_KT` `il6qe` · `StadiumFairy_Hanwha` `yO5zn` ·
+`StadiumFairy_LionsPark` `puaOA` · `StadiumFairy_Sajik` `wiGab` · `StadiumFairy_NC` `ZnHfv` ·
+`StadiumFairy_KIA` `c6Kbml` · `StadiumFairy_Generic` `BycI7` · `StadiumFairy_Unknown` `UVb5T`
+— 모두 96×96. `StadiumFairy48_Generic` `dtk9c` · `StadiumFairy48_Mono` `J7wOGT` — 48×48.
+`StadiumFairy_Badge` `XbcZ8` 136×60 · `StadiumFairy_Badge_Selected` `ZQic0` 160×60 ·
+`StadiumFairy_Row` `y8upqi` 300×64.
+
+### 팀 페어리와 다른 점 — 기본 글리프를 그대로 쓴다
+
+팀 페어리는 크림 바디에 얼굴이 2pt 아래라 자기 치수를 따로 가졌다. 구장 페어리는
+**`FairyGlyph_Stadium`과 몸통·안테나·눈·입이 완전히 같다** — 같은 경로, 같은 좌표,
+같은 선 두께(2.016 / 2.6 / 1.1), 눈도 y=41이다. 그래서 몸통을 다시 그리지 않고
+`VFFairyGlyph(.stadium)`을 합성하고, 그 위에 구장 특징만 얹는다. 테스트가 몸통·안테나
+경로 문자열이 구장 파일에 다시 나타나지 않는지 확인한다.
+
+### 구장 등록부 소유권
+
+구장 목록·이름·짧은 이름·별칭은 `KBOStadiumSeed`가 소유한다. 구장 페어리 소스에는
+두 번째 등록부도, 한국어 구장 이름도, 짧은 이름도 없다(테스트가 확인한다).
+canonical ID 아홉 개: `jamsil` · `gocheok` · `incheon-ssg` · `suwon-kt` ·
+`daejeon-hanwha` · `daegu-lions` · `gwangju-kia` · `sajik` · `changwon-nc`.
+
+### 아홉 구장 특징
+
+모두 잉크 선 한두 개다. 건축물의 초상이 아니라 "그 장소"를 가리키는 표식이다.
+
+- `jamsil` → 조명탑 둘 (22,2,9,17) · (37,-2,9,19), 선 2.4. 구조적
+- `gocheok` → 돔 아크 (16,2,42,12), 선 2.8. 구조적
+- `incheon-ssg` → 전광판 기둥 + 보드 (26,4,16,14) · (26,4,16,9). 구조적
+- `suwon-kt` → 페넌트 깃대 + 깃발 (26,1,3,16) · (28,2,12,8). 장식적
+- `daejeon-hanwha` → 외야 담장 커브 (26,84,44,8), 선 2.6. 구조적
+- `daegu-lions` → 직선 지붕 (16,4,38,12), 선 2.6. 구조적
+- `gwangju-kia` → 관중석 단 (28,83,20,11), 선 2.6. 구조적
+- `sajik` → 파도 라인 (26,84,44,8), 선 2.6. 장식적
+- `changwon-nc` → 스카이라인 노치 (16,3,36,13), 선 2.4. 구조적
+
+머리 쪽에 오는 것과 발치에 오는 것이 갈린다. 외야 담장·파도·관중석 단·홈플레이트만
+몸 아래에 놓인다. 잠실 오른쪽 조명탑만 캔버스 위로 넘어간다(원본 y = −2).
+
+### 제네릭
+
+`StadiumFairy_Generic`은 구장색 몸에 **홈플레이트 베이스** (41,84,14,12)를 붙인다.
+야구 공통 모티프이지 특정 구장이 아니다. 아홉 구장 어느 것의 대역도 아니고 기본 구장을
+뜻하지도 않는다 — 테스트가 제네릭 특징이 아홉 구장 어느 것과도 같지 않은지 확인한다.
+
+### 미지정
+
+`StadiumFairy_Unknown`은 **중립색 몸에 구장 특징이 없다.** 값은 있는데 등록부가 풀지
+못하는 경우다. 이름은 기록에 적힌 그대로 부르는 쪽이 보여 준다. 다른 구장으로 바꾸지
+않는다 — "잠실"처럼 canonical 이름의 일부여도 정확히 일치하지 않으면 미지정이다.
+
+Pencil은 물음표를 그리지 않았으므로 우리도 그리지 않았다.
+
+### 구장 없음 — 미지정과 다르다
+
+`identity(forRecordedStadiumNamed:)`는 값이 없거나 공백뿐이면 **`nil`을 돌려준다.**
+그리면 안 되는 상태라 그릴 정체성 자체를 만들지 않는다. 앱이 이미 쓰는 구분과 같다 —
+`RecordDetailStadium.accessibilityIdentifierSuffix`가 `missing` / `unknown` /
+구장 ID로 나누는 그 경계다.
+
+해석 함수는 **기록에 적힌 값 말고 아무것도 보지 않는다.** 응원 팀의 홈 구장이나
+사용자의 주 관람 구장으로 되돌아가는 경로를 아예 만들지 않았고, 소스에
+`recommendedStadium` · `primaryStadium` · `favoriteTeam` · `homeTeamIDs`가 없다는 것을
+테스트가 확인한다.
+
+### 선택과 미선택
+
+팀 페어리와 달리 구장에는 Pencil이 **선택 변형을 그려 두었다** —
+`StadiumFairy_Badge_Selected`. 다만 바뀌는 것은 페어리가 아니라 **뱃지**다:
+`$fairyVictory` 2pt 테두리가 생기고 네이티브 체크 아이콘 16px이 붙는다. 페어리 그림은
+그대로다. 그래서 `VFStadiumFairy`에는 선택 매개변수가 아예 없고, 뱃지와 행만 그것을
+가진다(테스트가 타입 경계로 확인한다).
+
+색만으로 알리지 않는다 — 체크는 형태이므로 색을 지워도 남는다.
+
+### StadiumFairy48
+
+Pencil이 그린 48px은 **`_Generic`과 `_Mono` 둘뿐이다. 구장별 48px 원본이 없다.**
+그래서 작은 크기에서는 구장 특징이 사라지고 홈플레이트만 남으며, 아홉 구장이 똑같아진다.
+구장을 구분하는 것은 언제나 곁의 글자다.
+
+기하는 기본 글리프의 48px과 정확히 같다(몸통 8.5,8,31.5,32 선 1.2 · 눈 4×4 · 입 선 1.8).
+팀 페어리와 달리 입 viewBox도 96px과 같은 `[41,55,14,7]`로, 좁히지 않았다.
+홈플레이트만 다르다 — 96px은 옅은 면에 잉크 외곽선, 48px은 몸 색으로 채우고 외곽선을 뺀다.
+
+미지정만 48px에서도 특징이 없다. 색이 같아지는 모노크롬에서 제네릭과 갈리는 유일한
+형태 신호라 그렇게 두었다(원본에 `StadiumFairy48_Unknown`이 없어 파생한 결정이다).
+
+### 뱃지와 컴팩트 행
+
+`StadiumFairy_Badge` — 패딩 6/12/6/8, 간격 8, `$sage-pale` 바탕, 반경 12, 이름 13pt
+`$sage`. 선택되면 `$fairyVictory` 2pt 테두리와 체크 16px이 더해진다.
+
+`StadiumFairy_Row` — 폭 300, 패딩 8/14/8/10, 간격 10, `$surface` 바탕에 `$line` 1pt
+테두리, 반경 12. 안쪽 텍스트는 세로 간격 1로 이름 14pt `$ink`와 도시 12pt `$ink-faint`,
+오른쪽에 네이티브 chevron 16px.
+
+둘 다 `StadiumFairy48_Generic`을 품는다 — 구장이 무엇이든 48px 제네릭이다. 이름이
+정체성을 말한다는 규칙이 컴포넌트 구조에 그대로 들어 있다.
+
+이름과 보조 문구는 **부르는 쪽이 준다.** 두 컴포넌트는 구장을 찾지도, 이름을 지어내지도,
+탭을 받지도 않는다. 행은 최소 44pt 높이를 지키고 긴 이름은 줄바꿈으로 늘어난다.
+Pencil 13pt·14pt 자리는 고정 크기 대신 `footnote`·`subheadline` 역할을 써서 Dynamic
+Type을 따른다.
+
+### 라이트 · 다크 · 모노크롬
+
+라이트와 다크는 같은 아트워크다. 모노크롬은 앞선 두 시스템과 **다르다** —
+Pencil `StadiumFairy48_Mono`는 회색으로 눕히는 것이 아니라 **잉크 몸에 종이색 얼굴로
+뒤집는다.** 다이아몬드만 금색으로 남는다. 우리 규칙을 밀어붙이지 않고 원본을 그대로
+따랐다.
+
+### 색 소유권
+
+구장색은 `VFFairyColor.stadium`(= `sage`) 하나다. **아홉 구장에 아홉 색을 만들지
+않았다** — Pencil도 그러지 않는다. 구장은 색이 아니라 특징과 곁의 이름으로 갈린다.
+미지정만 `VFFairyColor.neutral`을 쓴다. 팀 색·결과 색·브랜드 색은 건드리지 않았다.
+
+### 대비 — 원본 쪽 발견 하나
+
+- 아홉 구장과 제네릭: 얼굴 대비 **4.69:1** (`$fairyFaceOnDark` on `$fairyStadium`)
+- 모노크롬: **16.27:1**
+- 구장 특징 잉크 선: 어느 몸 위에서든 3:1 이상 (미지정 위에서 5.62:1)
+- **미지정: 얼굴 대비 2.88:1** — 비-텍스트 기준 3:1에 0.12 모자란다
+
+마지막 값은 우리가 잘못 옮긴 것이 아니라 **Pencil 원본이 그렇다**
+(`$fairyNeutral` #8B909E 몸 + `$fairyFaceOnDark` #F6F3EA 얼굴). 원본을 마음대로 다시
+칠하지 않고 그대로 두었고, 대신 값을 테스트에 못박아 더 나빠지면 실패하게 했다.
+미지정 페어리는 혼자 뜻을 전하지 않고 "등록되지 않은 구장"과 기록에 적힌 이름이 반드시
+곁에 있으므로 정보 접근을 막지는 않는다. 디자인 쪽에서 판단할 항목으로 남긴다.
+
+### 접근성
+
+읽어 줄 문장은 부르는 쪽이 준다. 라벨이 없으면 장식으로 보고 숨긴다 — 뱃지와 행 안에서는
+곁의 글자가 이미 구장을 말하므로 그렇게 써야 같은 구장을 두 번 읽지 않는다. 뱃지와 행은
+`accessibilityElement(children: .combine)`으로 하나로 읽고, 네이티브 체크와 chevron은
+장식이라 숨긴다. `VFStadiumFairy.pairing`은 기반의 `requiresStadiumName`을 따른다.
+
+구장 ID·특징 이름·컴포넌트 이름은 VoiceOver로 새어 나가지 않는다.
+
+### 기본 글리프에 더한 이음새 하나
+
+`VFFairyPaletteOverride` — 기하는 그대로 두고 칠만 바꾸는 최소 이음새다. Pencil에
+그런 파생이 실제로 있어서 열었다: `StadiumFairy_Unknown`은 기본 글리프와 같은 몸통에
+몸 색만 중립이고, `StadiumFairy48_Mono`는 같은 기하를 잉크·종이로 뒤집는다.
+지정하지 않으면 종류와 외형이 정한 색 그대로이므로 `kind.spec(for:)`의 의미는 바뀌지
+않는다. 기존 46개 기반 검사가 그대로 통과하는 것으로 확인했다.
+
+### 레거시 VenueGlyph 분류
+
+- Pencil `VenueGlyph_*` 9종 — 문서 안에서 **인스턴스가 0개**다. 새 구장 페어리가
+  대신하지만 이번 패스는 `.pen`을 건드리지 않는다
+- Swift `VFStadiumGlyph` (`SharedComponents/VFStadiumComponents.swift:30`) —
+  **USED_IN_PRODUCTION**. `VFStadiumBadge`, `VFStadiumHero`, 그리고
+  `OnboardingView.swift:302`가 실제로 쓴다. 지우지 않았다
+- `VFStadiumBadge` · `VFStadiumHero` — USED_IN_PRODUCTION. 새 `VFStadiumFairyBadge`와
+  이름이 다르므로 충돌하지 않는다
+- 분류: **SAFE_TO_DEPRECATE_LATER**. 교체는 공유 배치 패스의 몫이고, 그전에 지우면
+  온보딩 구장 선택이 빈다
+
+### 이번 패스에서 건드리지 않은 것
+
+홈·피드·캘린더·시즌 아카이브·기록 상세·기록 작성·마이·온보딩·팀 선택기,
+그리고 현재 제품이 쓰는 구장 컴포넌트(`VFStadiumGlyph`·`VFStadiumBadge`·
+`VFStadiumHero`) 모두 그대로다. AppIcon·LaunchMark·픽스처·아카이브 스크립트도 그대로다.
+화면과 공용 컴포넌트가 아직 구장 페어리를 쓰지 않는다는 것을 테스트가 확인한다.
+
+`project.pbxproj`는 새 테스트 파일 등록 하나만 더했다.
+
+### 이 패스에서 검사가 잡은 것
+
+1. 프리뷰의 미등록 구장 예시가 "부산 사직 보조구장"이었다. canonical 짧은 이름 "사직"을
+   품고 있어 "그리기 소스에 구장 이름을 두지 않는다" 검사가 걸었다. 겹치지 않는 이름으로
+   바꿨다.
+2. 미지정 얼굴 대비 2.88:1을 4.5:1 일괄 기준이 걸었다. 확인해 보니 원본 값이라,
+   기준을 낮춰 덮는 대신 아홉 구장·제네릭과 미지정을 나눠 검사하고 원본 값을 못박았다.
+
+### 다음 패스
+
+`pass/appicon-victory-fairies` — 네 페어리 쿼텟 앱 아이콘. 다만 Monochrome을 네 번째
+렌디션으로 낼지, `SplashMark_OnDark`에 남은 V-Wing이 최신인지 두 가지 결정이 아직
+열려 있다. 그 두 가지가 정해지기 전이라면 `pass/shared-component-placements`를 먼저
+해도 된다.
+
+---
+
+## 개정 Pencil — AppIcon 네 페어리 쿼텟 교체
+
+원본은 앞 절과 같다 — SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, 1,882,899바이트.
+수정 시각은 2026-07-30 11:51:46 +0900이며, 해시와 크기가 같으므로 내용은 그대로다.
+
+### 두 보드가 경쟁하던 문제 — 해소
+
+앱 아이콘 1024 프레임을 가진 보드가 둘이었다. 직접 읽어 정리했다.
+
+- **CURRENT — `01_AppIcon_VictoryFairies` (`XjIUP`)**
+  프레임에 **배경 fill이 들어 있고**(Default `$fairyIconBg`, Dark `$fairyIconBgDark`,
+  Tinted `#000000`), 자식이 25개로 얼굴 레이어까지 갖췄다. 같은 보드의
+  `AppIcon_VictoryFairies_ExportHandoff`가 **"플랫 1024 소스는
+  AppIcon_VictoryFairies_Default_1024 프레임"**이라고 못박는다. 이것이 production 소스다.
+- **SUPERSEDED — `01_Brand_and_AppIcon` (`a8seWk`)**
+  `AppIcon_Any_1024` (`Xiqhl`) 등 세 프레임을 갖고 있지만 **프레임 fill이 없고**
+  자식이 1개(래퍼 프레임)뿐이다. 이름 규칙(`Any`)과 레이어 수가 새 보드와 어긋난다.
+- **VALIDATION_ONLY — `10_Fairy_Validation` (`vnsGp`)**
+  어피어런스 네 셀과 소형 사이즈 재검증. 산출물이 아니라 검증 보드다.
+- **LEGACY_REFERENCE — `11_Developer_Handoff` (`xpL8P`)**
+  아직 `AppIcon_Any_1024` · "5개 레이어"를 적고 있다. 새 보드의 핸드오프 문구와
+  충돌하므로 낡은 쪽으로 본다. Pencil은 이번 패스에서 고치지 않았다.
+
+BLOCKING_CONFLICT는 없다. 세 production 렌디션이 하나의 보드에서 모호함 없이 나온다.
+상태: **APPICON_SOURCE_RESOLVED**.
+
+### Monochrome 역할 — ICON_COMPOSER_LAYER_REFERENCE
+
+`AppIcon_VictoryFairies_Monochrome` (`VR6X3`)는 **카탈로그 렌디션이 아니다.**
+
+- 자식이 13개뿐이다. 네 페어리(몸·줄기·다이아 ×4 = 12) + 네거티브 스페이스이며
+  **얼굴 레이어가 통째로 없다.** 다른 세 프레임은 25개다
+- 핸드오프의 Icon Composer 레이어 목록(Background / Fairy_Victory / Fairy_Team /
+  Fairy_Stadium / Fairy_Memory / BaseballDiamond_NegativeSpace / FacialMarks)에서
+  **FacialMarks만 뺀 모습**과 정확히 일치한다
+- Tinted는 `AppIcon_VictoryFairies_Tinted_1024`로 **따로 그려져 있다.** 얼굴이 있고
+  흰색 알파 계단(FF / D1 / B3 / 94)을 쓴다. Monochrome은 그 소스가 아니다
+- iOS 앱 아이콘 자산 카탈로그가 지원하는 외형 슬롯은 기본 · `luminosity:dark` ·
+  `luminosity:tinted` **셋뿐이다.** 네 번째 파일을 넣을 자리가 없다
+
+따라서 Monochrome은 단일 톤 레이어 참고용으로 분류하고 **파일로 내보내지 않았다.**
+검증 캡처로만 확인했다.
+
+### 물러난 아이콘
+
+교체 전 실려 있던 V-Wing 세대의 SHA-256을 남긴다.
+
+- Default `323baf6d55a97e75ff0b68d125ce2d53ed7174e4da8aa26850c47eb8b75f6507`
+- Dark `9bac8cda2f812b082a07d43adddce2b5c3455321557a3da0c02a0fc4fedc9a50`
+- Tinted `80e31400b494f67d72e25ae35e61c141882afaa45891a0d26ea8dbb798a26fca`
+
+그 이전 산호색 세대 `64be923a2f82c4b3a46d2ccfd040a145ed95bd1bb8f76872ac3fba0a08c0b17e`도
+함께 금지 목록에 남긴다. 셋 다 1024×1024 · 알파 없음이었다.
+
+### 새 production 렌디션
+
+Pencil 노드에서 `export_nodes` scale 1로 내보낸 뒤 알파 채널만 제거했다.
+
+- `AppIcon-1024.png` ← `AppIcon_VictoryFairies_Default_1024` (`ZCOI9`)
+  SHA-256 `43323e1a2948fc7e14c8aa4f0f4ad85da3606a410a5a609c582f79d134c0c9b8`
+- `AppIcon-1024-Dark.png` ← `AppIcon_VictoryFairies_Dark_1024` (`NHBAs`)
+  SHA-256 `6fde4d723d04def12e96d59da04824f603e2b53c00947364dd79c65c8c4a370d`
+- `AppIcon-1024-Tinted.png` ← `AppIcon_VictoryFairies_Tinted_1024` (`nN1Mw`)
+  SHA-256 `ed4672b6bfc7070d668cda0c2c73ae375def52174bf5fb5b247c904e82d32692`
+
+세 파일 모두 1024×1024 · `hasAlpha: no` · PNG. `Contents.json`은 파일 이름과 외형
+매핑이 그대로라 **바꾸지 않았다.**
+
+Dark는 Default의 복사본이 아니다. 배경만 `#0E1526` → `#070C16`으로 갈리며, Pencil이
+의도적으로 그렇게 그렸다. 세 해시가 서로 다른 것을 스크립트가 확인한다.
+
+### 내보내기와 알파
+
+Pencil 내보내기는 알파 채널을 붙이지만 **실제로는 완전 불투명**이었다 —
+`alphaMin=255`, 비-불투명 픽셀 0개. macOS에 PIL·Quartz·ImageMagick이 없고 `sips`는
+알파를 지우지 못해, 순수 파이썬 PNG 디코더/인코더로 채널만 떼어 RGB로 다시 썼다.
+**RGB 픽셀은 한 개도 바뀌지 않았다**(세 파일 모두 differing px = 0).
+
+### 전체 출혈과 라운드 코너
+
+- 네 코너 픽셀이 모두 배경색과 정확히 일치한다 (Default `(14,21,38)`,
+  Dark `(7,12,22)`, Tinted `(0,0,0)`)
+- 가장자리를 훑어 배경이 아닌 픽셀 **0개**
+- 알파가 없으므로 투명 여백도, 투명하게 깎인 코너도 있을 수 없다
+
+라운드 코너를 굽지 않았고 세이프 마진을 따로 넣지도 않았다. 핸드오프 규칙
+"라운드 코너 미적용(시스템 마스크)"과 "외부 그림자 없음"을 그대로 지킨다.
+
+### 소형 크기
+
+1024 / 120 / 60 / 40 / 29 / 20 / 16에서 세 렌디션을 모두 측정하고 눈으로 봤다.
+
+- 모든 크기에서 네 페어리 몸 색이 남는다 (4/4)
+- 모든 크기에서 중앙 네거티브 스페이스가 배경색으로 뚫려 있다
+- 모든 크기에서 코너가 배경색이다
+- 29px에서 네 형상과 다이아몬드가 하나의 마크로 읽힌다
+- 20px 아래부터 표정이 자연스럽게 사라진다 — Pencil 검증 항목
+  "29px에서 4형상+다이아몬드 유지, 표정은 자연 소실 (16px는 실루엣만)" 그대로다
+
+### 시스템 마스크
+
+Default를 256px로 줄여 마스크별로 잘려 나가는 페어리 픽셀을 셌다.
+
+- 표준 스퀘어클(n=5): **0.00%** — 네 페어리 모두 손실 없음
+- 크게 자른 프리뷰(n=8): **0.00%**
+- 원형: 최대 1.25% (Victory 안테나 끝만 스침). 몸이나 얼굴은 잘리지 않는다
+
+원형은 iOS 홈 화면 마스크가 아니며, 스치는 것은 안테나 팁뿐이다. 라이트 · 다크 ·
+컬러풀 배경화면 위에서도 확인했다.
+
+### 그레이스케일과 틴트
+
+세 렌디션 모두 색을 지워도 네 형상이 밝기로 갈린다. Tinted는 밝기 계단이 가장 넓다 —
+순검정과 순백을 모두 포함하고, 네 몸이 `FF / D1 / B3 / 94`로 나뉜다.
+
+Tinted에 잉크 외곽선(`$line-ink` #232A3C)이 남아 있다. 이는 Pencil이 Default와
+**동일하게 그린 것**이지 내보내기 사고가 아니다. 휘도가 사실상 검정이라 시스템이
+휘도로 틴트를 만들 때 배경과 함께 묻히며, 회색 몸과 검은 배경 사이 경계 역할만 한다.
+
+### verify_app_icon.sh 갱신
+
+낡은 전제를 걷어내고, **"예전 것이 아님"이 아니라 "지금 것이 맞음"**을 확인하도록 바꿨다.
+
+- 소스 보드 참조를 `01_Brand_and_AppIcon` → `01_AppIcon_VictoryFairies`로
+- `EXPECTED_DEFAULT_SHA` · `EXPECTED_DARK_SHA` · `EXPECTED_TINTED_SHA` 추가.
+  아이콘이 통째로 빠져도 통과하지 않는다
+- `RETIRED_CORAL_SHA` + `RETIRED_VWING_*` 세 개를 금지 목록으로
+- 렌디션 수가 정확히 셋인지 (네 번째 금지)
+- 파일 이름 집합이 정확한지
+- dark · tinted 외형 매핑이 있는지
+- 셋 다 1024×1024이고 알파가 없는지
+- 카탈로그가 참조하지 않는 아이콘 파일이 남아 있지 않은지
+- 세 렌디션이 서로 다른 파일인지 (Dark가 Default를 베끼면 실패)
+
+게이트를 양쪽으로 확인했다. 쿼텟에서는 통과하고, V-Wing Default를 되돌려 놓으면
+두 가지 이유로 실패한다.
+
+코너 픽셀·전체 출혈·중앙 네거티브 스페이스처럼 픽셀을 읽어야 하는 검사는 sips가
+답하지 못하므로 `AppIconContractTests`가 CGImage로 맡는다.
+
+### 자산 카탈로그
+
+`AppIcon.appiconset` 하나, 렌디션 셋, `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`,
+대체 아이콘 설정 없음 — 모두 그대로다. `Contents.json`은 손대지 않았다.
+
+번들 식별자 · 마케팅 버전 1.1.0 · 빌드 번호 · 서명 설정도 바꾸지 않았다.
+
+### 이번 패스에서 건드리지 않은 것
+
+**LaunchMark는 그대로다.** 아직 V-Wing 마크이며
+SHA-256 `2b60eeb3fc21148e5273a014ecf89b2666781183e3897a209ba4049ae5ce3528`로 못박아
+두었다. 다음 패스에서 쿼텟으로 바꿀 때 이 해시도 함께 갱신해야 한다.
+`LaunchBackground`와 `UILaunchScreen`도 그대로다.
+
+화면 소스, 페어리·팀 페어리·구장 페어리 시스템, 픽스처, 도메인, 저장소, API도
+모두 그대로다.
+
+### 다음 패스
+
+`pass/launch-mark-quartet` — `LaunchScreen_Light` / `LaunchScreen_Dark`의
+`런치 마크 쿼텟`을 `LaunchMark.pdf`로 옮긴다. 그 보드의 `SplashMark_OnDark`에 아직
+V-Wing이 남아 있어, 온다크 스플래시 마크가 최신인지 먼저 확인해야 한다.
+
+---
+
+## 개정 Pencil — LaunchMark 쿼텟 교체
+
+원본은 앞 절과 같다 — SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, 1,882,899바이트,
+수정 시각 2026-07-30 11:51:46 +0900. 해시와 크기가 같으므로 내용은 그대로다.
+
+### 읽은 보드
+
+`01_Launch_and_Splash` (`r4MPjp`) — 자식 넷.
+
+- `SplashMark_시트` (`PiKOI`) — 핸드오프 시트. 안에 `마크 프리뷰`가 있고
+  라이트 칸은 `프리뷰 마크 쿼텟` (`HOAkt`, 140×140, 자식 25), 다크 칸은
+  `SplashMark_OnDark` (`nPZGr`, 140×128.3, **자식 3**)
+- `LaunchScreen_Light` (`wI81v`) 300×650, 배경 `$paper`, 안에 `런치 마크 쿼텟`
+  (`i00UgJ`, 76×76, 자식 25)
+- `LaunchScreen_Dark` (`XSoYU`) 300×650, 배경 `$night`, 안에 `런치 마크 쿼텟`
+  (`ATfKL`, 76×76, 자식 25)
+- `BrandSplash_Optional` (`nYDh8`) — 스스로 "선택적 브랜드 전환"이라고 적어 둔
+  선택 사항. 런치 화면이 아니다
+
+### 소스 충돌 해소 — LAUNCHMARK_SOURCE_RESOLVED
+
+- **CURRENT_PRODUCTION_SOURCE** — `LaunchScreen_Light > 런치 마크 쿼텟` (`i00UgJ`)
+- **CURRENT_APPEARANCE_VARIANT** — `LaunchScreen_Dark > 런치 마크 쿼텟` (`ATfKL`)
+- **VALIDATION_ONLY** — `프리뷰 마크 쿼텟` (`HOAkt`). 140×140 핸드오프 프리뷰
+- **SUPERSEDED_VWING_SOURCE** — `SplashMark_OnDark` (`nPZGr`). 자식이 셋뿐이고
+  그 셋이 `V`(금색 그라디언트) · `Ball` · `Seams`다. 물러난 V-Wing이며 쓰지 않는다
+- **LEGACY_REFERENCE** — `00_Cover_and_Direction`의 "승리 부적(V-윙) 아이덴티티" 문구
+- **SHARED_MARK_SOURCE** — `BrandMark_FairyQuartet` (`nl01N`). 같은 쿼텟 계열이지만
+  150×150이라 런치 규격이 아니다
+
+BLOCKING_CONFLICT는 없다. 다크 스플래시 마크 하나가 낡았다고 해서 쿼텟이 흔들리지
+않는다 — 실제 런치 화면 프레임 **둘 다** 쿼텟을 쓰고, 앞 패스에서 검증한 AppIcon도
+쿼텟이다. 물러난 V-Wing은 `SplashMark_OnDark` 한 곳에만 남아 있다.
+
+### 크기는 추론하지 않았다 — 핸드오프가 못박는다
+
+`11_Developer_Handoff`가 스플래시 항목에서 직접 적는다.
+
+> • SplashMark — SVG/PDF 단일 스케일 · transparent · 벡터 · 텍스트 없음
+> • LaunchScreen_Light/Dark — 배경 토큰 + **76pt 마크만** · 마케팅 카피 금지
+
+그래서 마크는 **76pt**다. 물러난 V-Wing은 100×92.1pt였는데, Pencil 프레임 비율
+(76/300 = 25.3%)을 실기 폭에 맞춰 키운 값으로 보인다. 이번에는 비율을 추론하지 않고
+핸드오프가 적어 둔 76pt를 그대로 썼다.
+
+이 핸드오프 보드는 AppIcon 익스포트 이름에 대해서는 낡았지만(앞 절 참고) **런치
+스펙에 대해서는 현행**이다. `LaunchScreen_Light/Dark`라는 현재 프레임 이름을 쓰고
+76pt가 실제 노드와 정확히 맞는다. 보드 전체를 한 덩어리로 낡았다고 보지 않고
+항목별로 판단했다.
+
+### 라이트/다크 계약 — APPEARANCE_SPECIFIC_MARKS
+
+두 런치 마크를 자식 단위로 비교했더니 **25개 중 13개가 다르다.** 다른 것은 정확히
+네거티브 스페이스 다이아몬드와 모든 얼굴 자국이며, 그 칠이 배경색으로 도려내져 있다 —
+라이트는 `$paper`, 다크는 `$night`. 나머지 12개(네 몸통·줄기·다이아몬드)는 같다.
+
+즉 이 마크는 투명 도려내기가 아니라 **배경색 도려내기**로 그려졌다. 하나의 자산을
+공유하면 어느 한쪽 배경에서 다이아몬드와 얼굴이 어긋난다. 그래서 두 소스를 각각
+내보내고 자산 카탈로그 외형으로 매핑했다.
+
+투명 도려내기로 "고쳐서" 하나로 합칠 수도 있었지만 그것은 원본을 다시 그리는 것이라
+하지 않았다. Pencil이 라이트와 다크를 **각각 완성된 소스로** 그려 두었으므로 그대로 쓴다.
+
+### 내보낸 파일
+
+- `LaunchMark.pdf` ← `i00UgJ` (라이트)
+  SHA-256 `7b73585aa1538d03f68461a34bdcefa89fdc6319997175cf41efb94e76f366df`
+- `LaunchMark-Dark.pdf` ← `ATfKL` (다크)
+  SHA-256 `3961018e70d79755433e84f5c361de8b25ee2947c63f421e4b88ec2742a0935e`
+
+물러난 V-Wing 런치 마크 SHA-256
+`2b60eeb3fc21148e5273a014ecf89b2666781183e3897a209ba4049ae5ce3528` —
+스크립트와 테스트의 금지 목록에 남겼다.
+
+### 벡터 PDF 증거
+
+두 파일 모두 확인했다.
+
+- 페이지 **1개**, `/Count 1`
+- MediaBox `[0 0 76 76]`, CropBox 없음(MediaBox와 동일)
+- `/Subtype /Image` **0개** — 전면 래스터 없음
+- `/Type /Font` · `/BaseFont` **0개**, 텍스트 연산자(`BT`/`Tj`/`TJ`) **0개**
+- 벡터 연산자 m=41 · l=95 · c=412 · fill=34 — 자식 25개 쿼텟에 맞는 양
+- 자산 카탈로그 `preserves-vector-representation: true` 유지
+
+컴파일된 `Assets.car`에서 `LaunchMark`가 **Image와 Vector 두 타입으로** 들어 있는 것을
+확인했다. 확장자만 보고 벡터라고 말하지 않았다.
+
+### 중앙 네거티브 스페이스와 광학 중심
+
+렌더해서 쟀다. 두 마크의 경계 상자와 중심이 픽셀 단위로 같고(bbox (26,32)-(582,560),
+중심 304,296), 라이트는 중앙이 `$paper`, 다크는 `$night`로 뚫려 있다. 실기 콜드런치
+캡처에서도 마크 중심이 화면의 (50.0%, 49.8%)에 온다.
+
+### 자산 카탈로그
+
+`LaunchMark.imageset`에 두 항목을 두고 기본/`luminosity: dark`로 매핑했다.
+`preserves-vector-representation`과 `template-rendering-intent: original`은 그대로다.
+이미지 세트 이름 `LaunchMark`도 그대로라 `UILaunchScreen` 참조를 바꾸지 않았다.
+
+### LaunchBackground — UNCHANGED_AND_CURRENT
+
+건드리지 않았다. 현재 값이 Pencil 런치 프레임과 이미 정확히 맞는다 —
+라이트 `#F4F4F2`(`$paper`), 다크 `#0E1526`(`$night`). 테스트가 네 채널을 직접 확인한다.
+
+### 네이티브 런치 소유권 — 그리고 이 패스가 발견한 것
+
+`UILaunchScreen`이 `UIImageName: LaunchMark` · `UIColorName: LaunchBackground`로
+런치 화면을 소유한다. 인위적 지연도, 전체 화면 스플래시 뷰도 없다.
+
+새 게이트를 처음 돌렸을 때 "런타임이 런치 자산을 그린다"고 걸렸다. 확인해 보니
+`VFBrandMark`(`SharedComponents/VFStadiumComponents.swift:10`)가 `Image("LaunchMark")`를
+쓰고 있었고, 스스로 **"런치 화면과 앱 안이 어긋나지 않게 한다"**고 적어 두었다.
+온보딩 두 곳(`OnboardingView.swift:72`, `:369`)에서 실제 콘텐츠로 쓰인다.
+
+이것은 가짜 스플래시가 아니라 **의도된 공유**다. 그래서 규칙을 "런치 자산 참조 금지"에서
+**"문서화된 공유 브랜드 마크 한 곳으로 제한"**으로 좁혔다. 앱 진입점(`VictoryFairyApp`,
+`AppRootView`)이 런치 자산을 그리는 것과 전체 화면 스플래시 뷰 타입은 여전히 금지한다.
+
+**따라온 결과를 분명히 적는다.** 런치 자산을 바꾸었으므로 온보딩 안의 브랜드 마크도
+V-Wing에서 쿼텟으로 함께 바뀐다. 화면 소스는 한 줄도 고치지 않았고, 이것은 그 컴포넌트가
+존재하는 이유 그대로다 — 오히려 런치는 쿼텟인데 온보딩만 V-Wing으로 남는 쪽이 결함이다.
+
+### 콜드런치 증거
+
+`simctl launch --wait-for-debugger`로 프로세스를 main() 전에 붙잡아 **네이티브 런치
+화면이 화면에 떠 있는 동안** 캡처했다. 웜런치도, 앱 루트가 뜬 뒤의 화면도 아니다.
+각 회차마다 앱을 지우고 다시 설치해 콜드 상태를 만들었다.
+
+- iPhone 17 Pro (iOS 26.3) · 라이트 · 클린 설치 — 쿼텟, 배경 `paper`,
+  마크 중심 (49.9%, 49.9%)
+- iPhone 17 Pro (iOS 26.3) · 다크 · 클린 설치 — 쿼텟, 배경 `night`,
+  마크 중심 (50.0%, 49.8%)
+- VF-CalendarCompact-SE3 (iOS 26.3, 375pt) · 라이트 · 클린 설치 — 쿼텟, 잘림 없음
+- VF-CalendarCompact-SE3 (iOS 26.3, 375pt) · 다크 · 클린 설치 — 쿼텟, 잘림 없음
+
+반복 실행으로 스냅샷 캐시도 확인했다. 라이트는 콜드와 반복 캡처가 **바이트 단위로
+동일**하고, 다크는 상태 표시줄 밴드에서만 0.017% 다르며 **마크 밴드는 차이 0**이다.
+낡은 V-Wing 스냅샷이 남아 있지 않다.
+
+앱 루트 전환도 확인했다. 런치 뒤 온보딩 화면이 정상으로 뜨고, 런치 이미지가 오버레이로
+남지 않으며, 배경 소유권이 어긋나서 생기는 흰/검은 번쩍임이 없다.
+
+### AppIcon 회귀
+
+이번 패스에서 AppIcon은 손대지 않았다. 세 해시가 그대로다 —
+Default `43323e1a…`, Dark `6fde4d72…`, Tinted `ed4672b6…`. `verify_app_icon.sh`가
+통과하고 `AppIconContractTests`도 통과한다. 아카이브에도 쿼텟 아이콘이 그대로 있다.
+
+### 이번 패스에서 건드리지 않은 것
+
+화면 소스, 페어리·팀 페어리·구장 페어리 시스템, AppIcon 자산과 스크립트, 픽스처,
+도메인, 저장소, API. 번들 식별자 · 마케팅 버전 1.1.0 · 빌드 번호 · 서명 설정도 그대로다.
+
+### 서명 한계
+
+아카이브는 `CODE_SIGNING_ALLOWED=NO`로 만든 **미서명** 결과물이다. 구조는 확인했지만
+App Store 배포 서명을 검증했다고 말할 수 없다.
+
+### 다음 패스
+
+`pass/shared-fairy-placements` — `VFTeamIdentityHeader`의 팀 심볼을 `TeamFairy48`로,
+빈/오류 패널에 상태 페어리를, 그리고 기존 구장 컴포넌트를 구장 페어리로 옮긴다.
+화면 배치는 아직 시작하지 않았다.
+
+## 개정 Pencil — 완료 화면 페어리 배치
+
+### 원본 확인
+
+- SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`
+- 1,882,899 bytes · mtime 2026-07-30 11:51:46 +0900
+- 앞선 패스와 해시·크기가 같다. 내용이 바뀌지 않았다.
+
+읽은 방법은 `get_app_state`와 `execute`의 `Get`(방문자 · `ctx.bounds`)뿐이다.
+`get_editor_state` · `get_variables` · `batch_get` · `snapshot_layout`은 쓰지 않았다.
+
+### 배치 노드 — 이름으로 다시 찾은 결과
+
+문서 전체에서 이름에 "페어리/Fairy"가 들어간 노드는 564개다. 그중 **제품 화면에
+실제로 놓인 인스턴스**는 아홉 개뿐이고, 나머지는 시스템 보드·검증 보드의 견본이다.
+
+- `HdPbE` `팀 페어리` — `03_Shared_Components / TeamIdentityHeader`, 컴포넌트 `TeamFairy48`,
+  48×48, 팀 레일(4×44) 오른쪽 x=32, 팀 텍스트는 x=92에서 시작한다.
+- `YHevI` `선택 팀 페어리` — `04_Onboarding / Onboarding_05_Complete / 선택 확인`,
+  컴포넌트 `TeamFairy_Samsung`(원본 표본), 96×96.
+- `H3Vdn5` `완료 성공 페어리` — `Onboarding_05_Complete`, 컴포넌트 `FairyGlyph_Success`,
+  96×96, 프레임 안 x=148 y=162.
+- `MvVQp` `선택일 승리 페어리` — `06_Calendar_Month_GameSelected / 캘린더 콘텐츠 /
+  선택일 미리보기`, 컴포넌트 `Fairy48_Victory`, 48×48, x=311 y=-12.
+- `RCWPd` `시즌 시그니처 페어리` — `07_Statistics_SeasonArchive / 시즌 콘텐츠 / 시즌 커버`,
+  컴포넌트 `Fairy48_Victory`, 48×48, x=297 y=12.
+- `k6E0mo` `빈 기록 페어리` — `09_States / 열 A / 빈 기록`, `FairyGlyph_Empty`, 96×96.
+- `qjpbO` `시즌 전 페어리` — `09_States / 열 A / 빈 시즌`, `Fairy48_Empty`, 48×48.
+- `r7Eyoc` `오류 페어리` — `09_States / 열 B / 오류`, `Fairy48_Error`, 48×48.
+- `dsu6v` `선택 팀 페어리` — `08_TeamSelector / 온보딩 콘텐츠 / 선택 팀 프리뷰`,
+  `TeamFairy48`. **이번 패스 범위 밖**이라 놓지 않았다(Team Selector 미착수).
+
+### TeamIdentityHeader 이관
+
+`VFTeamIdentityHeader`의 팀 심볼을 이니셜 뱃지에서 `TeamFairy48`로 옮겼다.
+
+- `VFTeamFairy(teamID: team.id, size: .compact)` — canonical 팀 ID가 정체성을 정한다.
+- 열 개 구단 모두 서로 다른 특징(trait)으로 떨어진다. 중립으로 새는 팀이 없다.
+- 팀 조회·이동·팀 이름은 헤더가 그대로 갖는다. 페어리는 그리기만 한다.
+- 헤더가 `children: .ignore`로 팀 이름을 한 번만 읽어 주고, 페어리는 숨긴다.
+  같은 팀을 두 번 말하지 않는다.
+- 홈은 이 공용 헤더 하나만 물려받는다. 홈 소스에는 페어리 호출이 없다.
+
+중립 상태는 정직하게 남는다 — 팀 ID가 없거나 등록부에 없으면 `.neutral`이고,
+`VFTeamFairy.pairing == .requiresTeamName` 계약도 그대로다.
+
+### 구장 페어리 — 공용 배치 없음
+
+`VFStadiumFairy` · `VFStadiumFairyBadge` · `VFStadiumFairyRow`는 어떤 제품 화면에도
+넣지 않았다. 원본이 이 컴포넌트들을 구장 페어리 시스템 보드와 검증 보드 안에서만
+쓰기 때문이다. 일괄 치환은 하지 않았고, 화면별 판정은 다음과 같다.
+
+- 기록 상세의 구장 표현 — `KEEP_LEGACY_GLYPH_FOR_CURRENT_FRAME`
+- 홈 경기 스트립 · 구장 뱃지 · 구장 히어로 — `KEEP_LEGACY_GLYPH_FOR_CURRENT_FRAME`
+- 온보딩 구장 카드 — `KEEP_LEGACY_GLYPH_FOR_CURRENT_FRAME`
+- 09_States 구장 바텀시트 — 이번 패스 범위 밖
+
+기록에 적힌 구장이 언제나 권위를 갖는다. 주 관람 구장·팀 홈 구장·마지막 구장·
+제네릭 구장 어느 것도 기록 구장의 대체가 되지 않는다. 이름이 비면 "구장 없음"이고
+등록부에 없으면 "미지정"이다. 둘은 계속 다른 상태다.
+
+### 기존 `VFStadiumGlyph` 상태 — STILL_REQUIRED
+
+실사용처가 남아 있다. `VFStadiumGlyph` · `VFStadiumBadge` · `VFStadiumHero`는 홈·
+캘린더·기록 상세·온보딩이 계속 쓴다. 참조가 0이 아니므로 지우지 않는다. Pencil의
+`VenueGlyph_*` 컴포넌트도 그대로 둔다(문서는 읽기 전용이다).
+
+### 온보딩 완료 배치
+
+`VFBrandMark` 아래에 두 페어리를 나란히 놓았다.
+
+- 선택 팀 페어리 — `VFTeamFairy(teamID: viewModel.selectedTeamID)` 96×96.
+  원본은 삼성 표본을 그려 두었지만 **고른 팀**으로 그린다. 아직 모르면 중립이다.
+- 완료 성공 페어리 — `VFFairyGlyph(.success)` 96×96.
+
+둘 다 장식으로 숨긴다. "준비됐어요"와 팀·구장 이름이 이미 완료와 선택을 말한다.
+완료 제목·요약·CTA·오류 문구·이전으로 버튼은 그대로다. 다섯 단계 구조, 탭바 없음,
+저장 동작, 홈 전환도 그대로다.
+
+### 온보딩 건너뛴 테스트 재진단
+
+앞선 설명("소개 단계가 사라졌다", "`onboarding.overview.next`가 없다")은 틀렸다.
+그 가드를 걷어내고 실제로 돌려 보니 **건너뛰기가 아니라 실패**였고, 원인은 두 개였다.
+
+1. `FIXTURE_ACTIVATION_DEFECT` — `-VFUITestReset`이 실제로 지우지 못했다.
+   시뮬레이터에는 앱 컨테이너 밖(`<device>/data/Library/Preferences/<bundle>.plist`)에
+   같은 번들 ID의 값이 남아 있었다(`favoriteTeamID=kia-tigers`,
+   `hasCompletedOnboarding=false`, 2026-07-28 12:05 기록). 샌드박스 안에서 하는
+   `removeObject`는 앱 자신의 도메인만 지우므로 이 값이 계속 살아남아, "첫 실행"이
+   구장 보완 단계로 시작했다. 앱을 지우고 다시 설치해도 그대로였고, 그 plist를
+   지운 뒤 시뮬레이터를 재시동하고 나서야 환영 화면이 나왔다.
+   → `VFUITestConfiguration.maskResidualValues(in:)`을 더했다. 지운 뒤에도 값이 보이면
+   앱 도메인에 "비어 있음"에 해당하는 값을 직접 써서 아래 도메인을 가린다.
+   `UserPreferencesStore`는 빈 문자열을 값 없음으로 읽는다.
+   증거: 그 잔재를 일부러 다시 심고(`simctl spawn defaults write`) 돌렸을 때
+   `test01`·`test09`가 통과한다.
+
+2. `IDENTIFIER_DEFECT` — 다섯 단계 컨테이너 식별자가 접근성 트리에 없었다.
+   `OnboardingView`의 바깥 VStack이 `onboarding.root` 식별자를 갖고 있었고, 화면을
+   가득 채우는 두 컨테이너가 하나로 합쳐지면서 바깥 식별자가 이겼다. 실제 트리에
+   `onboarding.welcome`이 아예 없었다(접근성 스냅샷으로 확인).
+   `.accessibilityElement(children: .contain)`을 떼면 이번에는 `onboarding.root`가
+   자식마다 덮어써 `onboarding.welcome.start`까지 사라졌다(역시 스냅샷으로 확인).
+   → 단계 컨테이너의 `children: .contain`은 그대로 두고, 아무도 참조하지 않던
+   `onboarding.root` 식별자를 걷어냈다. 온보딩 루트는 언제나 다섯 단계 중 하나이므로
+   단계 식별자가 루트 식별자 역할을 하고, 어느 단계인지까지 알려준다.
+
+3. `FLOW_STATE_DEFECT` — 보완 단계에 도달할 수 없었다.
+   `AppRootView`가 `hasCompletedOnboarding` 하나만 보고 갈림길을 정해서, 완료 표시가
+   있지만 팀이나 구장이 빠졌거나 유효하지 않은 기존 설치본이 곧장 홈으로 들어갔다.
+   `onboardingEntry`가 이미 그 경우를 `repairTeam`·`repairStadium`으로 나눠 두고
+   `UserPreferencesStore` 단위 테스트가 그 뜻을 못박고 있는데, 화면이 그 값을 쓰지
+   않았다. → `AppRootView`가 `onboardingEntry == .completed`로 판단하도록 고쳤다.
+   완료 플래그는 프로필 동기화 DTO에도 실리므로 `migrateOnboardingIfSatisfied()`를
+   루트의 `.task`에서 계속 승격한다.
+
+세 원인 모두 해결한 뒤 온보딩 UI 15개가 **모두 통과**한다(실행 15 · 성공 15 ·
+실패 0 · 건너뜀 0). 어떤 단정도 약하게 만들지 않았고, 실패를 건너뛰기로 바꾸지 않았다.
+
+### 캘린더 배치 — 결과 정체성
+
+원본 노드 이름이 `선택일 승리 페어리`다. 시즌 커버 쪽이 같은 컴포넌트를
+`시즌 시그니처 페어리`라고 부르는 것과 대비된다. 즉 이 자리는 **선택한 기록의 결과**를
+가리키는 `RESULT_IDENTITY`이고, 원본이 승리 표본을 그려 둔 것뿐이다.
+
+`CalendarResultFairy.kind(for:)`가 결과를 페어리로 옮긴다 —
+승 → `.victory`, 패 → `.loss`, 무 → `.draw`, 취소 → `.cancelled`. 네 결과가 서로
+다른 페어리를 쓴다. 기록이 없는 날에는 아무것도 그리지 않는다. 지거나 비긴 날에
+승리 페어리를 띄우지 않는다.
+
+날짜 칸에는 페어리를 넣지 않았다. 달 이동·날짜 선택·기록 순서·탭바·좁은 폭·
+큰 글자 배치는 그대로다. 선택일 컨테이너는 `children: .contain`으로 담는 요소를
+먼저 만든 다음 이름을 붙여서, 안쪽 식별자
+(`calendar.detailHeader` · `calendar.detailRecord` · `calendar.detailEventCount` ·
+`calendar.detailEmpty` · `calendar.detailAddRecord`)가 모두 살아 있다.
+
+### 시즌 아카이브 배치 — 브랜드 시그니처
+
+`시즌 시그니처 페어리`는 이름 그대로 상수 브랜드 표식이다. 결과에 따라 바꾸지
+않고 VoiceOver에서 숨긴다. 지는 시즌에 "승리"라고 읽어 주면 계산된 전적과 정면으로
+어긋난다. 실제 성적은 헤드라인·승률·전적이 이미 말한다.
+
+커버 오른쪽 위 모서리에 얹는다(원본 361×246 안에서 x=297 y=12 → 오른쪽 16 · 위 12).
+`커버 반짝`은 왼쪽 아래에 그대로 남는다. 페어리가 반짝을 대체하지 않는다.
+계산·헤드라인·승률·팀 정체성·타임라인·구장 분석은 손대지 않았다.
+
+### 공용 상태 패널 슬롯
+
+`VFEmptyStatePanel`과 `VFErrorPanel`에 **선택적인 의미 슬롯** `VFStatePanelFairy`를
+더했다. 두 번째 상태 패널 틀을 만들지 않았다.
+
+- `빈 기록` → `.emptyRecord` = `FairyGlyph_Empty` 96
+- `빈 시즌` → `.emptySeason` = `Fairy48_Empty` 48
+- `오류` → `.error` = `Fairy48_Error` 48
+
+슬롯은 없음 · 장식 · 호출부가 준 라벨을 가진 의미 요소를 모두 표현한다. 기능별
+문구를 일반 패널에 박아 넣지 않았다.
+
+### 페어리를 두지 않은 상태
+
+원본 `09_States`를 다시 훑어 확인했다. 페어리가 있는 프레임은 `빈 기록` ·
+`빈 시즌` · `오류` 세 개뿐이다. 다음은 원본에 없으므로 코드에도 없다 —
+`검색 없음`(돋보기 아이콘 그대로) · `로딩` · `입력 오류 필드` · `삭제 다이얼로그` ·
+`토스트` · `구장 바텀시트` · `추억 카드`. 피드의 필터 결과 0건도 `검색 없음`에
+해당하므로 페어리 자리를 비워 둔다.
+
+### 화면당 페어리 밀도
+
+- 홈 1(공용 헤더) · 온보딩 완료 2 · 캘린더 1 · 시즌 아카이브 1 · 상태 패널 1
+- 모두 `VFFairyIconPolicy.maximumFairiesPerScreen`(3) 이하다.
+- 카드마다·날짜 칸마다 얼굴을 넣지 않았다.
+- 네이티브 유틸리티(뒤로·닫기·편집·삭제·설정·꺾쇠·더보기·재시도·카메라·사진
+  선택·달 이동·선택 체크·파괴적 동작)는 모두 네이티브 그대로다.
+
+### 접근성 소유권
+
+새로 놓은 페어리는 전부 장식이라 `accessibilityHidden(true)`다. 식별자를 먼저
+붙이고 그 다음에 감춘다 — 순서를 바꾸면(감춘 뒤 식별자) SwiftUI가 이름만 있고 읽을
+것은 없는 요소를 새로 만든다.
+
+측정해 보니 감춘 뒤에도 식별자를 가진 요소가 XCUITest 트리에는 남는다. 다만
+**라벨이 비어 있어서 VoiceOver가 읽어 줄 것이 없다**. 그래서 UI 테스트는 "없다"가
+아니라 "자리에 있고 말은 없다"로 확인한다 — `home.teamFairy` ·
+`calendar.selectedDate.fairy` · `statistics.seasonCover.fairy` · `state.empty.fairy` ·
+`state.emptySeason.fairy` · `state.error.fairy` · `brand.mark`. 스크롤 컨테이너 안에
+있는 온보딩 완료 화면의 두 페어리와 브랜드 마크는 요소로 올라오지 않아, 배치 자체는
+계약 테스트와 화면 캡처로 확인하고 UI 테스트는 "말하지 않는다"만 못박는다.
+
+작업 중 발견해 고친 접근성 결함 두 개:
+
+- **브랜드 마크가 자산 이름을 읽었다.** `Image("LaunchMark")`는 자산 이름을 그대로
+  라벨로 삼아 VoiceOver가 "LaunchMark"라고 읽었다(`accessibilityHidden(true)`가
+  붙어 있어도 그랬다). `Image(decorative: "LaunchMark")`로 바꿔 라벨 자체를 없앴다.
+  같은 런치 자산을 그대로 쓰므로 사본은 생기지 않는다.
+- **AccessibilityXXXL에서 온보딩 소개의 "다음"이 화면 밖으로 나갔다.** 한 덩어리
+  VStack이라 버튼이 y≈942(화면 874)로 밀렸고 스크롤도 되지 않아 다음 단계로 갈
+  방법이 없었다. 내용을 `ScrollView`에 싣고 버튼을 아래에 고정했다. 완료 화면도
+  96px 페어리 두 개가 들어오면서 같은 위험이 있어 같은 구조로 바꿨다.
+
+읽는 순서는 제목 → 설명 → 동작이다. 다시 시도와 빈 상태 CTA는 네이티브 버튼으로
+남고, 페어리 자체에는 어떤 동작도 걸지 않았다. 페어리 열거 이름·컴포넌트 이름·
+픽스처 이름·자산 이름은 VoiceOver에 닿지 않는다.
+
+### 의도한 차이
+
+- **캘린더 결과 페어리 위치.** 원본은 x=311 y=-12에 놓아 `더보기`(자세히) 컨트롤
+  (x=309 y=2 52×19)을 덮고, Pencil 자신이 그 노드를 `partially clipped`로 표시한다.
+  그대로 옮기면 네이티브 컨트롤을 가리게 되므로, 같은 오른쪽 정렬을 유지하되 기록
+  카드 아래에 둔다. 잘리지 않고 아무 컨트롤도 가리지 않는다.
+- **온보딩 완료의 선택 팀 페어리.** 원본은 `TeamFairy_Samsung` 인스턴스다. 표본을
+  옮기지 않고 고른 팀으로 그린다.
+- **`onboarding.root` 식별자 제거.** 위의 재진단 참조.
+
+### 다크 표면
+
+이번 패스는 프로젝트 전체 다크 모드 이관이 아니다. 이미 구현된 페어리의 밝음/어두움
+동작과 기존 화면 표면만 쓴다. 온보딩 완료(야간 표면)와 시즌 커버(`deepAccent`)에서
+새 배치가 읽히는지 확인했다. 프로젝트 전체 다크 외형은 남은 과제로 둔다.
+
+## 개정 Pencil — Record Create 단계 모델 기반
+
+### 원본 확인
+
+- SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`
+- 1,882,899 bytes · mtime 2026-07-30 11:51:46 +0900
+- 앞선 패스와 해시·크기가 같다.
+
+읽은 방법은 `get_app_state`와 `execute`의 `Get`(방문자 · `ctx.bounds` ·
+`resolveInstances`)뿐이다. 지원하지 않는 메서드는 부르지 않았고 문서도 고치지 않았다.
+
+### 세 프레임
+
+- `m34WD` `08_RecordCreate_Step1` 393×822 — "어떤 경기였나요? / 필수만 적어도 충분해요".
+  경기 날짜 · 구장 · 우리 팀 · 상대 팀 · 스코어(5:3 승) · `다음 · 그날의 디테일` ·
+  **`여기까지만 저장할게요`**.
+- `Dotbx` `08_RecordCreate_Step2` 393×832 — "그날의 디테일을 더해볼까요? / 모두
+  건너뛰어도 괜찮아요". 좌석 · 함께한 사람 · **날씨** · **먹은 것** ·
+  **응원 준비물** · `다음 · 나의 이야기` · `이 단계는 건너뛸게요`.
+- `z0G0P` `08_RecordCreate_Step3` 393×904 — "오늘의 이야기를 남겨주세요 / 사진 한
+  장과 짧은 한마디면 충분해요". 사진 · 가장 기억에 남는 순간 · 오늘의 기분 ·
+  **별점** · 짧은 일기(**`0 / 500`**) · `기록 완성하기`.
+
+세 프레임 모두 내비바에 **`임시저장`**이 있고, `09_States`에는
+`임시저장했어요 · 이어서 쓸 수 있어요` 토스트가 있다. `09_States`의 다이얼로그는
+삭제 확인 하나뿐이고, 저장 실패나 미저장 이탈 다이얼로그는 없다.
+`11_Developer_Handoff`에는 Record Create 스펙이 없다(온보딩 스펙만 있다).
+
+이 패스는 세 프레임의 **보이는 배치를 만들지 않는다**. 필드 소유와 구조만 가져온다.
+
+### 정정 — 현재 편집기는 단계형이 아니었다
+
+이전 문서가 단계형 편집기가 이미 있는 것처럼 읽힐 여지를 남겼다. 실제 코드는
+`LogEditorView` 하나짜리 **한 장짜리 스크롤 폼**이고, 진행 표시·다음·이전·건너뛰기·
+임시저장 어느 것도 없다. 세 단계 마법사는 아직 만들지 않았다.
+
+### 현재 상태 소유 지도
+
+감사 시점의 `LogEditorView`가 들고 있던 값과 이번 분류다.
+
+DRAFT_DOMAIN_FIELD — 정본 초안으로 옮겼다
+`date` · `favoriteTeam` · `opponentTeam` · `stadium` · `result` · `ourScore` ·
+`opponentScore` · `seat` · `companion` · `shortMemo` · `diary` · `selectedMood` ·
+`selectedHighlight` · `appliedKBOHighlightTags` · `photoLocalRefs` · `gameSource` ·
+`linkedKBOGameID` · `officialRecordURL`.
+
+각 값의 소유·기본값·생성/수정 동작은 아래 표 대신 규칙으로 적는다 — 생성에서는
+날짜만 진입점이 정하고 나머지는 비어 있으며, 수정에서는 전부 기록에서 온다.
+변경은 초안을 통해서만 일어나고, 검증은 `RecordEditorValidation`이, 저장은
+`AppDataStore`가 갖는다. 취소는 초안을 버릴 뿐 원본을 건드리지 않는다. 열여덟 값
+모두 뒤에 올 단계 이동에서 살아남아야 하므로 초안에 속한다.
+
+EDITOR_TRANSIENT_STATE — 초안 밖에 그대로 둔다
+`selectedTone`(AI 말투 · 저장되지 않음) · `isSaving` · `saveMessage` ·
+`validationMessage` · `didStartInitialAIPreflight`.
+
+PRESENTATION_STATE — 시트·알림 표시
+`isShowingTicketOCR` · `isShowingAIPreflight` · `isShowingAIDraft` ·
+`isShowingAIDraftApplyChoice` · `isShowingPhotoAnalysisSelection` ·
+`isShowingPhotoAnalysisResult` · `isShowingKBOCandidateSelection` ·
+`isShowingDiaryOverwriteConfirmation` · `safariRoute`.
+
+ASYNC_OPERATION_STATE
+`isGeneratingAIDraft` · `isProcessingPhotos` · `isAnalyzingPhotos` ·
+`kboLookupState`.
+
+EXTERNAL_FLOW_STATE
+`aiDraft` · `photoAnalysis` · `kboCandidates` · `kboLookupSource` ·
+`kboLookupSourceLabel` · `kboLookupSourceDisclosure` ·
+`pendingDraftTextToApply` · `pendingDiaryOverwriteCandidate` ·
+`selectedPhotoItems`(PhotosPicker 이음새).
+
+DERIVED_STATE
+`saveTags`(초안으로 옮김) · `shouldShowScoreWarning`(검증으로 옮김) ·
+`opponentTeamNames` · `currentFavoriteTeamID` · `sanitizedCompanionType`.
+
+UNSUPPORTED_PENCIL_FIELD — 넣지 않았다
+날씨 · 먹은 것 · 응원 준비물 · 별점 · 500자 제한 · 임시저장.
+
+DEPRECATED_OR_UNUSED — 걷어냈다
+`LogEditorViewModel`의 지어낸 기본값(한화 이글스 · KIA 타이거즈 · 잠실야구장 ·
+3:9 패 · `defaultShortMemo` · 좌석 "1루 네이비석 204블록" · 동행 "친구").
+
+### 정본 초안
+
+`RecordEditorDraft`(`Features/LogEditor/RecordEditorDraft.swift`). SwiftUI를 끌어오지
+않고, 색을 모르며, `Equatable`이고, 저장을 하지 않는다. 새로 만들기와 수정하기가
+같은 타입을 쓴다. 제품 `LogEditorView`가 실제로 이 초안 하나만 들고 동작한다.
+
+### 생성·수정 모드
+
+`RecordEditorMode`는 `create(initialDate:)`와 `edit(recordID:)` 둘이다.
+생성은 정체성을 만들지 않고, 캘린더가 준 날짜만 받는다. 수정은 원래 기록의 ID를
+그대로 들고 있고 저장도 그 ID로 간다. 취소는 원본을 건드리지 않는다.
+
+### 단계 정체성과 순서
+
+`RecordCreateStep`은 `game` · `details` · `memory` 셋뿐이다. 자리는 1·2·3,
+이전/다음이 결정적이며, 접근성 제목은 Pencil 진행 표시와 같은 `경기` ·
+`그날의 디테일` · `나의 이야기`다. **현재 단계는 저장하지 않는다** — SwiftData·
+백엔드·사용자 설정 어디에도 없다. 보이는 진행 표시·다음·이전·건너뛰기·부분 저장·
+완료 화면은 하나도 만들지 않았다.
+
+### 지원 필드 소유
+
+- 1단계 경기 — 날짜 · 구장 · 응원팀 · 상대팀 · 결과 · 응원팀 점수 · 상대팀 점수 ·
+  연결된 경기
+- 2단계 그날의 디테일 — 좌석 · 동행 유형
+- 3단계 나의 이야기 — 사진 · 한 줄 메모 · 분위기 · 하이라이트 · 직관 다이어리
+
+Pencil의 `가장 기억에 남는 순간`은 지금의 `한 줄 메모`에, `오늘의 기분`은 지금의
+`분위기` 태그에 해당한다. `caption`은 편집기가 만들지 않는 파생값이라 초안에
+넣지 않았다.
+
+### 미결 Pencil 전용 항목
+
+- 1단계 — `여기까지만 저장할게요`(부분 저장) → **2026-07-31 결정됨**, 아래
+  "Record Create 1단계" 절 참조
+- 2단계 — 날씨 · 먹은 것 · 응원 준비물 → **2026-08-01 유예 확정**, 2단계는 별도
+  단계로 유지하기로 결정. 아래 "Record Create 2단계" 절 참조
+- 3단계 — 별점 · `0 / 500` 일기 길이 제한 → **2026-08-01 유예 확정**, 아래 "Record Create 3단계" 절 참조
+- 전 단계 — 내비바 `임시저장`
+
+어느 것도 도메인·DTO·검증에 넣지 않았다. 런타임 타입으로 만들면 아무도 쓰지 않는
+죽은 코드가 되므로 계약 테스트와 이 문서로만 못박는다.
+
+### 초기화 · 왕복 · 사진 · 검증 · 더티
+
+초기화는 `RecordEditorDraft.make(mode:existingRecord:…)` 하나뿐이다. 섹션이 각자
+기본값을 정하지 않는다. 생성은 상대팀·구장·결과·점수·좌석·메모를 비운 채 시작하고,
+응원팀만 사용자 설정에서 채운다(지금 편집기도 이미 하던 일이다). 여는 것만으로
+UUID를 만들지 않고 아무것도 저장하지 않는다.
+
+왕복은 `init(record:…)`과 `makeSaveInput()` 두 방향이다. 없는 점수는 계속 없고,
+취소 경기는 점수를 지어내지 않으며, 등록부에 없는 구장 이름도 그대로 남고, 없는
+상대팀을 추론하지 않는다. 일기의 줄바꿈과 이모지는 글자 그대로 오간다.
+
+사진은 `RecordEditorPhotoDraft`가 원본 목록과 현재 목록을 함께 들고 있어
+`none` · `existingUnchanged` · `newSelection` · `replacedExisting` ·
+`removedExisting`을 구분한다. 피커 취소나 디코딩 실패는 초안을 건드리지 않고,
+지우기만이 명시적 의도다. 저장 매체는 기존 `PhotoAttachmentService` 그대로다.
+
+검증은 `RecordEditorValidation`이 갖는다. SwiftUI를 끌어오지 않고 뷰가 아니며,
+막는 값·경고·첫 번째로 막힌 값·단계별 묶음을 돌려준다. 요구 조건은 지금과 같은
+넷(응원팀·상대팀·구장·결과)이고, 500자 제한이나 미지원 항목은 넣지 않았다.
+
+더티 비교는 초안이 `Equatable`이므로 값 비교 하나다. 시트·로딩·오류가 초안에 없기
+때문에 일시적 상태는 섞이지 않는다. 저장에 성공하면 그 초안이 새 기준이 된다.
+
+### 저장 경계
+
+저장 주체는 계속 `AppDataStore.saveAttendanceLog` / `updateAttendanceLog`다.
+초안은 스스로 저장하지 않고 `makeSaveInput()`으로 값만 넘긴다. API 엔드포인트·DTO·
+SwiftData 스키마·삭제·동기화는 하나도 바꾸지 않았다. 부분 저장은 만들지 않았다.
+
+### 편집기 진입점
+
+제품 호출부는 여덟 곳이다(미리보기 제외).
+
+- `HomeView.swift:61` — `LogEditorView()`
+- `HomeView.swift:81` — `LogEditorView(editingLog:startsAIPreflightOnAppear: true)`
+- `HomeView.swift:83` — `LogEditorView()`(최근 기록이 없을 때의 AI 진입)
+- `FeedViews.swift:117` — `LogEditorView()`
+- `CalendarViews.swift:231` — `LogEditorView(initialDate:)`
+- `RecordDetailViews.swift:100` — `LogEditorView(editingLog:)`
+- `StatisticsViews.swift:1068` · `StatisticsViews.swift:1121` — `LogEditorView()`
+
+앞선 감사가 "여섯 경로"라고 적었지만, 다시 세어 보니 시즌 아카이브의 구장·상대팀
+통계 화면 두 곳이 더 있다. 생성자 모양은 그대로 두어 여덟 곳 모두 고치지 않았다.
+
+### 유지된 기능
+
+티켓 OCR · 사진 분석 · AI 다이어리 초안(사전 고지 포함) · KBO 경기 추천과 후보
+선택 · 출처 고지 · 공식 기록 링크 · 사진 첨부는 모두 그대로 있다. 실패 경로도
+그대로다 — 실패는 안내 문구만 바꾸고 초안을 비우지 않는다.
+
+### 현재 폼 유지
+
+섹션 순서(필수 정보 → 사진 → 선택 정보 → 저장), 컨트롤, 시트, 다이얼로그, 내비게이션
+제목, 저장·취소 동작을 그대로 두었다. 보이는 단계 이동은 없다.
+
+### 의도한 차이
+
+- **지어낸 기본값 제거.** 새 기록이 한화 이글스 · KIA 타이거즈 · 잠실야구장 ·
+  3:9 패로 시작하던 것을 없앴다. Pencil 표본을 제품 기본값으로 두면 사용자가
+  손대지 않은 값이 사실처럼 저장된다.
+- **결과는 고르기 전까지 비어 있다.** 그래서 저장 전에 "경기 결과를 선택해 주세요"가
+  뜬다. 저장 버튼 자체의 활성 조건은 바뀌지 않았다(예전에도 항상 눌리고, 검증이
+  막았다).
+- **없는 점수는 계속 없다.** 예전 수정 경로는 `ourScore ?? 0`으로 0을 저장했다.
+
+### 다음 패스
+
+`Record Create Step 1 Frame Implementation` — `08_RecordCreate_Step1`의 보이는
+배치를 만든다. Step 2·Step 3의 제품 결정과 화면은 그 뒤다. 이 패스는 어떤 Record
+Create 프레임도 프레임 단위 완료로 표시하지 않는다.
+
+## Record Create 기반 — 검증 마무리 패스 (진행 중)
+
+기준 HEAD `9d58601e8ebcddcb60a65e22ea9a1a28604b3c1d`. 구현은 얼려 두고 앞선 패스가
+남긴 검증 구멍만 메우는 패스다. **제품 소스는 하나도 바꾸지 않았다.**
+
+### 더한 검증 코드
+
+- `VictoryFairyUITests/RecordCreateFoundationResponsiveUITests.swift`
+- `VictoryFairyUITests/RecordCreateFoundationCaptureUITests.swift`
+
+두 파일 모두 기존 픽스처와 실행 인자만 쓴다. 새 픽스처 틀을 만들지 않았고,
+Release에 닿는 코드도 없다.
+
+편집기에는 접근성 식별자가 없으므로(감사 결과) 화면에 보이는 문구로 찾는다.
+시트가 떠 있어도 뒤 화면의 요소가 트리에 남기 때문에 정확 일치와 마지막 일치를
+쓴다 — "구장"이 홈의 "주 관람 구장"에, "사진"이 캘린더 보기 탭에 잡히는 것을 막는다.
+상대팀·구장 줄은 `Menu` 라벨이라 안쪽 글자가 아니라 메뉴 버튼을 눌러 확인한다.
+
+### AccessibilityXXXL 런타임 게이트
+
+기본 글자 크기에서 편집기의 "필수 정보" 제목 높이를 먼저 재고, 큰 글자에서 같은
+요소가 그 1.2배를 넘는지 확인한다. 큰 글자가 실제로 적용되지 않으면 실패한다.
+`testAccessibility01_runtimeGateProvesTheCategoryApplied`가 그 게이트다.
+
+측정값으로 확인한 사실 하나 — AccessibilityXXXL에서 편집기 폼 전체 높이는
+2,300pt를 넘는다(화면 874pt). 그래서 스크롤 시도를 25회로 잡았다.
+
+### 아이폰 17 Pro에서 통과한 검증
+
+`RecordCreateFoundationResponsiveUITests` 24개 중 10개 실행·10개 통과·0개 실패,
+14개는 좁은 폭 전용이라 넓은 기기에서 스스로 건너뛴다(통과로 위장하지 않는다).
+통과한 10개는 AccessibilityXXXL 계열 전부다 — 런타임 게이트, 홈 생성, 캘린더 생성,
+기록 상세 수정(좌석·동행 유지), 긴 일기, 검증 안내, 기능 진입면, 키보드,
+취소, 내부 이름 미노출.
+
+단위 621개는 그대로 통과한다(제품 소스 무변경).
+
+### 캡처 — 18개 중 16개
+
+`/tmp/VictoryFairy-record-create-foundation-captures/iphone17pro/`
+
+01 홈 표준 생성 · 03 피드 생성 · 04 캘린더 날짜 지정 생성 · 05 기록 상세 수정 ·
+06 좌석과 동행이 있는 수정 · 07 기존 사진이 있는 수정 · 08 티켓 OCR 진입 ·
+09 사진 분석 진입 · 10 AI 초안 진입 · 11 경기 추천 자리 · 12 긴 일기 ·
+13 좁은 폭 · 14 좁은 폭 + 키보드 · 15 AccessibilityXXXL · 16 저장 검증 안내 ·
+17 저장 — 서버 동기화 실패 후 로컬 저장.
+
+모든 캡처는 찍기 전에 편집기가 실제로 열렸는지, 그리고 보이는 단계 UI나 미지원
+항목(날씨·먹은 것·응원 준비물·별점·0/500·임시저장)이 없는지 확인한다.
+
+17번의 저장 실패 표현은 새 실패 스위치를 만들지 않고 **지금 제품이 이미 가진**
+경로를 쓴다 — UI 테스트에는 서버가 없으므로 저장은 언제나 오프라인 분기로 가고,
+기기에 저장한 뒤 동기화 실패를 알린다.
+
+### 아직 닫지 못한 것
+
+- 캡처 02(홈 AI 진입)와 18(취소 후 원본 보존) — 진입 요소를 아직 안정적으로 집지
+  못했다. 승리요정 지수 카드가 버튼으로 노출되지 않고, 수정 편집기가 아래로
+  쓸어내리는 동작으로 닫히지 않는 경우가 있다. 제품 결함이 아니라 테스트 조작
+  방식의 문제로 보이지만, 확인 전까지는 결함 가능성을 열어 둔다.
+- iPhone SE 3세대(375pt)에서의 좁은 폭 14개 실행
+- 새로 고친 Statistics 회귀
+- 새로 고친 Onboarding 회귀
+- 전체 UI 스위트 재실행
+- Debug/Release 빌드와 브랜드 게이트 재실행
+
+제품 소스가 바뀌지 않았으므로 앞선 패스의 아카이브
+`/tmp/VictoryFairy-archives/VictoryFairy-RecordCreate-Foundation.xcarchive`가
+여전히 유효한 제품 바이너리 증거다. 새 아카이브를 만들었다고 말하지 않는다.
+
+### 검증 마무리 — 1단계 분류 결과 (미완)
+
+기준 HEAD `d4aebe86a903e4da9de68294760815b7aa0f0cc9`. 제품 소스는 여전히 바꾸지
+않았다.
+
+**홈 AI 진입 — `TEST_USED_WRONG_TRIGGER`.**
+실제 제품 컨트롤은 "승리요정 지수" 섹션 헤더도 카드 자체도 아니다.
+`VictoryFairyIndexCard`(`SharedComponents/VFComponents.swift:177`) 안의 반짝
+아이콘 버튼이고, `accessibilityLabel("AI 직관 기록 도우미")`가 붙어 있다.
+`HomeView`가 이 버튼의 `aiAction`으로 `isShowingAIHelper = true`를 걸고, 그 시트가
+최근 기록 유무에 따라 `LogEditorView(editingLog:startsAIPreflightOnAppear: true)`
+또는 `LogEditorView()`를 연다. 테스트를 그 버튼으로 고쳤지만, 요소가 지연 생성되어
+스크롤 전에는 트리에 없어서 아직 통과하지 못한다 — 기다리기 전에 먼저 스크롤해야
+한다. 제품 결함이 아니다.
+
+**취소 — `NESTED_SCROLL_CAPTURED_GESTURE`.**
+`RecordDetailViews.swift:97`의 시트에는 `interactiveDismissDisabled`도 detent도
+드래그 인디케이터도 없다. 화면 가운데에서 아래로 쓸면 편집기 `ScrollView`가 그
+제스처를 먹어 폼만 스크롤된다. 기존 `testD33_cancellingTheEditorPreservesTheDetail`이
+통과하는 이유는 그 시점에 폼이 맨 위에 있기 때문이다. 콘텐츠 위쪽에서 끌어내리는
+방식으로 고쳤지만 아직 시트가 내려가지 않는다. 사용자 이탈 결함인지 제스처 좌표
+문제인지는 **아직 확정하지 못했다**.
+
+**시즌 아카이브 두 경로 — 둘 다 `CONDITION_CAN_NEVER_BE_TRUE`.**
+`StatisticsViews.swift:1068`과 `:1121`의 편집기 버튼은 각각
+`StadiumStatsView`/`OpponentStatsView`의 `stats.isEmpty` 가지 안에만 있다.
+그런데 `StatisticsService.groupedStats`는 빈 이름도 걸러내지 않고 모든 기록을
+묶으므로, `stats`가 비는 경우는 기록이 아예 없을 때뿐이다. 기록이 없으면
+`stadiumVisits`도 비어 `mostVisitedStadium.isAvailable == false`가 되고,
+`highlightRow`의 `NavigationLink`가 `.disabled(true)`가 되어 그 화면에 들어갈 수
+없다. 즉 두 버튼은 **사용자가 도달할 수 없는 죽은 경로**다.
+`StadiumStatsView(`/`OpponentStatsView(` 호출부는 각각 한 곳뿐이라 다른 진입도 없다.
+
+이것은 진짜 제품 결함이지만, 고치려면 "분석 화면을 언제 열 수 있는가"라는 완료된
+시즌 아카이브 화면의 상호작용 결정을 바꿔야 한다. 이 마무리 패스의 "가장 좁은 수정"
+범위를 넘어서므로 결함으로 기록만 하고 손대지 않았다.
+
+### 아직 닫지 못한 것 (갱신)
+
+- 캡처 02·18 — 위 분류대로 테스트를 고쳤으나 아직 통과하지 못했다
+- 시즌 아카이브 두 편집기 경로 — 죽은 경로로 확인, 수정 보류
+- iPhone SE 3세대에서의 좁은 폭 12개와 키보드 2개
+- SE 3에서 다시 찍어야 하는 캡처 13·14
+- 새로 고친 Statistics 회귀
+- 새로 고친 Onboarding 회귀
+- 전체 UI 스위트
+- Debug/Release 빌드, `verify_app_icon.sh`, `verify_release_readiness.sh`
+- 재사용 아카이브 경로 확인과 픽스처 제외 게이트 양방향 실행
+
+### 진입/이탈 막힘 세 가지 수리 (완료)
+
+기준 HEAD `8c19304`. 앞선 분류를 실제 동작으로 확인하고 고쳤다.
+
+**홈 AI 진입 — `TEST_USED_WRONG_TRIGGER` + 픽스처 공백.**
+실제 컨트롤은 `VictoryFairyIndexCard` 안의 반짝 버튼
+(`accessibilityLabel("AI 직관 기록 도우미")`)이다. 지연 생성되므로 먼저 스크롤로
+올린 뒤 찾아야 한다. 그런데 홈 대시보드는 `appData.feedLogs`로 만들어져서 피드
+픽스처만으로는 홈이 언제나 비어 있었고, "최근 기록이 있는 홈"을 만들 방법이 없었다.
+피드·캘린더·시즌이 이미 쓰는 것과 같은 모양의 이음새
+(`VFUITestConfiguration.homeDashboard`)를 하나 더해 해결했다. Release에서는 인자를
+그대로 돌려준다.
+
+최근 기록이 **없을** 때의 가지(`HomeView.swift:83`, 생성 모드)는 여전히 도달할 수
+없다. `fairyIndexSection`이 `dashboard.isEmpty`가 아닐 때만 그려지고, 그 조건은
+"최근 기록이 없다"와 같기 때문이다. 죽은 가지로 기록하고 테스트로 못박았다 —
+나중에 도달 가능해지면 그 테스트가 실패해서 알려 준다.
+
+**취소 — `TEST_GESTURE_COORDINATE_DEFECT`.**
+실제 사용자는 시트를 내릴 수 있다. 화면 가운데에서 아래로 쓸면 편집기
+`ScrollView`가 제스처를 먹지만, 내비게이션 바는 스크롤 뷰 밖이라 언제나 시트를
+잡는다. 제품 수정은 필요 없었고 취소 버튼도 더하지 않았다. 폼을 스크롤한 뒤에도
+닫히고, 원본 좌석이 그대로이며, 다시 열면 원래 값이 돌아온다. 생성 취소는 기록을
+만들지 않는다.
+
+**시즌 아카이브 두 경로 — 진짜 제품 결함, 수리 완료.**
+`SeasonHighlight.isAvailable` 하나가 "요약할 값이 있다"와 "상세로 들어갈 수 있다"를
+겸했다. 값이 없으면 줄이 비활성이 되어, 값이 없을 때만 나오는 빈 상태에 영영 닿지
+못했다. `hasHighlightedValue`(값과 꺾쇠)와 `isDetailReachable`(상세 진입)로 나눴다.
+`groupedStats`도 함께 고쳤다 — 요약 쪽은 빈 이름을 걸러 내는데 여기서는 걸러 내지
+않아 이름 없는 줄이 생기고 목록이 절대 비지 않았다. 계산·요약·값이 있을 때의
+동작은 그대로다.
+
+검증: 라우트 수리 UI 7개 전부 통과. 단위 621개 통과. Debug·Release 빌드 통과,
+`verify_app_icon.sh`·`verify_release_readiness.sh` 통과. 제품이 바뀌었으므로 새
+아카이브를 만들어 확인했고 픽스처 제외 게이트를 양방향으로 돌렸다.
+
+### 최종 마무리 시도 — 진입 경로 정리 (부분)
+
+기준 HEAD `c0fc856`.
+
+**홈 AI 생성 가지 — `INTENTIONAL_DATA_DEPENDENT_ABSENCE`, 걷어냈다.**
+승리요정 지수는 기록에서 계산하는 통계이고, 소스도 그 구역을 "Pencil 외 기존
+기능"이라고 적는다. 카드가 `dashboard.isEmpty`가 아닐 때만 그려지므로 "최근 기록
+없음 → 생성 모드" 가지는 구조적으로 도달할 수 없었다. AI 도우미 시트의 무기록
+분기조차 표준 생성(`onAddLog`)으로 간다. 데이터가 없는데 지수를 보여 주는 대신
+죽은 가지를 걷어내고 시트를 `sheet(item:)`로 바꿔 불가능한 상태를 표현할 수 없게
+했다. 제품 호출부는 **여덟에서 일곱**으로 줄었다. 잃는 동선은 없다.
+
+**상대팀 빈 상태 — 확인 완료.**
+`noOpponent` 시나리오(대진이 적히지 않은 기록)를 기존 시즌 픽스처에 더해, 상대팀
+통계가 정직하게 0건인 상태를 만들었다. 상세가 열리고, 빈 상태가 나오고, CTA가
+생성 모드를 열고, 상대팀을 지어내지 않으며, 취소하면 상대팀 상세로 돌아온다.
+새 시나리오 이름은 Release 픽스처 제외 게이트에도 넣었다.
+
+**UI 질의 결함.** `XCUIElementQuery.containing(_:)`은 그 술어에 맞는 **자손을 가진**
+요소를 고른다. 자기 라벨을 보려면 `matching(_:)`이어야 한다. 이 혼동 때문에
+"상대팀"을 찾던 질의가 피드 카드까지 집어 왔다. 네 파일 26곳을 고쳤다.
+
+검증: 라우트 7개 전부 통과, 단위 621개 통과. iPhone SE 3세대 반응형은 17개 실행 ·
+16개 통과 · 1개 실패로 아직 닫지 못했다.
+
+### 좁은 폭 마무리 (완료)
+
+`testCompact03_feedCreateRemainsUsable`가 편집기의 구장 메뉴 대신 시트 뒤 피드
+카드를 집어 왔다. 카드 라벨에 "잠실야구장"이 들어 있어 부분 일치 "구장"에 걸린
+것이다 — `TEST_QUERY_DEFECT`. 메뉴 라벨은 제목으로 시작하므로 앞부분 일치로
+좁혔다. 제품은 바꾸지 않았다.
+
+iPhone SE 3세대(375pt, iOS 26.3)에서 `RecordCreateFoundationResponsiveUITests`
+**24개 실행 · 24개 통과 · 0개 실패 · 0개 건너뜀** (1347.5초). 좁은 폭 12개,
+키보드 2개, AccessibilityXXXL 10개가 모두 실제 기기에서 돌았다.
+
+호스트 부하가 높을 때(load 8~10) 같은 스위트가 `testCompact03`과
+`testKeyboard02`에서 실패했지만, 부하가 낮을 때(load 3.6) 같은 순서로 셋 다
+통과했고 전체 재실행도 24/24로 통과했다. 단정은 하나도 바꾸지 않았다.
+
+### 최종 게이트
+
+- 단위 621개 통과 (12.9초)
+- 온보딩 UI 15개 실행 · 15개 통과 · 0개 실패 · 0개 건너뜀 (151.6초)
+- Debug 빌드 통과 · Release 빌드 통과 · 경고 0
+- `verify_app_icon.sh` 통과 · `verify_release_readiness.sh` 통과
+- 새 아카이브 `VictoryFairy-RecordCreate-Foundation-Final.xcarchive` 성공.
+  번들 ID·1.1.0·빌드 1, 테스트 번들 0개, 아이콘·런치 마크 그대로,
+  `aiDraftEditorLog`가 들어 있어 홈 수정이 실제로 실렸음을 확인했다.
+- 픽스처 제외: Release 0건 통과, Debug 58건 실패(음성 대조). 58건은 새
+  `noOpponent` 시나리오까지 게이트가 잡는다는 뜻이다.
+
+
+## 개정 Pencil — Record Create 1단계 보이는 레이아웃 (스테이징)
+
+`m34WD` `08_RecordCreate_Step1`(393×822)을 제품 타깃 컴포넌트로 만들었다.
+**아직 사용자 경로에 붙이지 않았다.** 2·3단계가 없는 상태에서 붙이면 사용자를
+미완성 화면으로 보내게 되므로, 일곱 개 진입점은 그대로 `LogEditorView`(한 장짜리
+스크롤 폼)를 띄운다.
+
+### 읽은 노드
+
+| 자리 | 노드 | 값 |
+|------|------|-----|
+| 루트 | `m34WD` | 393×822, 바탕 `#F4F4F2` |
+| 상태바 | `V32ph` → `RZ9Sw` | 393×54 |
+| 내비바 | `j268tz` → `x26QR` | 393×52, 제목 "직관 기록", 오른쪽 `z8xUR4` "임시저장" |
+| 콘텐츠 | `x1EKzM` | 세로 배치, gap 20, padding [8,24,28,24] |
+| 진행 표시 | `u9ULlc` (`jZ6G3` 점 · `XkuSg` 라벨) | 점 12×12, 현재 `#F2B63C`+`#232A3C` 1.2, 나머지 `#EAEAE6`+`#E2E3E1`, 연결선 `#E2E3E1` 2 |
+| 진행 라벨 | `mB6sy`·`AZgQm`·`VwoJ8` | 11pt, 현재 `#D99A26`/600, 나머지 `#8B909E` |
+| 제목 | `fiZM1` | "어떤 경기였나요?" 21/900 `#14171F` |
+| 부제 | `soGHC` | "필수만 적어도 충분해요" 13 `#8B909E` |
+| 날짜 필드 | `c3ryI` → `w93QEM` | 라벨 "경기 날짜", 상자 345×50 흰색 r10 |
+| 구장 필드 | `eCkfl` → `w93QEM` | 라벨 "구장" |
+| 팀 행 | `lNOR0` (`lRsMF`·`uRoQk`) | 168×76 두 칸, 라벨 "우리 팀"·"상대 팀" |
+| 스코어 블록 | `mv6wU` | 라벨 `bHQz5` "스코어" 13/600 |
+| 점수 상자 | `h6KUvb`·`dbZae` | 157×64 흰색 r12, 활성 `#F2B63C` 1.8 / 비활성 `#E2E3E1` 1.5, 숫자 32/700 |
+| 결과 행 | `aI1CQ` | `kX4n8`→`aYRjf` 스탬프 46×46 + `hfTNn` "오늘은 승리요정이네요!" 13/700 `#D99A26` |
+| 하단 액션 | `D2i66X` | `PfSOP`→`Pm0pe` "다음 · 그날의 디테일" 345×54 `#F2B63C` r14, `uBGhH` "여기까지만 저장할게요" 14/500 `#4C5160` |
+
+### 만든 것
+
+- `VictoryFairy/SharedComponents/VFStepProgress.swift` — Pencil `진행 표시`의
+  재사용 원시 컴포넌트. 단계 이름 목록만 받으므로 1단계 전용이 아니다.
+- `VictoryFairy/Features/LogEditor/RecordCreateStep1View.swift` — 보이는 1단계.
+- `VictoryFairy/Features/LogEditor/RecordCreateFlowView.swift` — 세 단계 껍데기와
+  스테이징 호스트.
+
+색·간격·모서리·버튼·필드·스탬프는 모두 기존 토큰과 공용 컴포넌트를 그대로 쓴다.
+`VFFormField`·`VFPrimaryButton`·`VFResultStamp`가 이미 Pencil `폼 필드`·
+`버튼/프라이머리`·`스탬프/승`이므로 새로 만들지 않았다.
+
+### `여기까지만 저장할게요` — 확정한 뜻
+
+**1단계의 유효한 값만으로 완결된 보통 기록 하나를 저장한다.**
+
+- 이어서 쓸 수 있는 초안이 아니다.
+- 임시 로컬 초안이 아니다.
+- 미완성 DB 엔티티가 아니다.
+- 저장된 현재 단계가 아니다.
+- 새로운 부분 기록 상태가 아니다.
+- 백그라운드 자동 저장이 아니다.
+
+근거: 1단계가 "필수만 적어도 충분해요"라고 말하고, 2단계는 모두 건너뛸 수 있으며,
+기존 검증이 이미 최소 유효 기록을 정의하고, 지금 저장 모델이 2·3단계 값을 비워 둔
+채로도 저장할 수 있다.
+
+동작: 기존 `AppDataStore.saveAttendanceLog` 경계만 쓴다. 1단계 검증을 통과해야
+활성화된다. 2·3단계 값은 빈 채로 저장된다. 중복 저장을 막는다. 성공해야 닫히고,
+실패하면 초안을 그대로 둔 채 화면에 남는다.
+
+### DEFERRED_PRODUCT_DECISION: RESUMABLE_TEMPORARY_SAVE
+
+내비바 오른쪽의 `임시저장`은 **구현하지 않았다.** 그 문구에 딸린 토스트는
+"나중에 이어서 쓸 수 있다"고 약속하는데, 이어쓰기에는 아직 정해지지 않은
+재개 의미와 지속되는 초안 소유권이 필요하다.
+
+가짜로도 만들지 않았다 — 메모리 값으로 흉내내지 않았고, 최소 저장에 연결하지
+않았으며, 비활성 가짜 버튼도 두지 않았고, 이어쓰기를 약속하는 토스트도 넣지
+않았다. 계약을 갖추기 전에는 화면에 올리지 않는다.
+
+### 의도한 차이
+
+- **결과 선택 컨트롤.** Pencil 1단계에는 결과를 *고르는* 컨트롤이 없고 고른 뒤의
+  스탬프와 안내만 있다. 저장은 명시적으로 고른 결과를 요구하므로(기존 검증 규칙),
+  스코어 아래에 지금 편집기가 쓰던 결과 컨트롤을 둔다. 고르고 나면 Pencil이 그린
+  `결과 행`이 그대로 나온다.
+- **표본값을 쓰지 않는다.** Pencil은 삼성 5 : 3 KIA · 대구를 그려 두었지만 새
+  기록은 그 어느 것도 미리 채우지 않는다. 사용자 설정에서 오는 응원팀만 채운다 —
+  지금 편집기도 이미 하던 일이다.
+- **결과 안내 문구.** Pencil은 승리 문구만 적었다. 나머지 셋은 같은 목소리로
+  이었고 초안에 저장하지 않는다.
+- **큰 글자에서 세로로 쌓기.** 팀 두 칸과 점수 두 칸은 `ViewThatFits`로 좁아지면
+  세로로 쌓는다. 축소로 가리지 않는다.
+- **숫자 키패드의 빠져나갈 길.** Pencil은 점수를 그린 숫자로만 보여 준다. 실제
+  입력에는 숫자 키패드가 필요한데 거기에는 Return이 없어, SE 3에서 키패드가 화면의
+  절반을 덮으면 아래쪽 액션에 닿을 수 없었다(UI 테스트로 실측). 키보드 툴바에
+  `완료`를 둔다. 결과를 `취소`로 고르면 사라지는 입력 칸의 포커스도 함께 놓는다.
+- **다음 버튼이 막혀 있을 때.** 비활성 버튼은 무엇이 빠졌는지 말해 주지 못하므로,
+  준비되지 않았을 때는 같은 자리에 안내를 여는 투명한 버튼을 겹쳐 둔다. 접근성
+  요소는 언제나 하나이고, 값으로 "아직 채우지 않은 값이 있어요"를 읽어 준다.
+
+### 측정으로 확인한 접근성 사실
+
+- `VFFormField`는 `.accessibilityElement(children: .contain)`이라 감싸는 쪽에 식별자를
+  달면 안쪽 컨트롤의 값이 가려진다. 그래서 식별자는 **컨트롤 자신**(Menu·DatePicker·
+  TextField)에 단다.
+- 컨테이너에 `.contain` 없이 식별자를 달면 안쪽 버튼의 식별자를 덮어쓴다. 스테이징
+  경계에 `.contain`을 더해 `recordCreate.back`을 살렸다.
+- 숫자 키패드가 떠 있는 동안에는 사라진 입력 칸이 첫 응답자로 트리에 남는다.
+  결과를 바꾸기 전에 키패드를 내려야 한다.
+- `DatePicker`는 초기화에 준 이름을 스스로 접근성 라벨로 갖는다. 거기에 라벨을 또
+  붙이면 "경기 날짜, 경기 날짜"로 두 번 읽힌다(2026-08-01 감사에서 실측·수정).
+
+### KBO 추천 · 티켓 OCR 경계
+
+Pencil 1단계 프레임에도 `11_Developer_Handoff`에도 KBO 추천이나 티켓 OCR의
+**보이는 자리**가 없다. 그래서 1단계 화면에 새 카드를 지어내지 않았다.
+
+- 두 기능 모두 지금 편집기에서 그대로 살아 있다.
+- 1단계가 소유한 값(날짜·구장·팀·결과·점수·연결된 경기)은 후보값을 그대로 받을 수
+  있다. 계약 테스트가 그 통로를 못박는다.
+- 최종 배치는 유예한다.
+
+### 스테이징 경계
+
+`-VFUITestRecordCreateStaged` 인자가 있을 때만 `RecordCreateStagedHostView`가
+흐름을 띄운다. 이 접근자와 그것이 읽는 인자 키는 `#if DEBUG` 안에만 있어서
+**Release 바이너리에는 그 문자열조차 없다**(아카이브에서 확인했다). 따라서 이
+가지는 Release에서 결코 참이 될 수 없다. 여덟 번째 제품 경로가 아니다.
+
+1단계 컴포넌트 자체는 Release에 컴파일된다 — 아카이브에서 `어떤 경기였나요?`·
+`다음 · 그날의 디테일`·`여기까지만 저장할게요`를 확인했다. 반대로
+`recordCreate.scenario.`·`VFUITestRecordCreateStaged`·호스트 문구는 0건이다.
+
+`다음 · 그날의 디테일`은 메모리 위치만 `game → details`로 옮긴다. 저장도, 통신도,
+영속화도 없다. `.details` 자리는 "아직 만들지 않았어요"라고 스스로 말하는 검증용
+경계이며 권위 있는 2단계 레이아웃이 아니다.
+
+
+## 개정 Pencil — Record Create 2단계 보이는 레이아웃 (스테이징)
+
+`Dotbx` `08_RecordCreate_Step2`(393×832)를 제품 타깃 컴포넌트로 만들고 기존 스테이징
+흐름에 붙였다. **아직 사용자 경로에 붙이지 않았다.** 일곱 개 진입점은 그대로
+`LogEditorView`를 띄운다.
+
+### 읽은 노드
+
+| 자리 | 노드 | 값 |
+|------|------|-----|
+| 루트 | `Dotbx` | 393×832, 바탕 `#F4F4F2` |
+| 내비바 | `ug4k7` → `x26QR` | 왼쪽 뒤로 아이콘 `J0k7q9`, 제목 "직관 기록", 오른쪽 `ZyUPZ` "임시저장" 13/500 |
+| 콘텐츠 | `k9CIB` | 세로 배치, gap 20, padding [8,24,28,24] |
+| 진행 표시 | `VfwPW`(`YsOe6` 점 · `QDiMS` 라벨) | 2단계 점 `dPb99` 활성 |
+| 제목 | `i3FhLB` | "그날의 디테일을 더해볼까요?" 21/900 `#14171F` |
+| 부제 | `o1ibHI` | "모두 건너뛰어도 괜찮아요" 13 `#8B909E` |
+| 좌석 | `mVmA3` → `w93QEM` | 라벨 "좌석" 13/600, 상자 345×50 흰색 r10 stroke `#E2E3E1` 1.5 |
+| 동행 블록 | `mHyAe` gap 8 | 라벨 `D1cLHa` "함께한 사람" 13/600 `#4C5160` |
+| 동행 칩 | `lYgEL` gap 8 | `hzruP` 혼자 · `iVOhB` 엄마랑(선택) · `a9uzI` 친구랑 · `R1tLF` 직접 입력 |
+| 칩 선택 상태 | `iVOhB` | `#F2B63C` 바탕 + `#232A3C` 1.2 테두리 + `#FFFDF8` 라벨 12/600 |
+| 칩 비선택 | `hzruP`·`a9uzI` | `#FFFFFF` 바탕 + `#E2E3E1` 1.2 테두리 + `#4C5160` 라벨 |
+| 직접 입력 | `R1tLF` | 94×33 `#EAEAE6` r18, 플러스 아이콘 + "직접 입력" 13/500 |
+| 날씨 | `xZKxw` | 라벨 + 맑음·흐림·비·밤경기 4칸 — **만들지 않음** |
+| 먹은 것 | `IhfC6` → `w93QEM` | 자리표시자 "치킨, 생맥주" — **만들지 않음** |
+| 응원 준비물 | `SfdCC` | 유니폼·응원봉·응원수건·유광점퍼 칩 — **만들지 않음** |
+| 하단 액션 | `p8jX3S` gap 12 | `KRhcy`(`Pm0pe`) "다음 · 나의 이야기", `fnbNa` "이 단계는 건너뛸게요" 14/500 |
+
+`11_Developer_Handoff`에 2단계 주석은 없다. 프레임 안에 페어리도 일러스트도 없다.
+
+### 확정한 제품 결정
+
+1. **2단계는 별도 단계로 남긴다.** 좌석과 동행은 이미 `RecordCreateStep.details`
+   소유이고, 둘 다 그날의 맥락으로 뜻이 있으며, 이 단계는 명시적으로 선택 사항이다.
+2. **지원하는 값만 만든다** — 좌석과 함께한 사람. 날씨·먹은 것·응원 준비물은 초안·
+   저장 입력·DTO·API·백엔드 어디에도 자리가 없고, 확정된 제품 요구도 없다. 비활성
+   자리표시자도, 값을 버리는 가짜 컨트롤도 두지 않는다.
+3. **전부 선택 사항이다.** 둘 다 비어도, 하나만 있어도, 둘 다 있어도 나아갈 수 있다.
+   2단계에는 막는 검증이 없다.
+4. **건너뛰기는 지우지 않는다.** 이미 적은 값을 지우는 것은 놀라운 동작이고 Pencil이
+   그렇게 하라고 한 적도 없다. 건너뛰기는 `.memory`로 옮기기만 한다.
+5. **임시저장은 만들지 않는다.**
+
+### 유예 결정
+
+- `DEFERRED_PRODUCT_DECISION: STEP2_WEATHER`
+- `DEFERRED_PRODUCT_DECISION: STEP2_FOOD`
+- `DEFERRED_PRODUCT_DECISION: STEP2_CHEERING_GEAR`
+- `DEFERRED_PRODUCT_DECISION: RESUMABLE_TEMPORARY_SAVE` (계속)
+
+### 동행 선택 모델
+
+저장되는 것은 지금도 `draft.companion` 문자열 하나다. 숨은 열거형을 만들지 않았다.
+빠른 선택지(`혼자`·`엄마랑`·`친구랑`)는 화면에 보이는 문구를 그대로 초안에 쓴다.
+
+선택 상태는 `RecordCreateStep2View.companionSelection(for:customEntryChosen:)`이
+초안 값에서 유도한다 — 값이 있으면 값이 전부를 정하고, 빠른 선택지와 정확히 같으면
+그 칩이, 아니면 직접 입력이 선택된 것이다. 값이 비어 있을 때만 "직접 입력을 눌렀다"는
+화면 의사가 쓰이며 그 의사는 저장되지 않는다. 다시 들어와도 값만으로 같은 화면이 된다.
+
+### 의도한 차이 (Dotbx 대비)
+
+- **세 섹션을 뺐다.** 날씨·먹은 것·응원 준비물 자리에는 아무것도 두지 않았다.
+- **액션을 아래에 고정했다.** 세 섹션이 빠져 이 단계는 Pencil보다 짧다. 액션을 마지막
+  필드 바로 아래에 두면 그 아래로 화면 절반이 빈 채 남아 "잘린 화면"처럼 보였다.
+  `safeAreaInset`으로 아래에 붙이면 위는 입력, 아래는 진행이라는 흔한 폼 구성이 되어
+  짧아진 단계가 의도된 것으로 읽힌다. 빈자리를 메우려고 없는 내용을 지어내지 않았다.
+- **취소를 오른쪽으로 옮겼다.** 1단계는 왼쪽이 취소 그대로다. 2단계부터는 Pencil이
+  왼쪽에 뒤로 화살표를 두므로 왼쪽을 "이전"에 내주고 취소를 오른쪽으로 옮겼다.
+  오른쪽은 Pencil이 `임시저장`을 두었던 자리이지만 그 동작은 구현하지 않았다.
+- **키보드 툴바 `완료`.** 좁은 기기에서 확실히 빠져나갈 길을 둔다.
+- **칩 모양.** 공용 `VFChip`은 캡슐이고 선택 대비가 다르다. Pencil 동행 칩은 r9
+  사각형에 흰/금 두 상태이므로 이 화면 전용 칩을 두었다 — 여기서만 쓰이므로 공용
+  컴포넌트로 미리 일반화하지 않았다.
+
+### 측정으로 확인한 사실
+
+- 아래에 고정한 액션은 스크롤 뷰 밖이라, 루트에 `.contain`이 없으면 루트 식별자가
+  그 버튼들의 식별자를 덮어쓴다.
+- 고정 막대 **밑에 깔린** 요소도 XCUI는 `isHittable`로 본다. 그래서 테스트의 스크롤
+  도우미는 창 안에 들어왔는지와 막대 위에 있는지까지 확인한다.
+- 선택 상태(`isSelected`)는 버튼 질의로 읽어야 한다. `descendants(matching: .any)`는
+  감싸는 요소를 먼저 집을 수 있고, 그 요소는 선택 특성을 갖지 않는다.
+- SE 3 + AccessibilityXXXL에서는 팀 선택 메뉴가 화면보다 길어 아래쪽 항목이 아직
+  접근성 트리에 없다. 목록을 굴려야 찾을 수 있다.
+
+
+## 개정 Pencil — Record Create 3단계 보이는 레이아웃 (스테이징)
+
+`z0G0P` `08_RecordCreate_Step3`(393×904)을 제품 타깃 컴포넌트로 만들고 스테이징
+흐름을 세 단계로 완성했다. **아직 사용자 경로에 붙이지 않았다.**
+
+### 읽은 노드
+
+| 자리 | 노드 | 값 |
+|------|------|-----|
+| 루트 | `z0G0P` | 393×904, 바탕 `#F4F4F2` |
+| 내비바 | `bIVuL` → `x26QR` | 뒤로 `J0k7q9`, 제목 "직관 기록", 오른쪽 `bWtIB` "임시저장" |
+| 콘텐츠 | `wbaGx` | 세로 배치, gap 20, padding [8,24,28,24] |
+| 진행 표시 | `RC2fE`(`d16Nti` 점 · `n6rbcE` 라벨) | 3단계 점 `hozEu` 활성 |
+| 제목 | `EiRpT` | "오늘의 이야기를 남겨주세요" 21/900 |
+| 부제 | `cgl9U` | "사진 한 장과 짧은 한마디면 충분해요" 13 `#8B909E` |
+| 사진 블록 | `ru50U` gap 8 | 라벨 `V1zl1e` "사진" |
+| 사진 행 | `bLV8p` gap 10 | `CID6M` 추가 타일 100×100 `#EAEAE6` r12 + 카메라 아이콘, `NmNpM`·`fgWCy` 사진 100×100 r10 |
+| 권한 안내 | `F0bqq` | 자물쇠 `i52K0X` + `irpcP` "선택한 사진에만 접근해요 · 설정에서 변경" |
+| 순간 필드 | `yfyEU` → `w93QEM` | 라벨 "가장 기억에 남는 순간", 표본값 "9회초 박병호 역전 스리런" |
+| 기분 블록 | `vemiV` gap 8 | 라벨 `yDRZI` "오늘의 기분", `evzoT` 칩 gap 8 |
+| 기분 칩 | `Rnroe`·`lMOcg`·`ll67f`·`aFIq1`·`P5n49` | 벅차오름(선택) · 행복 · 뿌듯 · 아쉬움 · 약오름, r18, 선택 `#F2B63C`+`#232A3C` 1.2 |
+| 별점 블록 | `MwBWq` | 라벨 `vULzT` "오늘 직관, 몇 점이었나요?" + 별 5개 — **만들지 않음** |
+| 일기 블록 | `w2X9uy` gap 8 | 라벨 `jXW8J` "짧은 일기", `xIrTd` 345×120 흰색 r12, 자리표시자 `em4rB` |
+| 글자 수 | `XcDJt` | "0 / 500" — **만들지 않음** |
+| 하단 액션 | `lXfnL` → `jC97x`(`Pm0pe`) | "기록 완성하기" |
+
+`11_Developer_Handoff`에 3단계 주석은 없다. 프레임 안에 페어리도 없다.
+
+### 확정한 제품 결정
+
+1. **3단계는 마지막 이야기 단계로 남긴다.**
+2. **지원하는 값만 만든다** — 사진 · 가장 기억에 남는 순간(`shortMemo`) ·
+   기분(`moodTag`) · 일기(`diary`).
+3. **전부 선택 사항이다.** 저장을 막는 것은 1단계 요구 조건뿐이다.
+4. **"가장 기억에 남는 순간"은 `shortMemo` 하나에만 들어간다.** 하이라이트로 옮기지
+   않고, 사본을 만들지 않는다.
+5. **다섯 기분은 보이는 문구 그대로 `moodTag`에 쓴다.** 숨은 열거형을 만들지 않는다.
+6. **하이라이트 컨트롤은 만들지 않는다.** Pencil에 없다. 기존 KBO·사진 분석이 넣어
+   둔 값은 그대로 보존된다.
+7. **일기 길이를 강제하지 않는다.** 글자 수도, 자르기도, 막기도 없다.
+8. **별점은 만들지 않는다.** 비활성 자리표시자도 두지 않는다.
+9. **`기록 완성하기`는 기존 저장 경계로 보통 기록 하나를 만든다.**
+
+### 유예 결정
+
+- `DEFERRED_PRODUCT_DECISION: STEP3_RATING`
+- `DEFERRED_PRODUCT_DECISION: STEP3_DIARY_LENGTH_LIMIT`
+- `DEFERRED_PRODUCT_DECISION: RESUMABLE_TEMPORARY_SAVE` (계속)
+- 하이라이트 컨트롤의 보이는 자리 — 유예
+- 사진 분석 · AI 초안 · KBO 추천 · 티켓 OCR의 마법사 안 자리 — 유예
+
+### 사진 파이프라인
+
+새로 만들지 않았다. 기존 `PhotoAttachmentService`와 `RecordEditorPhotoDraft`를
+그대로 쓰고, 지금 편집기에 흩어져 있던 **받아들이는 규칙**만
+`RecordEditorPhotoAttachment` 한 곳으로 모았다 — 최대 열 장, 남은 자리만큼만,
+한 장이 실패해도 나머지는 계속, 취소·실패로는 이미 있던 사진을 지우지 않음.
+지금 편집기도 같은 함수를 부르므로 규칙이 두 벌이 되지 않았다. 값을 받아 값을
+돌려주는 형태라 `@Binding`을 든 화면에서도 `await` 너머로 안전하다.
+
+피커가 들고 있는 `PhotosPickerItem`은 초안에 들어오지 않는다.
+
+### 기분 선택 모델
+
+`RecordCreateStep3View.moodSelection(for:)`이 초안 값 하나에서 선택을 정한다.
+다섯 중 하나면 그 칩이 선택되고, 아니면 **아무 칩도 선택되지 않되 값은 지워지지
+않는다**. 지금 편집기와 스테이징 흐름이 미리 넣는 기본 기분(`짜릿함`·`설렘`)은
+다섯에 없으므로, 새 기록에서는 어떤 칩도 미리 선택돼 보이지 않는다 — 사용자가
+고르지 않은 기분이 골라진 것처럼 보이지 않는다는 뜻이다. 그 기본값 자체는 기존
+제품 동작이라 이 패스에서 바꾸지 않았다.
+
+### 의도한 차이 (z0G0P 대비)
+
+- **별점 블록과 글자 수를 뺐다.** 자리표시자도 두지 않았다.
+- **액션을 아래에 고정했다.** 2단계와 같은 이유다.
+- **검증용 경계를 걷어냈다.** `.memory`가 실제 화면이 되어 "아직 만들지 않았어요"
+  자리가 사라졌다.
+- **1단계가 안내를 띄운 채 열릴 수 있다.** 완성이 1단계에서 막혀 되돌아온 경우에만
+  그렇다(`showsValidationOnAppear`).
+- **`incompleteAtMemory` 픽스처.** 제품 흐름에서는 1단계의 `다음`이 막혀 3단계에
+  빈 1단계로 닿을 수 없다. 완성 버튼의 방어 검증을 눈으로 확인하려고 시작 위치만
+  옮겨 주는 DEBUG 픽스처를 두었다.
+- **사진 픽스처.** 시뮬레이터 사진 피커는 자동화가 불안정하다. 사진 상태만 피커를
+  거치지 않고 심되, **실제 사진 서비스로 진짜 파일을 만들어** 넣는다.
+
+### 측정으로 확인한 사실
+
+- `짧은 일기`(13바이트)와 `사진 추가`(13바이트)는 Swift 작은 문자열이라 Release
+  바이너리에서 grep으로 찾을 수 없다. 같은 화면의 긴 문구(일기 자리표시자·권한
+  안내)로 확인해야 한다.
+- `@Binding`을 든 화면에서는 `inout`을 `await` 너머로 넘길 수 없다. 사진 규칙을
+  값-in/값-out 형태로 만든 이유다.
+
+---
+
+## 개정 Pencil — Record Create 세 단계 제품 통합
+
+세 단계 흐름이 **사용자에게 열렸다.** 이 항목이 그 경계를 기록한다.
+
+### 최종 경로 계약
+
+| # | 경로 | 화면 | 여는 것 | 시작 컨텍스트 |
+|---|------|------|---------|---------------|
+| 1 | 홈 표준 생성 | `HomeView` | `RecordCreateFlowView` | `.home()` |
+| 2 | 기록(피드) 생성 | `FeedView` | `RecordCreateFlowView` | `.feed()` |
+| 3 | 캘린더 생성 | `AttendanceCalendarView` | `RecordCreateFlowView` | `.calendar(date:)` |
+| 4 | 구장 통계 빈 상태 | `StadiumStatsView` | `RecordCreateFlowView` | `.statisticsStadium()` |
+| 5 | 상대팀 통계 빈 상태 | `OpponentStatsView` | `RecordCreateFlowView` | `.statisticsOpponent()` |
+| 6 | 홈 AI 사전 점검 수정 | `HomeView` | `LogEditorView` | `editingLog:` |
+| 7 | 기록 상세 수정 | `AttendancePostDetailView` | `LogEditorView` | `editingLog:` |
+
+죽은 경로는 없다. 그 밖의 제품 편집기 목적지도 없다. 검증용 스테이징 호스트는
+`#if DEBUG` 픽스처 뒤에만 있고 여덟 번째 사용자 경로가 아니다.
+
+### 하나뿐인 시작 컨텍스트
+
+`RecordCreateLaunchContext`가 다섯 경로의 유일한 입구다. 만드는 것은 정본
+`RecordEditorDraft` 하나뿐이고, 두 번째 초안도 DTO도 없다. 지어내는 값이 하나도
+없다 — 상대팀·구장·결과·점수·좌석·동행·사진·일기 어느 것도 미리 채우지 않는다.
+캘린더가 정해 준 날짜만 그대로 실려 간다. 만드는 것으로는 아무것도 저장되지 않고,
+Release에 DEBUG 전용 값이 남지 않는다.
+
+응원팀만은 컨텍스트가 아니라 화면의 `onAppear`가 채운다. 사용자 설정은 화면이
+떠야 읽을 수 있고, 그 규칙은 지금 편집기가 이미 하던 것과 같다.
+
+캘린더는 `Date?` + `Bool` 두 값을 하나의 경로 값(`CalendarCreateRoute`)으로 합쳤다.
+날짜 없이 열릴 수 있는 상태 자체를 타입에서 없앤다.
+
+### 숨은 기본 기분 교정
+
+새 기록의 기분은 **비어 있다**(`RecordCreateFlowView.newRecordMoodTag == ""`).
+
+예전 값 `설렘`은 3단계가 그린 다섯 선택지 어디에도 없었다. 화면에는 아무것도
+선택되지 않은 것으로 보이는데 저장에는 그 값이 실려 나갔다 — 사용자가 고르지 않은
+사실이 조용히 기록되는 셈이다.
+
+- 새로 만들기 → 빈 기분, 아무 칩도 선택돼 보이지 않는다
+- 3단계에서 고름 → 앞 값을 대신하고 저장 태그의 첫 자리가 된다
+- 보조 기능(경기 정보·사진 분석)이 넣음 → 그대로 실려 간다
+- 수정하기 → 기존 기분 그대로, 모르는 값도 보존
+- 취소 → 아무것도 저장되지 않는다
+
+`RecordEditorDraft.saveTags`는 이제 빈 태그를 빼고 남긴다. 값이 있는 태그의
+순서와 뜻은 하나도 바뀌지 않는다. 도메인의 뜻을 넓히지 않았다 — 하이라이트 기본
+태그(`직관`)는 이번 패스의 범위가 아니어서 그대로 두었다.
+
+### 생성 보조 기능 파리티
+
+지금 편집기가 이미 가진 네 가지를 흐름에서도 쓸 수 있다. 새 기능도, 새 서비스도,
+새 제공자도, 새 키도 만들지 않았다.
+
+| 기능 | 자리 | 서비스 | 매핑 |
+|------|------|--------|------|
+| 티켓에서 불러오기 | 1단계 `기록 도우미` | `TicketOCRView` | `RecordEditorAssistance.applyTicketSuggestion` |
+| 경기 자동 찾기 | 1단계 `기록 도우미` | `appData.fetchKBOGameCandidates` | `RecordEditorAssistance.applyKBOGameCandidate` |
+| 사진 분석 | 3단계 사진 영역 | `appData.analyzePhotos` | `RecordEditorAssistance.applyPhotoAnalysis` |
+| AI 초안 | 3단계 일기 옆 | `appData.createDiaryDraft` | `RecordEditorAssistance.makeDiaryDraftRequest` |
+
+매핑은 `RecordEditorAssistance` **한 곳**에 있고 지금 편집기도 같은 곳을 부른다.
+어휘 목록도 하나다. 어떤 보조 동작도 스스로 저장하지 않으며, 실패하면 초안과
+사진이 그대로 남는다. 사전 고지·출처 고지·덮어쓰기 확인은 지금 규칙 그대로다.
+
+의도한 차이 하나: 지금 편집기는 날짜가 바뀔 때마다 스스로 경기를 조회하지만,
+흐름에서는 **사용자가 눌렀을 때만** 조회한다. 1단계가 authored 본문이고 도우미는
+부차적인 영역이므로, 화면을 여는 것만으로 네트워크를 부르지 않는다.
+
+3단계의 다섯 가지 기분과 보조 기능의 여섯 가지 어휘는 여전히 다른 목록이다.
+억지로 합치면 지금까지 저장해 온 값의 뜻이 바뀐다. 서로 모르는 값은 지우지 않고
+그대로 보존한다.
+
+### 의도한 차이 (제품 통합)
+
+- **도우미는 1단계 본문 아래.** 티켓 OCR이 채우는 값이 위에 있지만, authored
+  본문이 먼저 읽히도록 도움은 아래에 부차적으로 둔다.
+- **경기 후보는 언제나 선택 시트.** 지금 편집기는 한 건이면 인라인 카드를 그리지만,
+  좁은 1단계에서는 같은 시트로 모아 두는 편이 짧고 일관된다. 시트 자체는 지금
+  쓰던 것 그대로다.
+- **`recordCreate.origin.*` 표식.** 어느 경로에서 열렸는지 UI 테스트와 캡처가
+  확인할 수 있게 읽히지 않는 1×1 표식을 둔다. 저장되지 않고 읽히지 않는다.
+- **`-VFUITestRecordCreateInitialStep`.** 1단계가 빈 채로 마지막 단계에 서 있는
+  상태는 제품 흐름으로 만들 수 없다. 그래도 완성 버튼은 스스로 막아야 하므로,
+  **제품 진입 경로 위에서** 그 방어를 확인할 수 있게 시작 위치만 옮기는 DEBUG
+  인자를 두었다. 화면 루트를 바꾸지 않으므로 진입은 여전히 실제 경로다.
+
+---
+
+# Profile / My — authoritative frame audit and product-decision matrix
+
+## Pencil source proof
+
+`/Users/hwangseokbeom/Documents/VictoryFairy.pen`, 1,882,899 bytes, SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`. Both match
+the expected revision exactly.
+
+The Pencil MCP server could not be pointed at this document. Its active canvas is
+`/Users/hwangseokbeom/Documents/InhouseMaker.pen`, and passing `filePath` to
+`execute` returned that same document's node inventory — Riot account, group
+main, match lobby, team balance and recruit board frames — so document switching
+is not provable through MCP. The `.pen` file is plain UTF-8 JSON at document
+version 2.14, so it was read directly as its JSON source. Identity was confirmed
+from the node inventory itself, which contains the VictoryFairy screen set. The
+file was not modified.
+
+## Authoritative frame
+
+`08_Profile_Settings`, node ID `NffPV`, is the only Profile / My frame in the
+document. A whole-document search for names or labels matching `profile`, `my` or
+`마이` returns exactly three nodes: this frame, its content frame `jgAm6` named
+`마이 콘텐츠`, and the tab-bar instance `k1qxqC` named `탭 마이` inside
+`03_Shared_Components_Core`. There is no competing candidate, so the canonical
+frame is unambiguous and no frame ambiguity blocker applies.
+
+The frame is 393pt wide with height driven by its vertical layout, filled with
+`$paper`, and clipped. Its three direct children are a status-bar instance
+(`lICXi` referencing `RZ9Sw`), the content frame `jgAm6`, and the tab area
+`bb7af` holding the tab-bar instance `bVAjx` referencing `uZf8a`. The frame
+authors no navigation header and no screen title text.
+
+The content frame authors, in order: a profile card `jQqEq`; a `응원 설정` group
+`i5UZV`; a `나의 데이터` group `M56gL3`; an `앱 정보` group `gnFL0`; and a
+`로그아웃` text `Rc02d`.
+
+The profile card contains an avatar frame `i5Jxs` holding `IuiHx`, an instance of
+`KIgZo` named `Fairy48_Victory`; a nickname text `JV4EI` reading `승리요정 민지`; a
+meta text `Uajpt` reading `삼성 라이온즈와 함께한 세 번째 시즌`; a team chip `kbsCJ`
+holding a team badge and the text `삼성 라이온즈`; and a `pencil-line` edit icon
+`w3aKx`.
+
+The `응원 설정` group authors three rows, each with a leading icon, a label, a
+value and a `chevron-right`: `응원 팀 변경` valued `삼성 라이온즈`, `경기 시작 알림`
+valued `켜짐`, and `직관 후 기록 리마인드` valued `경기 다음 날 오전`. The
+`나의 데이터` group authors `기록 내보내기 · 백업` with a chevron and no value, and
+`사진 보관함 관리` valued `128장` with a chevron. The `앱 정보` group authors
+`개인정보 처리방침` and `이용약관`, each with a chevron, and `앱 버전` valued
+`2.0.0` with a chevron.
+
+The frame authors no record-summary or statistics block, no empty state, no
+loading state and no error state, and carries no compact or AccessibilityXXXL
+annotation of its own.
+
+## Current product and code audit
+
+The fifth tab already exists and is already wired. `MainTab.my` in
+`VictoryFairy/AppRootView.swift` carries the title `마이`, the symbol
+`person.crop.circle.fill`, identifiers `tab.my` and `screen.my`, and renders
+`ProfileSettingsView()` inside its own `NavigationStack`. There are exactly five
+tabs and this is the fifth. There is no placeholder Profile root to remove; the
+existing destination is a real 785-line screen that predates the revised frame.
+
+Supporting data that genuinely exists: `UserPreferencesStore.userDisplayName`
+supplies a local display name, `favoriteTeamID` with `favoriteTeam` and
+`favoriteTeamName` supply the favourite team, `AppDataStore.userProfile` supplies
+an optional `UserProfileDTO` loaded from the API, `AppDataStore.legalURL` supplies
+configured terms and privacy destinations, `AppDataStore.feedLogs` is the
+canonical record source already used by Feed and Statistics, and
+`AppDataStore.teamName(id:)` resolves canonical team names. A real profile editor
+and a real team-selection sheet are both already reachable from the existing
+screen, and `BlockedUsersView` exists.
+
+Capabilities that do not exist anywhere in the repository: there is no
+authentication session, no logout boundary and no account-deletion contract; there
+is no notification preference storage and no `UNUserNotificationCenter`
+integration; there is no export or backup capability; and there is no photo
+library management destination. The existing screen currently renders a
+`데이터 내보내기` row valued `추후 제공`, which is a placeholder, and an `앱 정보`
+row hard-coding `승리요정 0.1.0` rather than reading the bundle.
+
+## Product-decision matrix
+
+`SUPPORTED_AND_IMPLEMENT` — the profile identity header, drawing the display name
+from `userDisplayName` with an honest neutral fallback, the favourite-team summary
+from `favoriteTeamName`, and the app version read from the bundle rather than
+hard-coded.
+
+`SUPPORTED_BY_EXISTING_ROUTE` — `개인정보 처리방침` and `이용약관`, both through the
+already configured `AppDataStore.legalURL` destinations.
+
+`READ_ONLY_SUMMARY` — the team chip in the profile card, rendered as summary text
+and team badge with no implied mutation.
+
+`DEFER_TO_TEAM_SELECTOR` — the `응원 팀 변경` row. The dedicated Team Selector pass
+owns this interaction and this pass is explicitly forbidden to begin it, so the
+row is omitted and recorded as `DEFERRED_PRODUCT_DECISION: PROFILE_TEAM_CHANGE_ENTRY`.
+
+`DEFER_NO_PRODUCT_CONTRACT` — `경기 시작 알림` and `직관 후 기록 리마인드`, because no
+notification preference model, storage or scheduling exists; `기록 내보내기 · 백업`,
+because no export capability exists and the current `추후 제공` row is exactly the
+placeholder the decisions forbid; and `사진 보관함 관리` with its authored `128장`,
+because no photo library management destination exists and the count would be a
+fabricated metric.
+
+`OMIT_UNSAFE_OR_FAKE_CONTROL` — `로그아웃`, because the repository contains no
+authentication session or logout boundary and DECISION 7 forbids inventing one for
+a local-only product. Account deletion is not authored in the frame and is not
+introduced; it remains `DEFERRED_PRODUCT_DECISION: ACCOUNT_DELETION`.
+
+The authored frame contains no record-summary block, so DECISION 5 has nothing to
+implement in this pass; no metrics are invented to fill the space.
+
+---
+
+# Team Selector — frame inventory and product audit
+
+## Pencil source proof
+
+`/Users/hwangseokbeom/Documents/VictoryFairy.pen`, 1,882,899 bytes, SHA-256
+`8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`, both matching.
+The MCP server remains attached to `InhouseMaker.pen`, so the file was read directly
+as UTF-8 JSON and no live VictoryFairy MCP inspection is claimed. Neither `.pen`
+file was modified.
+
+## Frame inventory
+
+A whole-document search for team-selection frames returns three 393pt candidates
+and one component.
+
+`08_TeamSelector`, node `btIPs`, 393pt wide, `$paper`, clipped, vertical layout. Its
+content frame is named `온보딩 콘텐츠` and its header `온보딩 헤더`, titled
+`어느 팀의 승리요정인가요?` with the subtitle
+`홈 화면과 기록이 우리 팀 중심으로 채워져요`. It authors a selected-team preview
+(`선택 팀 프리뷰`) carrying a Fairy reference, the team name, the home stadium
+`대구 삼성라이온즈파크` and a `circle-check` icon; a five-row two-column team grid
+(`팀 그리드`, node `tPDv7`) of all ten KBO teams, each a badge reference plus text,
+with a `check` icon on the selected `삼성 라이온즈`; and a bottom action
+(`하단 액션`) holding a `시작 버튼` reference and the text `아직 못 정했어요`. It
+carries no prototype link and no metadata.
+
+`Onboarding_03_SelectTeam_Default`, node `y4uh3`, and
+`Onboarding_03_SelectTeam_Selected`, node `dNKwc`, both 393pt, live inside
+`04_Onboarding` in the `온보딩 2열` column and each contain their own `팀 그리드`
+(nodes `S3vtU` and `Q63XXq`).
+
+`OnboardingTeamCard`, node `t0KQZV`, 166pt, is the shared team-option component.
+
+## Which frame is authoritative
+
+The developer-handoff board resolves onboarding ownership explicitly. Node `IJXOi`
+records the route mapping `/onboarding/welcome → Onboarding_01_Welcome (step 1/5)`,
+`/onboarding/overview → 02_AppOverview (2/5)` and
+`/onboarding/team → 03_SelectTeam_* (3/5, 필수)`.
+
+So the canonical onboarding team step is `Onboarding_03_SelectTeam_Default` and
+`Onboarding_03_SelectTeam_Selected`. `08_TeamSelector` carries onboarding chrome —
+an onboarding header, a start button and an "아직 못 정했어요" escape — but has no
+route mapping and no prototype link, so it is an unrouted variant of the same
+onboarding step rather than a second production destination.
+
+**No Pencil frame authors the Profile team-change sheet.** `08_Profile_Settings`
+authors the `응원 팀 변경` row with a chevron, but its destination is not drawn
+anywhere in the document.
+
+## Current production contract
+
+`TeamSelectionView` lives at `VictoryFairy/Features/Onboarding/TeamSelectionView.swift`,
+159 lines, and is a **shared** component with exactly two production consumers:
+onboarding, and `ProfileSettingsView` at line 58.
+
+Its parameters are `selectedTeamID` as a binding, `teams` defaulting to
+`KBOSeed.teams`, plus `title`, `subtitle`, `footnote` and `showsNeutralOption`
+defaults. Profile passes only `selectedTeamID` and `teams: appData.teams`, so the
+Profile sheet inherits every onboarding default.
+
+## Ownership matrix
+
+`appData.teams` — CANONICAL_SOURCE. Profile passes it explicitly; the
+`KBOSeed.teams` parameter default is a fallback used by previews.
+
+`favoriteTeamID` on `UserPreferencesStore` — CANONICAL_SOURCE for selected identity,
+a stable team ID rather than a name or index.
+
+`appData.updateFavoriteTeam(_:)` — CANONICAL_MUTATION_OWNER.
+
+`favoriteTeam`, `favoriteTeamName`, `teamName(id:)` — READ_ONLY_DERIVED_STATE, all
+resolving through the canonical ID.
+
+`TeamSelectionView` — PRESENTATION_ONLY, shared by two routes.
+
+`OnboardingTeamCard` (Pencil) — PRESENTATION_ONLY component reference.
+
+`08_TeamSelector` (Pencil) — LEGACY_DUPLICATE of the routed onboarding step, by
+absence of route mapping.
+
+Profile team chip and `profile.team` — READ_ONLY_DERIVED_STATE.
+
+The Profile team-change sheet's own chrome — title `응원팀 변경`, the `완료`
+completion action — UNKNOWN_REQUIRES_DECISION, because no frame authors it.
+
+## Findings that need a human product decision
+
+The shared view's default copy is onboarding-specific and currently leaks into the
+Profile sheet. Its default subtitle reads `선택한 팀 컬러가 앱 테마에 반영돼요.`,
+which references the team-colour theme the completed `NffPV` Profile layout
+deliberately removed, and its default footnote reads
+`나중에 설정에서 변경할 수 있어요.`, which is wrong when the user is already in
+settings changing the team.
+
+`showsNeutralOption` defaults to `true`, so the Profile sheet renders a
+`선택 안 함` card that sets `selectedTeamID = nil`. Clearing the favourite team from
+Profile drives `onboardingEntry` to `.repairTeam`, which is the onboarding repair
+path. Whether Profile should be able to clear the team at all is a product question,
+and the existing behaviour was not changed in this pass.
+
+Aligning the shared view to `Onboarding_03_SelectTeam_*` would change how onboarding
+looks, because the same view renders both routes. Whether the Profile sheet should
+adopt the onboarding visual, receive its own authored frame, or diverge through
+parameters is not answerable from the document.
+
+`08_TeamSelector` authors a selected-team preview with a Fairy, the home stadium and
+a start button. None of that belongs in a Profile change sheet, and the home-stadium
+line in particular is onboarding context.
+
+## Correction — TeamSelectionView is not shared
+
+The audit above stated that `TeamSelectionView` is shared by onboarding and Profile.
+That is wrong, and the correction matters because the approved product decisions
+were written on that premise.
+
+`TeamSelectionView` has exactly one production consumer: `ProfileSettingsView`
+line 58. Onboarding does not use it. The onboarding team step is
+`OnboardingTeamStepView` in `VictoryFairy/Features/Onboarding/OnboardingView.swift`
+line 184, documented as Pencil `Onboarding_03_SelectTeam`, with its own
+`OnboardingTeamCard` at line 219 and its own `LazyVGrid`. It reads
+`viewModel.selectedTeamID` and calls `viewModel.selectTeam(_:)`, has its own
+`onboarding.team.next` primary action and its own step identifier.
+
+`TeamSelectionView` merely lives in the `Features/Onboarding` folder and carries
+onboarding-flavoured default copy. Nothing else consumes it.
+
+What this changes. Changing `TeamSelectionView` cannot affect onboarding, so the
+concern that aligning it would alter a closed flow does not apply. There is no
+`.onboarding` consumer to pass a route context to. Making Profile-appropriate values
+the view's own configuration is sufficient, and a two-case context enum would leave
+its onboarding case without a production caller.
+
+What this does not change. Both defects the audit found are real and still present.
+Profile renders the onboarding-flavoured defaults, including the subtitle
+`선택한 팀 컬러가 앱 테마에 반영돼요.` referencing the removed team theme and the
+footnote `나중에 설정에서 변경할 수 있어요.` shown while the user is in settings
+changing the team. The neutral `선택 안 함` card is rendered in Profile and sets
+`selectedTeamID = nil`, and the Profile binding writes straight through
+`appData.updateFavoriteTeam(_:)`, so tapping it clears the favourite team
+immediately with no draft and no confirmation, driving `onboardingEntry` to
+`.repairTeam`.
+
+The approved Profile-mode specification — `응원 팀 변경` title, `취소` and `완료`
+actions, no onboarding copy, no neutral option, draft-then-commit — remains correct
+and is now simpler to implement safely.
+
+---
+
+# 09_States — stadium sheet and share-card product/frame audit
+
+## Audit status and boundary
+
+`PARTIAL_WITH_EXPLICIT_PRODUCT_DECISIONS`. This is an audit-only handoff. No
+production source, test source, persistence schema, API contract, backend contract,
+closed Record Create flow, closed Profile / My flow or closed Team Selector flow was
+changed. Dark appearance and distribution signing are outside this pass.
+
+The two target visuals are uniquely findable, but neither has a provable destination
+route or a complete interaction/output contract. They are therefore visual references,
+not implementation authority:
+
+- `구장 바텀시트` / `Hmdjx` / `VISUAL_REFERENCE_ONLY`
+- `추억 카드` / `jYs0S` / `VISUAL_REFERENCE_ONLY`
+
+Implementation is **NOT AUTHORIZED — AUDIT STOP** until the product decisions at the
+end of this section are resolved.
+
+## Pencil source proof
+
+Source: `/Users/hwangseokbeom/Documents/VictoryFairy.pen`, 1,882,899 bytes,
+SHA-256 `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`.
+Both values match the expected handoff fingerprint. The file is UTF-8 JSON at
+document version 2.14. It was read directly and was not modified. No live VictoryFairy
+MCP canvas identity is claimed.
+
+The document has 27 top-level frames and 58 variables. `09_States` is top-level node
+`Pq7x6`, filled with `$paper`, with intrinsic dimensions, 40pt padding, 36pt column
+gaps and three 340pt columns: `열 A` / `YZivV`, `열 B` / `g5vcp`, and `열 C` /
+`bhgyc`.
+
+## Complete 09_States inventory
+
+Column A contains, in order:
+
+| Caption | Surface | Authored content and references |
+|---|---|---|
+| `vW98u` 빈 상태 · 기록 없음 | `LoJHq` 빈 기록 | `k6E0mo -> P6mBCr` empty-record Fairy, title `아직 직관 기록이 없어요`, explanatory copy, CTA `첫 기록 남기기` |
+| `F0Mwd` 빈 상태 · 시즌 전 | `nYQi6` 빈 시즌 | `qjpbO -> Xf5w2` empty-season Fairy, title and explanatory copy, `2025 시즌 돌아보기` |
+| `nZaGd` 검색 결과 없음 | `fsNEs` 검색 없음 | Lucide `search` / `vCfbZ`, title `찾는 기록이 없어요`, supporting copy |
+| `T4bWw0` 로딩 | `rmqBU` 로딩 | Lucide `loader-circle` / `OE2IE`, three 7pt dots, `경기 정보를 불러오는 중이에요` |
+
+Column B contains, in order:
+
+| Caption | Surface | Authored content and references |
+|---|---|---|
+| `WM2Xx` 오류 | `uVVf0` 오류 | `r7Eyoc -> mc6nq` error Fairy, title `잠시 우천 중단이에요`, network copy, `다시 시도` |
+| `rxtjp` 입력 오류 | `BgGED` 입력 오류 필드 | `스코어`, a 50pt error box, error icon and explanatory error copy |
+| `LzX7a` 저장 확인 다이얼로그 | `Us205` 삭제 다이얼로그 | delete title/body, `남겨둘래요` and `삭제하기` 46pt actions |
+| `c3nQM3` 토스트 | `v4x6JB`, `yBWJe` | two references to toast component `IzDFr` |
+
+Column C contains exactly four direct children:
+
+| Node | Kind | Contents |
+|---|---|---|
+| `wQHJ7` | caption | `바텀시트 · 구장 선택` |
+| `Hmdjx` | target frame | stadium selection sheet visual |
+| `T780C` | caption | `추억 공유 카드` |
+| `jYs0S` | target frame | single-record memory-card visual |
+
+There is one target frame for each surface and no target variant, compact variant,
+dark variant, state relationship, duplicated target or legacy target elsewhere in
+`09_States`. There are also no node-level prototype, interaction, action,
+destination, transition, route or navigation properties anywhere in the Pencil JSON.
+All twelve `link` properties in the complete document are Unsplash author metadata,
+not prototype links.
+
+## Stadium-sheet frame inventory
+
+`Hmdjx` is `fill_container` inside the 340pt Column C. It has intrinsic height,
+`clip: true`, vertical layout, 4pt gap, padding `[10, 0, 24, 0]`, `$surface` fill,
+24pt corners, 1.3pt `$line-ink` stroke, and an outer shadow at y -6 with 24pt blur.
+Its direct children are:
+
+1. `Jm7VR` grabber area, containing the 40×5 `$line` grabber `c4f9UK`.
+2. `QEJel` title row, containing `JncK5`, `구장을 선택해 주세요`, `$font-ui`
+   17/700.
+3. `L621VO`, a 56pt transparent row for `잠실야구장`, with plate reference
+   `iENBT -> eAL5Z`, `$font-ui` 14/500 name, and `$font-ui` 11 metadata
+   `서울 · LG, 두산`.
+4. `CIGtS`, a 56pt selected `$butter-pale` row for `라이온즈파크`, with plate
+   reference `WvtYV -> eAL5Z`, 14/700 name, metadata `대구 · 삼성`, and Lucide
+   `check` / `Nnh7G`, 17pt, `$coral-deep`.
+5. `dDfoz`, a 56pt transparent row for `챔피언스필드`, plate
+   `w6l2lp -> eAL5Z`, metadata `광주 · KIA`.
+6. `qNEPw`, a 56pt transparent row for `사직야구장`, plate
+   `E7akm -> eAL5Z`, metadata `부산 · 롯데`.
+
+The frame authors no close button, cancel button, done button, row button type,
+mutation action, address, map action, statistics, visit count, result record, win
+rate, season scope, empty catalog, invalid selection, error state, scroll container,
+sheet detent or Fairy. The selection title plus highlighted/checkmarked row visually
+imply selection, but the JSON authors no actionable row or commit/dismiss behavior.
+
+## Share-card frame inventory
+
+`jYs0S` is 300pt wide with intrinsic height, vertical layout, 12pt gap, padding
+`[14, 14, 18, 14]`, `#FFFDF8` fill, 14pt corners, 1.2pt `$line` stroke, and an
+outer shadow at y 8 with 20pt blur. It contains:
+
+1. `R8PGT`, a 272×250 effective media region. `fxr58` is a 272×250 fill image
+   sourced from Unsplash, with author metadata for Alejandra Ochoa. It is sample
+   design media, not production data.
+2. `MUZ8V -> aYRjf`, the result-stamp reference, positioned at x 216 / y 194 over
+   the photo.
+3. `YDdJU` card information. `S9gAst` reads `삼성 6 : 3 LG` in `$font-ui`
+   16/700; `GAkQ4` reads `2026. 4. 12 · 잠실야구장` in `$font-ui` 11; and
+   `TGI2P` reads `승리요정` in `$font-hand` 16 with `$coral-deep`.
+
+The card authors no surrounding preview screen, navigation or modal chrome, share
+button, save button, close button, style selector, user identity, team badge, Fairy,
+seat, companion, diary, weather, season statistic, win rate, QR/deep link, social
+destination, privacy control, no-photo state, unavailable-photo state, export size,
+fixed height or aspect-ratio annotation. The `승리요정` wordmark is authored brand
+text; it is not a Fairy component.
+
+## Prototype and route ownership
+
+| Candidate relationship | Evidence | Classification |
+|---|---|---|
+| Record Create Step 1 `구장 필드` / `eCkfl` | A `w93QEM` form-field reference whose displayed sample is `대구 삼성라이온즈파크`; no link to `Hmdjx` | `UNKNOWN_REQUIRES_DECISION`; strongest visual origin candidate, not proof |
+| Onboarding stadium selection | Handoff `IJXOi` explicitly maps `/onboarding/stadium -> 04_SelectStadium_*`; Pencil supplies full-screen Default, TeamContext and Selected variants | `AUTHORITATIVE_HANDOFF_ROUTE` for onboarding, and evidence that onboarding already owns a different full-screen selector |
+| Profile / My | `08_Profile_Settings` authors no stadium row or destination | `UNAUTHORED` |
+| Statistics stadium highlight | `가장 많이 간 구장` leads in code to the existing `StadiumStatsView`, but Pencil has no link to `Hmdjx` and `Hmdjx` contains no statistics | `VISUAL_REFERENCE_ONLY` as a separate existing capability, not a sheet origin |
+| Record Detail stadium | Pencil and code render one record's read-only stadium hero, with no selector control | `VISUAL_REFERENCE_ONLY`, not a sheet origin |
+| `Hmdjx` itself | No origin, destination, return route or action metadata | `UNROUTED_STATE` |
+| Record Detail share controls | `TH1qS` authors a top-bar `share` icon and `W1djOo` authors `추억 카드로 공유하기`; neither links to `jYs0S` | `UNKNOWN_REQUIRES_DECISION` |
+| Statistics share control | `HqXFi` authors `시즌 리포트 만들기`; it does not link to `jYs0S` | `UNKNOWN_REQUIRES_DECISION` |
+| Feed share | Production code opens `ShareCardPreviewView(log:)`, but Pencil `05_Feed_RecordList` authors no share control | `PRESENTATION_ONLY` current code capability, not Pencil route authority |
+| `jYs0S` itself | No origin, destination, return route or action metadata | `UNROUTED_STATE` |
+
+Therefore `STADIUM_ORIGIN` and `SHARE_ORIGIN` are both `UNPROVEN`.
+
+## Current stadium capability and ownership matrix
+
+| Symbol / surface | Classification | Proven contract |
+|---|---|---|
+| `KBOStadiumSeed.all` | `CANONICAL_DATA_SOURCE` | Nine stable stadium IDs, canonical names, short names and home-team IDs; city derives from the home team seed |
+| `KBOSeed.teams` | `CANONICAL_DATA_SOURCE` | Team ID, full/short name, city and canonical home-stadium name |
+| `KBOSeed.stadiums` | `PRESENTATION_ONLY` duplicate catalog | A separate active nine-string Record Create catalog with no stable ID; three spellings differ from `KBOStadiumSeed.all` (`수원`, `광주`, `창원`) |
+| `RecordEditorDraft.stadiumName` | `CANONICAL_ACTION_OWNER` within Record Create draft | The closed Record Create flow stores the selected display string and commits only through its existing save owner |
+| `RecordCreateStep1View.stadiumField` | `PRESENTATION_ONLY` plus draft mutation | A SwiftUI `Menu`; selection immediately assigns `draft.stadiumName`; label, value and `recordCreate.field.stadium` semantics exist |
+| `OnboardingViewModel.selectedStadiumID` / `selectStadium` | `CANONICAL_DERIVED_STATE` and onboarding draft owner | Stable-ID selection; separate full-screen card UI; commit occurs through the existing onboarding completion owner |
+| `UserPreferencesStore.primaryStadiumID` | `CANONICAL_DATA_SOURCE` | Stable primary-stadium identity; invalid stored IDs are rejected or repaired |
+| `UserPreferencesStore.setPrimaryStadium` / `AppDataStore.updatePrimaryStadium` | `CANONICAL_ACTION_OWNER` | Existing mutation boundary, but no current Profile stadium-change UI and no Pencil route to the target sheet |
+| `RecordDetailStadium` / `RecordDetailService` | `CANONICAL_DERIVED_STATE` | Preserves the record's stadium and derives only known city/home-team metadata; never substitutes the primary stadium |
+| `StatisticsService.stadiumStats` and `SeasonStadiumVisit` | `CANONICAL_DERIVED_STATE` | Real selected-season attendance logs derive visits, W/L/D/canceled, rate and latest visit; these fields are not present in `Hmdjx` |
+| `StadiumStatsView` | `PRESENTATION_ONLY` | Existing navigated full-screen sorted statistics with honest empty state; not a bottom sheet |
+| `VFStadiumGlyph`, `VFStadiumBadge`, `VFStadiumHero` | `REUSABLE_COMPONENT` | Existing visual components; `Hmdjx` instead authors the neutral plate reference `eAL5Z` |
+| Stadium bottom-sheet implementation | `UNSUPPORTED` | No production `StadiumSheet`, sheet route, detent, selection commit or dismissal contract exists |
+
+The spelling split is not cosmetic. Record Detail and season statistics resolve a
+stable stadium ID only by exact equality with `KBOStadiumSeed.all.name`; records
+created from the three differing `KBOSeed.stadiums` strings can remain honest display
+values but resolve as unknown canonical stadiums. This audit does not repair that
+closed Record Create contract.
+
+## Stadium data ownership
+
+| Pencil value | Classification | Production owner / limitation |
+|---|---|---|
+| Sheet title | `STATIC_DESIGN_COPY` | Pencil literal |
+| Four row names | `DERIVED_FROM_KBO_SEED` when normalized | All four map conceptually to canonical stadiums, but two Pencil labels are shortened display forms; never store the sample labels as IDs |
+| City | `DERIVED_FROM_KBO_SEED` | `KBOStadium.city` |
+| Home-team short labels | `DERIVED_FROM_KBO_SEED` | `homeTeamIDs` plus canonical team short names |
+| Plate icon | `STATIC_DESIGN_COPY` | Pencil component `eAL5Z`; no data |
+| Selected highlight/check | `REQUIRES_PRODUCT_DECISION` | Owner depends on the chosen origin: Record Create draft, onboarding draft, or primary-stadium preference are different states |
+| Row subset/order | `FABRICATED_IN_PENCIL` as a production catalog | Pencil shows 4 of 9 with no filtering rule; production must not silently omit the other five |
+| Address, coordinates, venue image | `UNAVAILABLE` | Not authored and not present in `KBOStadium` |
+| Visits, W/L/D, rate, latest visit | `DERIVED_FROM_STATISTICS` but not authored here | Available for a selected-season statistics surface only; adding them to this selector would change the product contract |
+
+## Current share capability and ownership matrix
+
+| Symbol / surface | Classification | Proven contract |
+|---|---|---|
+| `AttendanceLogViewState` | `CANONICAL_DATA_SOURCE` for a record presentation | Date, matchup, record stadium, result, two scores, seat, companion, memo/diary/tags and local photo references |
+| `RecordDetailPresentation` / `RecordDetailService` | `CANONICAL_DERIVED_STATE` | Canonical team/stadium resolution, honest absent-score/media states and stored-record-only detail |
+| `SeasonArchivePresentation` | `CANONICAL_DERIVED_STATE` | Selected-season totals, rate, trend and venue visits; it is not an attendance record |
+| `ShareCardPreviewView` | `PRESENTATION_ONLY` plus current action owner | One screen offering score/diary/win-rate styles, Photos save, native system share and close |
+| `DiaryShareCardCanvas` | `REUSABLE_COMPONENT` | Existing 1080×1920 fixed canvas; visually unrelated to the 300pt Pencil card and contains extra memo/metrics/English branding |
+| `ImageRenderer` in `renderCard()` | `CANONICAL_ACTION_OWNER` for current rendering | Produces an in-memory `UIImage` from an explicit 1080×1920 frame at scale 1; no temporary file |
+| `ActivityView` / `UIActivityViewController` | `REUSABLE_COMPONENT` | Native system share sheet; no third-party social SDK or deep link |
+| `PHPhotoLibrary` save path | `CANONICAL_ACTION_OWNER` for current save | Requests add-only access at the explicit save action, with `NSPhotoLibraryAddUsageDescription` already present |
+| Record Detail consumer | `PRESENTATION_ONLY` route | Passes a real record through a `NavigationLink` |
+| Feed consumer | `PRESENTATION_ONLY` route | Passes its visible record through a `NavigationLink`; no corresponding Pencil share control |
+| Statistics consumer | `UNSUPPORTED` production data composition | Passes only `seasonWinRateText`, causing `cardLog` to fall back to `AttendanceLogSample.logs.first` |
+| `AttendanceLogSample` fallback in `cardLog` | `UNSUPPORTED` for production export | Active non-DEBUG sample record data; if unavailable, another fabricated placeholder uses `.now`, fake teams, stadium and copy |
+| Share-focused tests | `UNSUPPORTED` | Only a Record Detail route-reachability UI test exists; no render-value, dimension, no-fixture, Photos/share, cancellation, compact or AccessibilityXXXL contract test exists |
+
+The current implementation proves technical capability, not product authorization.
+In particular, the Statistics route currently mixes a real season rate with a sample
+attendance record. That path must not be treated as canonical evidence for the new
+card and must not be exported as-is.
+
+## Share-card data ownership
+
+| Pencil value | Classification | Production owner / limitation |
+|---|---|---|
+| Unsplash photo | `FABRICATED_IN_PENCIL` | Must never ship as a user's record photo; a record's local `photoLocalRefs` is the only existing owner |
+| Result stamp | `DIRECT_CANONICAL` for one record | `AttendanceLogViewState.result`; canceled and score-missing behavior needs a visual decision |
+| Team names and score | `DIRECT_CANONICAL` for one record | Matchup plus `ourScore` / `opponentScore`; exact home/away display order is not authored as a data rule |
+| Date | `DIRECT_CANONICAL` for one record | `date` / `dateText` |
+| Stadium | `DIRECT_CANONICAL` for one record | Preserve `log.stadium`; never substitute `primaryStadiumID` |
+| `승리요정` wordmark | `STATIC_DESIGN_COPY` | Authored app branding |
+| User/display name | `UNAVAILABLE` in the card | Not authored; existing user identity must not be added without privacy approval |
+| Team badge / Fairy | `UNAVAILABLE` in the card | Not authored; do not add |
+| Seat, companion, diary, weather | `UNAVAILABLE` in the card | Not authored; current canvas's memo/diary is an explicit visual deviation, not authority |
+| Season statistics / win rate | `UNAVAILABLE` in the card | Not authored; current win-rate style cannot be assumed to map to `jYs0S` |
+| QR/deep link | `UNAVAILABLE` | No model, route or authored visual |
+| Share/save actions | `REQUIRES_PRODUCT_DECISION` | Exist in current code but not in or around `jYs0S` |
+| No-photo representation | `REQUIRES_PRODUCT_DECISION` | Pencil authors only the photo-present state |
+
+## Interaction and output contracts
+
+### Stadium
+
+The visual represents a list of stadiums, not one-stadium detail or statistics. The
+title, selected background and check imply a selector. However, every row is a plain
+frame and there is no prototype action, CTA, close control, commit control or mutation
+owner. Under the audit rule, no state mutation is authorized from this visual alone.
+
+Unresolved: exact origin; whether a row tap selects locally or commits immediately;
+whether selection changes a Record Create draft, primary-stadium preference or no
+persistent value; whether dismissal writes nothing; all-nine ordering/filtering;
+empty-catalog and invalid-initial-ID behavior; detent/scroll behavior; and whether the
+same sheet has more than one origin. No statistics scope exists in the frame. If a
+different statistics/detail sheet is desired, its entity and all-time versus selected-
+season scope need a new explicit product decision.
+
+### Share
+
+Pencil authors only an in-card visual. It does not authorize preview-only, native
+share, Photos save, or both. Current code technically implements both native sharing
+and Photos save, but that cannot resolve the Pencil omission, and its Statistics
+consumer proves that the current entity contract is unsafe.
+
+Unresolved: exact origin(s); record versus season entity; whether Record Detail, Feed
+and Statistics share one destination or separate products; whether `jYs0S` replaces,
+supplements or becomes one style of the current three-style canvas; share/save
+authorization; photo consent and no-photo behavior; privacy omissions; deterministic
+export geometry; and whether the 300pt intrinsic-height reference is a preview only or
+an exported artifact. Dark appearance is not separately authored and remains in the
+later project-wide dark pass.
+
+## Fairy governance
+
+Neither target frame contains a Fairy. `Hmdjx` uses plate component `eAL5Z`; `jYs0S`
+uses result stamp `aYRjf` and a text wordmark. None is a Fairy component.
+`FairyPlacementContractTests` authorizes `09_States` Fairies only for empty record,
+empty season and error panels, while `StadiumFairyContractTests` explicitly forbids a
+production Stadium Fairy because Pencil places none on any product screen, including
+`09_States`. No allow-list or density-rule extension is authorized.
+
+## Accessibility contract for an eventual implementation
+
+The stadium sheet needs a semantic container that does not overwrite descendants, a
+heading, an explicitly labelled dismiss path when approved, stable-ID row identifiers,
+full stadium name plus city/home-team label, and selected value/trait communicated by
+text and check as well as color. Every row must remain at least 44pt and expand for
+long names/AccessibilityXXXL. Empty/invalid/error states must state the condition and
+must never expose a raw stadium ID.
+
+The share flow needs an independently queryable preview root, back/dismiss, share and
+save controls only when approved, and a concise card description containing the major
+record/result/date/stadium facts. The bitmap does not need an accessibility tree, but
+the in-app preview and controls do. A root container may use
+`.accessibilityElement(children: .contain)` only if required to preserve descendant
+identifiers; unrelated card facts must not be collapsed into an unreadable sentence.
+
+Current gaps: `ShareCardPreviewView` and `DiaryShareCardCanvas` define no dedicated
+accessibility identifiers or card-summary semantics, and the existing UI coverage only
+proves that Record Detail can reach some screen containing `공유`.
+
+## Responsive contract and provisional capture matrices
+
+The stadium sheet has no detent/scroll rule and its fixed 56pt sample rows do not prove
+long-name or AccessibilityXXXL behavior. An eventual sheet must fit iPhone 17 Pro,
+scroll on `VF-CalendarCompact-SE3`, respect safe areas, expand rows vertically, retain
+all nine canonical options, and handle empty/invalid input without selecting the first
+row. The final capture count is not authorized until origin and behavior are approved.
+A provisional minimum is seven states: primary unselected; primary selected; primary
+all-nine scrolled/long-name; primary empty catalog; primary invalid initial ID; compact
+selected/full catalog; and AccessibilityXXXL long-name/selected semantics.
+
+The current share preview hard-codes a 330×586 preview inside horizontal 20pt padding
+and a 1080×1920 export. That consumes 370pt of the 375pt SE 3 width before any other
+container inset; no compact test proves the remaining margin. It uses fixed typography
+and has no AccessibilityXXXL coverage. Pencil instead
+has 300pt width and intrinsic height, so the existing 9:16 export is an explicit visual
+deviation. A future implementation must scale preview independently from fixed export
+geometry, keep long team/stadium names and scores legible, avoid network-dependent
+media, and handle absent/unreadable photos. The final capture count is deferred. A
+provisional minimum is seven states: primary real record with photo; primary no photo;
+primary unavailable photo; primary long names/two-digit or canceled result; compact
+preview; AccessibilityXXXL controls/card description; and decoded deterministic export
+with the approved dimensions.
+
+Every eventual capture must remain under `/tmp` and record filename, SHA-256,
+dimensions, device, runtime, fixture, route, canonical source state, rendered state and
+result. No captures are produced during this audit stop.
+
+## Product-decision matrix
+
+| Decision | Audit result |
+|---|---|
+| Use `Hmdjx` as a finished production selector | `DEFER_REQUIRES_PRODUCT_DECISION`: layout is clear, origin and mutation contract are not |
+| Treat `Hmdjx` as stadium statistics/detail | `REJECT_UNAUTHORED`: no statistic or one-stadium detail is present |
+| Reuse onboarding selector | `KEEP_CLOSED_SEPARATE_ROUTE`: onboarding has an authoritative full-screen flow and must not be reopened |
+| Change primary stadium from `Hmdjx` | `DEFER_REQUIRES_PRODUCT_DECISION`: mutation owner exists, route does not |
+| Replace Record Create's menu with `Hmdjx` | `DEFER_REQUIRES_PRODUCT_DECISION`: strongest candidate, but no link and a split stadium catalog remain |
+| Use only Pencil's four stadium rows | `REJECT_FABRICATED_SUBSET`: production has nine canonical stadiums |
+| Use `jYs0S` as one-record visual reference | `SUPPORTED_AS_VISUAL_REFERENCE_ONLY` |
+| Use `jYs0S` for the season report | `DEFER_REQUIRES_PRODUCT_DECISION`: its fields depict one record and author no season facts |
+| Preserve current share and Photos actions | `DEFER_REQUIRES_PRODUCT_DECISION`: capability exists, Pencil does not authorize the output |
+| Export current Statistics fallback | `REJECT_FAKE_DATA`: it composes a real season rate with `AttendanceLogSample` |
+| Add identity, diary, stats, Fairy, QR or social SDK | `REJECT_UNAUTHORED` |
+| Start dark appearance or distribution signing | `OUT_OF_SCOPE` |
+
+## Minimum decisions requiring human approval
+
+1. **Stadium origin and owner:** choose the exact opener, with Record Create Step 1
+   `eCkfl` as an unproven candidate, and state whether any other origin may reuse it.
+2. **Stadium list contract:** approve all nine canonical stable IDs, displayed names,
+   ordering/recommendation, and how the current `KBOSeed.stadiums` spelling split is
+   handled without reopening persistence ownership.
+3. **Stadium interaction:** define row-tap behavior, local versus immediate commit,
+   exact mutation owner, cancel/drag dismissal, zero catalog and invalid initial ID.
+   Dismissal must write nothing unless explicitly approved otherwise.
+4. **Share origin and entity:** choose one-record (Record Detail and/or Feed), selected-
+   season report, separate cards for each, or another explicit entity; identify every
+   allowed opener and return behavior.
+5. **Share visual scope:** decide whether `jYs0S` replaces the current 3-style 9:16
+   canvas, becomes one style, or applies only to one-record sharing while season sharing
+   receives a separate authored design.
+6. **Share output:** approve preview-only, native system share, Photos save, or both.
+   Existing technical capability and the existing Info.plist key do not substitute for
+   this decision.
+7. **Share privacy/media:** approve the exact fields, whether a record photo is included,
+   the no-photo/unreadable-photo visual, and confirm that user identity, diary and other
+   absent fields stay omitted unless explicitly added.
+8. **Share artifact geometry:** approve export aspect ratio and pixel dimensions,
+   fixed deterministic layout, long-text/canceled-score rules and network-free media.
+
+Until all eight are resolved, production and test code remain unchanged.
+
+---
+
+# 09_States — stadium sheet and one-record Memory Card implementation closure
+
+The audit above remains the historical proof of what Pencil did and did not author. The
+route, mutation, output and export rules below are explicit product decisions approved
+after that audit; they are not retroactively attributed to Pencil.
+
+## Status and source boundary
+
+- Feature pass: `09_STATES_STADIUM_AND_SHARE_IMPLEMENTED_AND_VERIFIED`
+- Whole project: `PARTIAL_WITH_EXPLICIT_GAPS`
+- Pencil section: `09_States` / `Pq7x6`
+- Stadium visual: `구장 바텀시트` / `Hmdjx` / `VISUAL_REFERENCE_ONLY`
+- Share visual: `추억 카드` / `jYs0S` / `VISUAL_REFERENCE_ONLY`
+- Pencil file was not changed.
+
+## Approved stadium product contract
+
+- The only origin is the Record Create Step 1 stadium field.
+- The sheet presents all nine stable IDs from `KBOStadiumSeed.all`; it never uses the
+  four-row Pencil sample as a production catalog.
+- Canonical full names, short names and the three historical Record Create spellings
+  resolve through aliases. Existing stored records are not migrated.
+- A row tap writes the selected canonical name only to `RecordEditorDraft` and dismisses
+  immediately. It does not change onboarding or the user's primary stadium.
+- Drag/cancel dismissal performs zero writes. Invalid initial values select nothing,
+  and an empty catalog shows an honest empty state.
+- The sheet supports medium/large detents, scrolling, 44pt-or-larger rows, selected
+  trait/value semantics, compact width and AccessibilityXXXL.
+
+Implementation owners:
+
+- `Domain/KBOStadium.swift`
+- `Features/LogEditor/StadiumSelectionSheet.swift`
+- `Features/LogEditor/RecordCreateFlowView.swift`
+- `Features/LogEditor/RecordCreateStep1View.swift`
+
+## Approved share product contract
+
+- `jYs0S` is a one-attendance-record Memory Card only.
+- Record Detail and Feed pass the exact visible `AttendanceLogViewState` record.
+- Statistics remains a separate season-report product and exposes an honest unavailable
+  alert until a season design exists. It never fabricates a record.
+- The card contains only the approved result, matchup/score, date, record stadium,
+  optional first readable local photo and `승리요정` wordmark.
+- No identity, diary, seat, companion, statistics, Fairy, QR, social SDK or network
+  image is added.
+- Canceled games say `경기 취소`; absent scores say `점수 미기록`. Missing and
+  unreadable photos use the same deterministic paper placeholder.
+- Logical geometry is 300×360pt, rendered at scale 4 to exactly 1200×1440 pixels
+  (5:6). Preview scaling is independent from export geometry.
+- The screen provides preview, native `UIActivityViewController` sharing and explicit
+  add-only Photos saving. Dismissing the preview or native share sheet saves nothing.
+
+Implementation owners:
+
+- `Domain/MemoryShareCard.swift`
+- `Features/Share/ShareCardPreviewView.swift`
+- `Features/Feed/FeedViews.swift`
+- `Features/Statistics/StatisticsViews.swift`
+- `Services/PhotoAttachmentService.swift`
+
+## Debug fixtures and Release boundary
+
+`VFStatesFixtures`, `StadiumSheetFixture`, `MemoryShareFixture` and their launch
+arguments exist only under `#if DEBUG`. `scripts/verify_fixture_exclusion.sh` checks the
+real archive executable and uses archive-stable product controls rather than Swift type
+names that whole-module optimization may remove.
+
+The final Release check passed with 98 checks, including 21 positive product controls.
+The explicit Debug-app negative control exited 1 with 75 detections, including nine
+09_States-specific detections. This proves the gate is sensitive in both directions.
+
+## Visual evidence
+
+Exactly 14 authoritative PNG captures live outside the repository at
+`/tmp/VictoryFairy-09-states-captures`. They cover seven stadium states and seven share
+states across iPhone 17 Pro, iPhone SE (3rd generation) and AccessibilityXXXL. The
+manifest is `/tmp/VictoryFairy-09-states-captures/MANIFEST.md`.
+
+Captures 09 and 10 intentionally have the same SHA-256 because no-photo and unreadable-
+photo inputs resolve to the same deterministic fallback for the same visible record.
+The exported image proof decodes at exactly 1200×1440. No PNG, xcresult, DerivedData,
+archive or manifest is committed.
+
+## Verification closure
+
+- Focused unit: 62 executed, 62 passed.
+- New stadium/share Primary UI: 43 executed, 39 passed, 4 compact-only skipped,
+  0 failed.
+- New compact responsive: 6 executed, 6 passed.
+- Final-source complete unit: 899 executed, 899 passed, 0 skipped, 0 failed.
+- Fairy contracts: 100 executed, 100 passed.
+- Complete compact matrix: 188 executed, 188 passed, 0 skipped, 0 failed.
+- Complete Primary UI: 675 executed, 590 passed, 85 skipped, 0 failed.
+- Exact class+method skip pairing: 85 paired, 0 unpaired.
+- Debug Simulator, Release Simulator and XCUITest build-for-testing succeeded.
+- App icon, release readiness, secret scan and `git diff --check` passed.
+- Release archive succeeded; fixture exclusion passed and the Debug negative control
+  failed as expected.
+
+## Remaining scope
+
+There are no remaining `09_States` stadium-sheet or one-record Memory Card gaps. The
+whole project remains partial because the onboarding team-step frame audit, project-wide
+dark appearance, distribution signing and the previously documented deferred product
+and cleanup gaps remain. The next recommended pass is
+`ONBOARDING_TEAM_STEP_VISUAL_AUDIT_AND_VISIBLE_LAYOUT`; it was not started here.
+
+---
+
+# Onboarding team step — visual implementation closure
+
+The earlier Team Selector audit remains the ownership proof. This section closes only the
+routed onboarding team step; it does not reopen the already completed Profile Team Selector.
+
+## Pencil source and authority
+
+- Source: `/Users/hwangseokbeom/Documents/VictoryFairy.pen`, read directly as UTF-8 JSON.
+- SHA-256: `8e055d8abc51d541228c734ce007fe28d3b357cb3f3c691fe32454d7ab3d6db2`.
+- The live Pencil MCP was not attached to this document, so no live MCP inspection is claimed.
+- The Pencil file was not modified.
+- Developer handoff `IJXOi` maps `/onboarding/team` to the required third onboarding step.
+- Canonical 393pt frames: default `Onboarding_03_SelectTeam_Default` / `y4uh3` and selected
+  `Onboarding_03_SelectTeam_Selected` / `dNKwc`.
+- Shared visual component: `OnboardingTeamCard` / `t0KQZV`.
+- Responsive references: `Onboarding_CompactWidth` / `zI606` and
+  `Onboarding_AccessibilityXXXL` / `AA7P3`.
+- `08_TeamSelector` remains an unrouted legacy variant and is not used as the onboarding
+  implementation authority.
+
+## Visible contract
+
+The routed team step now uses the exact authored copy:
+
+- `어느 팀을 응원하시나요?`
+- `선택한 팀을 기준으로 경기와 기록을 먼저 보여드릴게요.`
+- `응원팀은 나중에 설정에서 변경할 수 있어요.`
+- Disabled action: `응원팀을 선택해 주세요`
+- Selected action: `이 팀으로 응원할게요`
+
+It shows the third-of-five progress state with authored dots plus an accessible `3 / 5`
+summary. The visual order is exactly LG/Doosan, Samsung/KIA, SSG/KT, NC/Lotte and
+Kiwoom/Hanwha. No team is preselected; Samsung is only Pencil's selected-state sample.
+Missing authored IDs are omitted only when they are missing from the canonical input, and a
+future canonical team not present in Pencil is appended rather than silently dropped.
+
+Each selected card adds background, border, elevation, a check icon and visible `선택됨`
+text. VoiceOver also receives the team, city, selected value and selected trait. Selection is
+therefore never communicated by color alone. Stable team-ID identifiers remain the automation
+and state boundary.
+
+## Responsive and accessibility contract
+
+Normal and compact widths retain the authored two-column order. The horizontal inset narrows
+only below 341pt so the grid remains usable. Accessibility Dynamic Type switches to the
+authored one-column scrolling layout with the reference sizes: 32pt heading, 20pt subtitle,
+21pt team name, 15pt city/note, 48pt badge, 16pt card padding, 66pt primary action and 21pt
+action label. All ten teams, the note and the action remain reachable.
+
+The selected-state transition now respects Reduce Motion. Decorative progress dots are folded
+into one progress accessibility element instead of being announced separately.
+
+Two deliberate shared-system differences remain:
+
+1. `VFPrimaryButton` keeps the app-wide enabled/disabled palette rather than introducing an
+   onboarding-only dark-label and cream-disabled variant. Its new font and minimum-height
+   parameters preserve every existing call site's defaults.
+2. The primary action remains in the scaffold's safe-area-aware fixed bottom region. The
+   supporting AccessibilityXXXL board places it after the long content, but keeping it fixed
+   avoids making the only progression action disappear deep in the team list.
+
+The selected reference contains a small check-placement inconsistency between frame and
+component authoring. The production card resolves it with one check beside the visible
+`선택됨` text; it does not duplicate checks.
+
+## Product and state boundaries
+
+`KBOSeed.teams` remains the canonical catalog. `OnboardingViewModel.selectedTeamID` and
+`selectTeam(_:)` remain the draft owner and mutation path. A team tap does not persist the
+profile, request permission, select a stadium or silently substitute the team's home stadium.
+Moving forward enters the existing stadium step; moving back retains the team draft. Final
+persistence remains owned by onboarding completion.
+
+No Profile Team Selector route, persistence schema, API/backend contract, notification flow,
+permission flow, dark appearance or distribution signing behavior changed in this pass.
+
+## Visual evidence
+
+Six authoritative PNGs remain outside the repository:
+
+| State | Device/layout | Pixels | SHA-256 |
+| --- | --- | --- | --- |
+| Default | iPhone 17 Pro | 1206×2622 | `c9a17d892b6407b6f5f3d2022fe44e8ae4432807c0e51c6b48fbae3aa4b2ffa3` |
+| Samsung selected | iPhone 17 Pro | 1206×2622 | `c9e2a1d8cb44b6b8259ea26e9b4dddc12b97166d3ec2eee330ab301e2885e134` |
+| Default | iPhone SE (3rd generation) | 750×1334 | `165cb74260d3e8c411f7dd5784f76068a896edcde2e15987ec8aac3fdad6c0e0` |
+| Samsung selected | iPhone SE (3rd generation) | 750×1334 | `9e02a6fd212578df6de8223c69bda658f2448c9cb4ddc4dd2e39b758f0cfa97f` |
+| Default | AccessibilityXXXL | 1206×2622 | `0d0d1794416be83f174aba40889de7a9c5c8c1e6a74c6bf4c1820346191606df` |
+| Samsung selected | AccessibilityXXXL | 1206×2622 | `b8d9b1c342b817f486c473cbe6659e7981f00c3e7a056d6955b676a14917d7d8` |
+
+The captures cover authored default/selected, compact and one-column AccessibilityXXXL states.
+No PNG, xcresult, DerivedData or archive is committed.
+
+## Verification closure
+
+- Correct-scheme pre-change onboarding baseline: 36 executed, 36 passed.
+- Final focused onboarding matrix: 57 executed, 53 passed, 4 expected device-only
+  skips, 0 failed.
+- Focused compact counterpart: 12 executed, 8 passed, 4 expected Primary-only skips,
+  0 failed.
+- AccessibilityXXXL matrix: 4 executed, 4 passed.
+- Architecture and Pencil sample-team boundary checks: 2 executed, 2 passed.
+- Final-source complete unit suite: 902 executed, 902 passed, 0 skipped, 0 failed.
+- Complete Primary UI matrix: 693 executed, 604 passed, 89 compact-only skipped,
+  0 failed.
+- Exact compact counterpart: 89 executed, 89 passed, 0 skipped, 0 failed.
+- Exact class-and-method pairing: all 89 Primary skips were passed on the compact
+  simulator, with 0 unpaired, 0 extra and 0 duplicate test cases.
+- Debug Simulator, Release Simulator and XCUITest build-for-testing succeeded.
+- App icon, release readiness, secret scan, project-file lint and `git diff --check`
+  passed.
+- Unsigned Release archive succeeded. It contains no test bundle; the fixture-exclusion
+  gate passed with 98 checks, including 21 positive controls.
+- The same fixture gate rejected the Debug app as expected with 75 detections, proving
+  that the archive result was not a vacuous pass.
+
+One wrong-scheme zero-test attempt, an earlier complete-unit run with three contract
+assertions and superseded intermediate capture/focused runs are diagnostic only. They
+contribute no accepted count. The assertions were resolved in production source and the
+accepted final-source unit suite is the 902/902 run above.
+
+## Remaining scope
+
+There is no remaining routed onboarding team-step visual, responsive, accessibility,
+state or regression gap in this pass. The whole project remains
+`PARTIAL_WITH_EXPLICIT_GAPS` because project-wide dark appearance, distribution signing
+and the previously documented deferred product and cleanup work remain outside this scope.

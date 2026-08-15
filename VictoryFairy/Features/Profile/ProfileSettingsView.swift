@@ -2,116 +2,41 @@ import PhotosUI
 import SwiftUI
 import UIKit
 
+/// Pencil `08_Profile_Settings`(NffPV)이 그린 **마이** 탭 루트.
+///
+/// 그 프레임이 그린 것 가운데 이 저장소가 실제로 할 수 있는 것만 그린다.
+/// 알림 설정·내보내기·사진 보관함·로그아웃은 뒷받침하는 계약이 아직 없어서
+/// 자리만 남기지 않고 아예 그리지 않는다. 닿는 곳이 없는 행을 그리는 것보다
+/// 짧은 화면이 정직하다.
 struct ProfileSettingsView: View {
     @Environment(\.appTheme) private var theme
     @EnvironmentObject private var preferences: UserPreferencesStore
     @EnvironmentObject private var appData: AppDataStore
-    @Environment(\.dismiss) private var dismiss
     @State private var isShowingTeamSelection = false
     @State private var isShowingProfileEditor = false
-    @State private var isShowingBlockedUsers = false
     @State private var safariRoute: SafariRoute?
+
+    /// 앱 버전은 번들이 말한다. 화면에 적어 두면 릴리스마다 거짓말이 된다.
+    private let appVersion: ProfileAppVersion
+
+    init(appVersion: ProfileAppVersion = .bundle) {
+        self.appVersion = appVersion
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpacing.lg) {
-                Text("설정")
-                    .font(VFTypography.title)
-                    .foregroundStyle(VFColor.primaryText)
-                    .padding(.top, VFSpacing.sm)
-
-                VFCard {
-                    VStack(alignment: .leading, spacing: VFSpacing.md) {
-                        Button {
-                            isShowingProfileEditor = true
-                        } label: {
-                            if let profile = appData.userProfile {
-                                ProfileSummaryRow(profile: profile)
-                            } else {
-                                ProfileSettingsRow(title: "프로필 만들기", value: "선택", systemImage: "person.crop.circle.badge.plus")
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        Divider()
-                        ProfileSettingsRow(title: "응원팀", value: appData.teamName(id: preferences.favoriteTeamID), systemImage: "star.fill")
-                        Divider()
-                        Button {
-                            isShowingTeamSelection = true
-                        } label: {
-                            ProfileSettingsRow(title: "응원팀 변경", value: "선택", systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        .buttonStyle(.plain)
-                        Divider()
-                        Toggle(isOn: Binding(
-                            get: { preferences.teamThemeEnabled },
-                            set: { appData.updateTeamThemeEnabled($0) }
-                        )) {
-                            HStack(spacing: VFSpacing.md) {
-                                Image(systemName: "paintpalette.fill")
-                                    .font(.subheadline.weight(.bold))
-                                    .foregroundStyle(theme.primary)
-                                    .frame(width: 36, height: 36)
-                                    .background(theme.primary.opacity(0.1))
-                                    .clipShape(Circle())
-                                Text("팀 컬러 테마 사용")
-                                    .font(.subheadline)
-                                    .foregroundStyle(VFColor.primaryText)
-                            }
-                        }
-                        .tint(theme.primary)
-                        Divider()
-                        ProfileSettingsRow(title: "총 기록 수", value: "\(appData.feedLogs.count)경기", systemImage: "rectangle.stack.fill")
-                    }
-                }
-
-                VFCard {
-                    VStack(alignment: .leading, spacing: VFSpacing.md) {
-                        ProfileSettingsRow(title: "데이터 동기화 상태", value: appData.serverStatus.title, systemImage: serverStatusIcon)
-                        Divider()
-                        Text("데이터 저장")
-                            .font(VFTypography.section)
-                            .foregroundStyle(VFColor.primaryText)
-                        Text("기록은 우선 이 기기에 저장돼요.")
-                            .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
-                        ProfileSettingsRow(title: "데이터 내보내기", value: "추후 제공", systemImage: "square.and.arrow.up")
-                    }
-                }
-
-                VFCard {
-                    VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                        Text("AI 기능 안내")
-                            .font(VFTypography.section)
-                            .foregroundStyle(VFColor.primaryText)
-                        Text("AI 후기 초안은 서버에서 만들고 저장 전 직접 확인해요.")
-                            .font(.subheadline)
-                            .foregroundStyle(VFColor.primaryText)
-                        Text("사진, 정확한 위치, 동행자 실명은 기본적으로 AI에 전송하지 않도록 설계합니다.")
-                            .font(.subheadline)
-                            .foregroundStyle(VFColor.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                legalLinksCard
-
-                VFCard {
-                    Button {
-                        isShowingBlockedUsers = true
-                    } label: {
-                        ProfileSettingsRow(title: "차단한 사용자", value: "관리", systemImage: "person.crop.circle.badge.xmark")
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                VFCard {
-                    ProfileSettingsRow(title: "앱 정보", value: "승리요정 0.1.0", systemImage: "info.circle")
-                }
+                profileCard
+                supportedSettingsCard
+                appInformationCard
             }
             .padding(VFSpacing.lg)
+            // 탭 막대가 마지막 행을 덮지 않게 한다.
+            .padding(.bottom, VFSpacing.xl)
         }
-        .navigationTitle("설정")
-        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("profile.root")
+        // NffPV는 내비게이션 헤더를 그리지 않는다. 제목을 지어내지 않는다.
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             await appData.loadUserProfileIfNeeded()
             await appData.loadLegalLinksIfNeeded()
@@ -127,89 +52,233 @@ struct ProfileSettingsView: View {
             .environmentObject(preferences)
             .environment(\.appTheme, theme)
         }
-        .sheet(isPresented: $isShowingBlockedUsers) {
-            NavigationStack {
-                BlockedUsersView()
-            }
-            .environmentObject(appData)
-            .environment(\.appTheme, theme)
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("닫기") {
-                    dismiss()
-                }
-                .foregroundStyle(theme.primary)
-            }
-        }
         .sheet(isPresented: $isShowingTeamSelection) {
             NavigationStack {
-                ScrollView {
-                    TeamSelectionView(
-                        selectedTeamID: Binding(
-                            get: { preferences.favoriteTeamID },
-                            set: { appData.updateFavoriteTeam($0) }
-                        ),
-                        teams: appData.teams
-                    )
-                    .padding(VFSpacing.lg)
+                // 시트는 자기 제목과 취소·완료를 스스로 가진다. 선택은 시트 안의
+                // 초안으로만 움직이고, 완료를 눌렀을 때만 canonical 값이 바뀐다.
+                TeamSelectionView(
+                    teams: VFUITestConfiguration.teamCatalog(appData.teams),
+                    initialSelectedTeamID: preferences.favoriteTeamID
+                ) { teamID in
+                    appData.updateFavoriteTeam(teamID)
                 }
-                .navigationTitle("응원팀 변경")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("완료") {
-                            isShowingTeamSelection = false
-                        }
-                        .foregroundStyle(theme.primary)
-                    }
-                }
-                .vfScreenBackground()
             }
             .environment(\.appTheme, theme)
         }
         .vfScreenBackground()
     }
 
-    private var legalLinksCard: some View {
+    // MARK: - 프로필 카드
+
+    /// 이름은 이 기기에 저장된 것을 그대로 쓴다. 없으면 지어내지 않고
+    /// 제품이 이미 쓰는 중립 표현으로 말한다.
+    private var displayName: String {
+        let stored = preferences.userDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let stored, !stored.isEmpty { return stored }
+        if let nickname = appData.userProfile?.nickname.trimmingCharacters(in: .whitespacesAndNewlines),
+           !nickname.isEmpty {
+            return nickname
+        }
+        return "이름을 정하지 않았어요"
+    }
+
+    private var hasFavoriteTeam: Bool { preferences.favoriteTeam != nil }
+
+    /// 응원 팀 요약. 고르지 않았으면 팀을 지어내지 않는다.
+    private var favoriteTeamSummary: String { preferences.favoriteTeamName }
+
+    private var profileCard: some View {
+        VFCard {
+            HStack(alignment: .top, spacing: VFSpacing.md) {
+                // Pencil `Fairy48_Victory` = 이미 승인된 승리 요정의 48px 판.
+                // 장식이므로 VoiceOver에서는 숨긴다 — 이름이 두 번 읽히면 안 된다.
+                VFFairyGlyph(.victory, size: .compact)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: VFSpacing.xs) {
+                    Text(displayName)
+                        .font(VFTypography.sectionTitle)
+                        .foregroundStyle(VFColor.bodyPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("profile.name")
+
+                    teamChip
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button {
+                    isShowingProfileEditor = true
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(theme.primary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("프로필 수정")
+                .accessibilityIdentifier("profile.edit")
+            }
+        }
+        // 컨테이너에 그냥 식별자를 붙이면 SwiftUI가 그것을 **자식 전부에게 덮어쓴다**
+        // (실측: `profile.card`가 이름·팀·수정 세 요소로 잡히고 자식 식별자는 사라졌다).
+        // 담기만 하는 요소로 만든 뒤 붙여야 자식이 자기 식별자를 지킨다.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("profile.card")
+    }
+
+    /// 팀 칩. 색만으로 상태를 말하지 않도록 글자가 팀 이름을 직접 말한다.
+    private var teamChip: some View {
+        HStack(spacing: VFSpacing.xs) {
+            Image(systemName: hasFavoriteTeam ? "shield.fill" : "shield")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(hasFavoriteTeam ? theme.primary : VFColor.bodySecondary)
+                .accessibilityHidden(true)
+            Text(favoriteTeamSummary)
+                .font(.subheadline)
+                .foregroundStyle(VFColor.bodySecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                // 라벨과 식별자는 글자 자신이 든다. `children: .combine`으로 묶으면
+                // XCUI에서 식별자가 사라진다(실측).
+                .accessibilityLabel(hasFavoriteTeam
+                                    ? "응원 팀 \(favoriteTeamSummary)"
+                                    : "응원 팀을 아직 고르지 않았어요")
+                .accessibilityIdentifier("profile.team")
+        }
+        .padding(.horizontal, VFSpacing.sm)
+        .padding(.vertical, VFSpacing.xs)
+        .background(VFColor.subtleSurface)
+        .clipShape(Capsule())
+    }
+
+    // MARK: - 쓸 수 있는 설정
+
+    /// 지금 제품이 실제로 할 수 있는 설정은 응원 팀 변경 하나뿐이다.
+    /// 이 행은 이미 있는 `TeamSelectionView` 계약을 그대로 연다.
+    private var supportedSettingsCard: some View {
+        VFCard {
+            Button {
+                isShowingTeamSelection = true
+            } label: {
+                ProfileNavigationRow(
+                    title: "응원 팀 변경",
+                    value: favoriteTeamSummary,
+                    systemImage: "shield"
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.teamChange")
+        }
+    }
+
+    // MARK: - 앱 정보
+
+    private var appInformationCard: some View {
         VFCard {
             VStack(alignment: .leading, spacing: VFSpacing.md) {
-                Text("지원 및 정책")
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
-                legalButton(title: "이용약관", url: appData.legalURL(\.terms), systemImage: "doc.text")
+                Text("앱 정보")
+                    .font(VFTypography.sectionTitle)
+                    .foregroundStyle(VFColor.bodyPrimary)
+
+                legalRow(title: "개인정보 처리방침",
+                         url: appData.legalURL(\.privacy),
+                         systemImage: "lock",
+                         identifier: "profile.legal.privacy")
                 Divider()
-                legalButton(title: "개인정보 처리방침", url: appData.legalURL(\.privacy), systemImage: "lock.shield")
+                legalRow(title: "이용약관",
+                         url: appData.legalURL(\.terms),
+                         systemImage: "doc.text",
+                         identifier: "profile.legal.terms")
                 Divider()
-                legalButton(title: "고객지원", url: appData.legalURL(\.support), systemImage: "questionmark.circle")
+                // 안내 문서일 뿐이다. 여기서 계정이 지워지지 않는다.
+                legalRow(title: "계정 삭제 안내",
+                         url: appData.legalURL(\.accountDeletion),
+                         systemImage: "info.circle",
+                         identifier: "profile.legal.accountDeletion")
                 Divider()
-                legalButton(title: "계정 삭제 안내", url: appData.legalURL(\.accountDeletion), systemImage: "person.crop.circle.badge.xmark")
-                Divider()
-                legalButton(title: "커뮤니티 정책 보기", url: appData.legalURL(\.communityPolicy), systemImage: "shield.checkered")
-                Divider()
-                legalButton(title: "경기 전망 안내", url: appData.legalURL(\.disclaimer), systemImage: "heart.text.square")
+                appVersionRow
             }
         }
     }
 
-    private func legalButton(title: String, url: URL, systemImage: String) -> some View {
+    private func legalRow(title: String, url: URL, systemImage: String,
+                          identifier: String) -> some View {
         Button {
             safariRoute = SafariRoute(url: url)
         } label: {
-            ProfileSettingsRow(title: title, value: "열기", systemImage: systemImage)
+            ProfileNavigationRow(title: title, value: nil, systemImage: systemImage)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(title), 브라우저에서 열기")
+        .accessibilityIdentifier(identifier)
     }
 
-    private var serverStatusIcon: String {
-        switch appData.serverStatus {
-        case .checking:
-            return "arrow.clockwise"
-        case .connected:
-            return "checkmark.circle.fill"
-        case .localMode:
-            return "wifi.slash"
+    /// 앱 버전은 누를 수 없다. 화살표도 붙이지 않는다.
+    private var appVersionRow: some View {
+        HStack(spacing: VFSpacing.md) {
+            Image(systemName: "number")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(theme.primary)
+                .frame(width: 36, height: 36)
+                .background(theme.primary.opacity(0.1))
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+
+            Text("앱 버전")
+                .font(.subheadline)
+                .foregroundStyle(VFColor.bodyPrimary)
+
+            Spacer(minLength: VFSpacing.sm)
+
+            Text(appVersion.displayText)
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundStyle(VFColor.bodySecondary)
         }
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("앱 버전 \(appVersion.displayText)")
+        .accessibilityIdentifier("profile.appVersion")
+    }
+}
+
+/// 마이 화면의 이동 행. 실제로 어딘가로 가는 행에만 화살표를 붙인다.
+struct ProfileNavigationRow: View {
+    @Environment(\.appTheme) private var theme
+    let title: String
+    let value: String?
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: VFSpacing.md) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(theme.primary)
+                .frame(width: 36, height: 36)
+                .background(theme.primary.opacity(0.1))
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(VFColor.bodyPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: VFSpacing.sm)
+
+            if let value {
+                Text(value)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundStyle(VFColor.bodySecondary)
+                    .multilineTextAlignment(.trailing)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(VFColor.bodySecondary)
+                .accessibilityHidden(true)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
     }
 }
 
@@ -230,13 +299,13 @@ struct ProfileSettingsRow: View {
 
             Text(title)
                 .font(.subheadline)
-                .foregroundStyle(VFColor.primaryText)
+                .foregroundStyle(VFColor.bodyPrimary)
 
             Spacer()
 
             Text(value)
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .multilineTextAlignment(.trailing)
         }
         .frame(minHeight: 44)
@@ -257,17 +326,17 @@ struct ProfileSummaryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("프로필")
                     .font(.subheadline)
-                    .foregroundStyle(VFColor.primaryText)
+                    .foregroundStyle(VFColor.bodyPrimary)
                 Text(profile.nickname)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
             }
 
             Spacer()
 
             Text("수정")
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
         }
         .frame(minHeight: 48)
     }
@@ -282,7 +351,7 @@ struct ProfileAvatarView: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(VFColor.backgroundWarm)
+                .fill(VFColor.subtleSurface)
             avatarContent
         }
         .frame(width: size, height: size)
@@ -323,7 +392,7 @@ struct ProfileAvatarView: View {
         } else {
             Image(systemName: "baseball.fill")
                 .font(.system(size: size * 0.36, weight: .semibold))
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
         }
     }
 }
@@ -379,25 +448,25 @@ struct ProfileCreationView: View {
 
                         Text("닉네임")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         TextField("닉네임을 입력해 주세요", text: $nickname)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .padding(.horizontal, VFSpacing.md)
                             .frame(minHeight: 46)
-                            .background(VFColor.backgroundWarm)
+                            .background(VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
                         Text("2~12자로 입력해 주세요.")
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
 
                         Divider()
 
                         Text("응원팀")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         Picker("응원팀", selection: $favoriteTeamID) {
                             ForEach(KBOSeed.teams) { team in
                                 Text(team.name).tag(team.id)
@@ -407,31 +476,31 @@ struct ProfileCreationView: View {
                         .tint(theme.primary)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .padding(.horizontal, VFSpacing.sm)
-                        .background(VFColor.backgroundWarm)
+                        .background(VFColor.subtleSurface)
                         .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
 
                         Divider()
 
                         Text("프로필 이모지")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                         TextField("⚾", text: $profileEmoji)
                             .font(.subheadline)
-                            .foregroundStyle(VFColor.primaryText)
+                            .foregroundStyle(VFColor.bodyPrimary)
                             .padding(.horizontal, VFSpacing.md)
                             .frame(minHeight: 46)
-                            .background(VFColor.backgroundWarm)
+                            .background(VFColor.subtleSurface)
                             .clipShape(RoundedRectangle(cornerRadius: VFRadius.sm, style: .continuous))
 
                         Text("이 정보는 승리요정 안에서 응원톡 작성자 표시와 개인화에 사용돼요.")
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                             .fixedSize(horizontal: false, vertical: true)
 
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(VFColor.lossRed)
+                                .foregroundStyle(VFColor.gameLoss)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -499,10 +568,10 @@ struct ProfileCreationView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text("프로필 사진")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text("프로필 사진은 응원톡 작성자 표시에 사용돼요.")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -524,10 +593,10 @@ struct ProfileCreationView: View {
                 } label: {
                     Label("사진 삭제", systemImage: "trash")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.lossRed)
+                        .foregroundStyle(VFColor.gameLoss)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 34)
-                        .background(VFColor.lossRed.opacity(0.08))
+                        .background(VFColor.gameLoss.opacity(0.08))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -634,11 +703,11 @@ struct BlockedUsersView: View {
                 ScreenHeaderView(title: "차단한 사용자", subtitle: "내 응원톡 화면에서 숨긴 사용자를 관리해요.")
 
                 if isLoading {
-                    blockedUsersStatusCard(title: "차단 목록을 불러오는 중이에요.", message: nil, systemImage: "arrow.clockwise", tint: VFColor.victoryOrange)
+                    blockedUsersStatusCard(title: "차단 목록을 불러오는 중이에요.", message: nil, systemImage: "arrow.clockwise", tint: VFColor.primaryAction)
                 } else if let errorMessage {
-                    blockedUsersStatusCard(title: "차단 목록을 불러오지 못했어요.", message: errorMessage, systemImage: "exclamationmark.triangle.fill", tint: VFColor.lossRed)
+                    blockedUsersStatusCard(title: "차단 목록을 불러오지 못했어요.", message: errorMessage, systemImage: "exclamationmark.triangle.fill", tint: VFColor.gameLoss)
                 } else if users.isEmpty {
-                    blockedUsersStatusCard(title: "차단한 사용자가 없어요.", message: nil, systemImage: "person.2", tint: VFColor.drawGray)
+                    blockedUsersStatusCard(title: "차단한 사용자가 없어요.", message: nil, systemImage: "person.2", tint: VFColor.gameDraw)
                 } else {
                     LazyVStack(spacing: VFSpacing.sm) {
                         ForEach(users) { user in
@@ -659,7 +728,7 @@ struct BlockedUsersView: View {
                 Button("닫기") {
                     dismiss()
                 }
-                .foregroundStyle(VFColor.victoryOrange)
+                .foregroundStyle(VFColor.primaryAction)
             }
         }
         .vfScreenBackground()
@@ -670,18 +739,18 @@ struct BlockedUsersView: View {
             HStack(spacing: VFSpacing.md) {
                 Image(systemName: "person.crop.circle.fill")
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(VFColor.secondaryText)
+                    .foregroundStyle(VFColor.bodySecondary)
                     .frame(width: 42, height: 42)
-                    .background(VFColor.backgroundWarm)
+                    .background(VFColor.subtleSurface)
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(user.authorDisplayName)
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     Text(formattedBlockedAt(user.blockedAt) ?? "차단됨")
                         .font(.caption)
-                        .foregroundStyle(VFColor.secondaryText)
+                        .foregroundStyle(VFColor.bodySecondary)
                 }
 
                 Spacer()
@@ -691,10 +760,10 @@ struct BlockedUsersView: View {
                 } label: {
                     Text(unblockingAuthorIDs.contains(user.authorID) ? "해제 중" : "차단 해제")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(VFColor.victoryOrange)
+                        .foregroundStyle(VFColor.primaryAction)
                         .padding(.horizontal, VFSpacing.sm)
                         .frame(minHeight: 32)
-                        .background(VFColor.victoryOrange.opacity(0.1))
+                        .background(VFColor.primaryAction.opacity(0.1))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -711,11 +780,11 @@ struct BlockedUsersView: View {
                 VStack(alignment: .leading, spacing: VFSpacing.xs) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                     if let message {
                         Text(message)
                             .font(.caption)
-                            .foregroundStyle(VFColor.secondaryText)
+                            .foregroundStyle(VFColor.bodySecondary)
                     }
                 }
             }

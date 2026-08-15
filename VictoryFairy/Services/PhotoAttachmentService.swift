@@ -16,7 +16,7 @@ enum PhotoDisplayTarget {
     case detailStrip
     /// 기록 편집 화면 썸네일 격자: 92pt
     case editorThumbnail
-    /// 공유 카드: 1080×1920 캔버스에 scale 1로 렌더하므로 카드 폭만큼 필요
+    /// 추억 카드: 300×360pt를 4배로 렌더하므로 최장변 기준 1200px이면 충분하다.
     case shareCard
 
     var maxPixel: CGFloat {
@@ -25,7 +25,7 @@ enum PhotoDisplayTarget {
         case .calendarCell: return 54 * screenScale
         case .feedStrip, .detailStrip: return 240 * screenScale
         case .editorThumbnail: return 92 * screenScale
-        case .shareCard: return 1080
+        case .shareCard: return 1200
         }
     }
 }
@@ -101,6 +101,28 @@ struct PhotoAttachmentService {
         guard let decoded else { return nil }
         Self.store(decoded, forKey: Self.cacheKey(ref: ref, maxPixel: maxPixel), maxPixel: maxPixel)
         return decoded
+    }
+
+    /// 참조 하나가 실제로 어떤 상태인지 확인한다.
+    ///
+    /// "사진 없음"과 "파일이 사라짐"과 "열 수 없음"은 서로 다른 사실이다. 셋을 같은
+    /// 회색 사각형으로 뭉개면 사용자는 무엇이 잘못됐는지 알 수 없다.
+    /// 파일을 읽기만 하고 쓰지 않는다.
+    func mediaState(for refs: [String], maxPixel: CGFloat) -> RecordDetailMedia {
+        guard !refs.isEmpty else { return .none }
+        // 캐시에 이미 있으면 파일을 다시 확인할 필요가 없다.
+        if refs.contains(where: { cachedImage(for: $0, maxPixel: maxPixel) != nil }) {
+            return .available(refs: refs)
+        }
+        let existing = refs.filter { ref in
+            guard let url = try? url(for: ref) else { return false }
+            return FileManager.default.fileExists(atPath: url.path)
+        }
+        guard !existing.isEmpty else { return .missingFile(refs: refs) }
+        guard existing.contains(where: { decodeImage(for: $0, maxPixel: maxPixel) != nil }) else {
+            return .decodeFailed(refs: refs)
+        }
+        return .available(refs: refs)
     }
 
     private func decodeImage(for ref: String, maxPixel: CGFloat) -> UIImage? {

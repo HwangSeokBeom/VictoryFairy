@@ -29,6 +29,28 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "133F9243AB9A2CE3F6AAB179"
+               BuildableName = "VictoryFairyTests.xctest"
+               BlueprintName = "VictoryFairyTests"
+               ReferencedContainer = "container:VictoryFairy.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C4B1F974822F20004A60E72F"
+               BuildableName = "VictoryFairyUITests.xctest"
+               BlueprintName = "VictoryFairyUITests"
+               ReferencedContainer = "container:VictoryFairy.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

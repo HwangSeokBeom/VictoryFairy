@@ -1,86 +1,135 @@
 import SwiftUI
 
+/// 마이 화면의 **응원 팀 변경** 시트.
+///
+/// 이 화면은 온보딩과 아무 관계가 없다. 온보딩은 `OnboardingTeamStepView`와
+/// `OnboardingTeamCard`로 자기 단계를 따로 그린다. 이 파일이 `Features/Onboarding`
+/// 아래 있는 것은 옛 위치일 뿐이고, 옮기는 일은 이 동작 패스에 섞지 않는다.
+///
+/// Pencil은 이 시트를 그리지 않았다. 레이아웃은 승인된 제품 명세이며,
+/// 팀 카드 언어만 이미 있는 것을 그대로 쓴다.
+///
+/// **초안을 먼저 쥐고, 완료에서 한 번만 커밋한다.** 예전에는 선택이 곧바로
+/// `updateFavoriteTeam`으로 흘러 들어가, 취소해도 이미 팀이 바뀌어 있었고
+/// `선택 안 함`을 누르면 응원 팀이 지워져 온보딩 복구 경로로 튕겼다.
 struct TeamSelectionView: View {
-    @Binding var selectedTeamID: String?
-    var teams: [KBOTeam] = KBOSeed.teams
-    var title = "응원팀을 선택해 주세요"
-    var subtitle = "선택한 팀 컬러가 앱 테마에 반영돼요."
-    var footnote = "나중에 설정에서 변경할 수 있어요."
-    var showsNeutralOption = true
+    let teams: [KBOTeam]
+    let initialSelectedTeamID: String?
+    /// 사용자가 완료를 눌렀고, 값이 실제로 바뀌었을 때만 불린다.
+    let onCommit: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
+    @State private var draftSelectedTeamID: String?
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: VFSpacing.sm)]
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: VFSpacing.lg) {
-            VStack(alignment: .leading, spacing: VFSpacing.xs) {
-                Text(title)
-                    .font(VFTypography.section)
-                    .foregroundStyle(VFColor.primaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(VFColor.secondaryText)
-                Text(footnote)
-                    .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
-            }
-
-            LazyVGrid(columns: columns, spacing: VFSpacing.sm) {
-                if showsNeutralOption {
-                    neutralCard
-                }
-
-                ForEach(teams) { team in
-                    Button {
-                        selectedTeamID = team.id
-                    } label: {
-                        TeamSelectionCard(team: team, isSelected: selectedTeamID == team.id)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(accessibilityLabel(for: team))
-                }
-            }
-        }
+    init(teams: [KBOTeam], initialSelectedTeamID: String?, onCommit: @escaping (String) -> Void) {
+        self.teams = teams
+        self.initialSelectedTeamID = initialSelectedTeamID
+        self.onCommit = onCommit
+        // 저장된 값이 지금 목록에서 풀리지 않으면 아무것도 고르지 않은 채로 연다.
+        // 조용히 고쳐 쓰지 않는다 — 무엇을 고를지는 사용자가 정한다.
+        let resolved = teams.contains { $0.id == initialSelectedTeamID } ? initialSelectedTeamID : nil
+        _draftSelectedTeamID = State(initialValue: resolved)
     }
 
-    private var neutralCard: some View {
-        Button {
-            selectedTeamID = nil
-        } label: {
-            VStack(alignment: .leading, spacing: VFSpacing.sm) {
-                HStack {
-                    Text("선택 안 함")
-                        .font(.system(.headline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
-                    Spacer()
-                    if selectedTeamID == nil {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(VFColor.grassGreen)
-                            .accessibilityHidden(true)
+    /// 완료할 수 있는가. 유효한 초안이 있어야만 커밋할 수 있다.
+    private var committableTeamID: String? {
+        guard let draftSelectedTeamID,
+              teams.contains(where: { $0.id == draftSelectedTeamID }) else { return nil }
+        return draftSelectedTeamID
+    }
+
+    var body: some View {
+        Group {
+            if teams.isEmpty {
+                emptyCatalog
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: VFSpacing.sm) {
+                        ForEach(teams) { team in
+                            Button {
+                                // 초안만 바뀐다. canonical 상태는 완료에서만 움직인다.
+                                draftSelectedTeamID = team.id
+                            } label: {
+                                TeamSelectionCard(team: team,
+                                                  isSelected: draftSelectedTeamID == team.id)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(accessibilityLabel(for: team))
+                            .accessibilityAddTraits(draftSelectedTeamID == team.id ? .isSelected : [])
+                            .accessibilityIdentifier("teamSelection.team.\(team.id)")
+                        }
                     }
+                    .padding(VFSpacing.lg)
                 }
-                Text("기본 테마 사용")
-                    .font(.caption)
-                    .foregroundStyle(VFColor.secondaryText)
-                Text(selectedTeamID == nil ? "선택됨" : "기본")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(selectedTeamID == nil ? VFColor.grassGreen : VFColor.secondaryText)
             }
-            .padding(VFSpacing.md)
-            .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
-            .background(VFColor.card)
-            .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                    .stroke(selectedTeamID == nil ? VFColor.grassGreen : VFColor.mutedLine, lineWidth: selectedTeamID == nil ? 2 : 1)
-            )
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(selectedTeamID == nil ? "선택 안 함, 기본 테마 사용, 선택됨" : "선택 안 함, 기본 테마 사용")
+        // 컨테이너에 그냥 식별자를 붙이면 SwiftUI가 그것을 자식에게 덮어쓴다.
+        // 빈 목록일 때 `teamSelection.empty`가 사라지고 `teamSelection.root`가 두 개로
+        // 잡혔다(실측). 담기만 하는 요소로 만든 뒤 붙여야 자식이 자기 이름을 지킨다.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("teamSelection.root")
+        .navigationTitle("응원 팀 변경")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("취소") { dismiss() }
+                    .foregroundStyle(theme.primary)
+                    .accessibilityIdentifier("teamSelection.cancel")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("완료") { complete() }
+                    .foregroundStyle(theme.primary)
+                    .disabled(committableTeamID == nil)
+                    .accessibilityIdentifier("teamSelection.done")
+            }
+        }
+        .vfScreenBackground()
+    }
+
+    /// 완료. 값이 그대로면 굳이 쓰지 않는다.
+    private func complete() {
+        guard let target = Self.commitTarget(draft: draftSelectedTeamID,
+                                             initial: initialSelectedTeamID,
+                                             teams: teams) else {
+            // 유효한 초안이 없거나 값이 그대로다 — 쓰지 않고 닫기만 한다.
+            if committableTeamID != nil { dismiss() }
+            return
+        }
+        onCommit(target)
+        dismiss()
+    }
+
+    /// 완료를 눌렀을 때 **실제로 커밋할 값**. 커밋하지 않아야 하면 `nil`.
+    ///
+    /// 뷰 밖으로 꺼내 둔 이유는 하나다. "몇 번 썼는가"를 실행으로 셀 수 있어야
+    /// 하는데, SwiftUI 뷰의 몸통은 테스트에서 부를 수 없다. 이 함수가 커밋 여부를
+    /// 혼자 정하므로, 테스트가 같은 판단을 그대로 돌려 세어 볼 수 있다.
+    static func commitTarget(draft: String?, initial: String?, teams: [KBOTeam]) -> String? {
+        guard let draft, teams.contains(where: { $0.id == draft }) else { return nil }
+        return draft == initial ? nil : draft
+    }
+
+    private var emptyCatalog: some View {
+        VStack(spacing: VFSpacing.sm) {
+            Text("보여 줄 팀이 없어요")
+                .font(VFTypography.sectionTitle)
+                .foregroundStyle(VFColor.bodyPrimary)
+            Text("팀 목록을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.")
+                .font(.subheadline)
+                .foregroundStyle(VFColor.bodySecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(VFSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("teamSelection.empty")
     }
 
     private func accessibilityLabel(for team: KBOTeam) -> String {
-        let suffix = selectedTeamID == team.id ? ", 선택됨" : ""
+        let suffix = draftSelectedTeamID == team.id ? ", 선택됨" : ""
         return "\(team.name), \(team.city), 홈구장 \(team.homeStadiumName)\(suffix)"
     }
 }
@@ -89,8 +138,8 @@ private struct TeamSelectionCard: View {
     let team: KBOTeam
     let isSelected: Bool
 
-    private var primaryColor: Color { Color(hex: team.primaryColorHex) }
-    private var secondaryColor: Color { Color(hex: team.secondaryColorHex) }
+    private var primaryColor: Color { team.accentColor }
+    private var secondaryColor: Color { VFColor.deepAccent }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VFSpacing.sm) {
@@ -101,19 +150,19 @@ private struct TeamSelectionCard: View {
                         .foregroundStyle(primaryColor)
                     Text(team.name)
                         .font(.system(.headline, design: .rounded).weight(.bold))
-                        .foregroundStyle(VFColor.primaryText)
+                        .foregroundStyle(VFColor.bodyPrimary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.82)
                 }
                 Spacer()
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? primaryColor : VFColor.secondaryText.opacity(0.55))
+                    .foregroundStyle(isSelected ? primaryColor : VFColor.bodySecondary.opacity(0.55))
                     .accessibilityHidden(true)
             }
 
             Text("\(team.city) · \(team.homeStadiumName)")
                 .font(.caption)
-                .foregroundStyle(VFColor.secondaryText)
+                .foregroundStyle(VFColor.bodySecondary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.82)
 
@@ -127,33 +176,29 @@ private struct TeamSelectionCard: View {
                 Spacer()
                 Text(isSelected ? "선택됨" : "선택")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(isSelected ? primaryColor : VFColor.secondaryText)
+                    .foregroundStyle(isSelected ? primaryColor : VFColor.bodySecondary)
             }
         }
         .padding(VFSpacing.md)
         .frame(maxWidth: .infinity, minHeight: 136, alignment: .leading)
-        .background(VFColor.card)
+        .background(VFColor.elevatedSurface)
         .clipShape(RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VFRadius.md, style: .continuous)
-                .stroke(isSelected ? primaryColor : VFColor.mutedLine, lineWidth: isSelected ? 2 : 1)
+                .stroke(isSelected ? primaryColor : VFColor.hairline, lineWidth: isSelected ? 2 : 1)
         )
     }
 }
 
-#Preview("팀 선택 없음") {
-    ScrollView {
-        TeamSelectionView(selectedTeamID: .constant(nil))
-            .padding(VFSpacing.lg)
+#Preview("응원 팀 변경") {
+    NavigationStack {
+        TeamSelectionView(teams: KBOSeed.teams,
+                          initialSelectedTeamID: "lg-twins") { _ in }
     }
-    .vfScreenBackground()
 }
 
-#Preview("팀 선택 LG") {
-    ScrollView {
-        TeamSelectionView(selectedTeamID: .constant("lg-twins"))
-            .padding(VFSpacing.lg)
+#Preview("응원 팀 변경 · 빈 목록") {
+    NavigationStack {
+        TeamSelectionView(teams: [], initialSelectedTeamID: nil) { _ in }
     }
-    .environment(\.appTheme, TeamTheme(team: KBOSeed.teams[0]))
-    .vfScreenBackground()
 }

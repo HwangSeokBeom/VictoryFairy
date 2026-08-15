@@ -22,8 +22,13 @@ struct AttachmentPhotoView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Rectangle()
-                    .fill(VFColor.mutedLine.opacity(0.35))
+                // 사진 파일이 사라졌거나 아직 읽지 못한 경우.
+                // 빈 회색 사각형 대신 사진 없음과 같은 자리표시자를 써서
+                // 무엇이 비어 있는지 알 수 있게 한다.
+                VFColor.supportAccentPale
+                Image(systemName: "photo")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(VFColor.bodyTertiary)
             }
         }
         .task(id: ref) {
@@ -33,6 +38,15 @@ struct AttachmentPhotoView: View {
 
     private func load(for requestedRef: String) async {
         let maxPixel = target.maxPixel
+        #if DEBUG
+        // UI 테스트용 메모리 이미지. 파일을 만들지 않고 그 자리에서 그린다.
+        // 접두사가 맞지 않으면 nil이라 제품이 만든 참조는 절대 이 경로를 타지 않는다.
+        if let generated = VFRecordDetailFixtures.inMemoryImage(for: requestedRef, maxPixel: maxPixel) {
+            image = generated
+            loadedRef = requestedRef
+            return
+        }
+        #endif
         if let cached = service.cachedImage(for: requestedRef, maxPixel: maxPixel) {
             image = cached
             loadedRef = requestedRef
